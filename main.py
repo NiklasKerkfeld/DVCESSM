@@ -1,3 +1,5 @@
+import os
+
 from tqdm import tqdm
 
 import torch
@@ -15,10 +17,17 @@ N_CLASSES = 10
 BATCH_SIZE = 64
 EPOCHS = 10
 ITERATIONS = 100
+ALPHA = 1.0
+BETA = 1.0
 
-def train_generator(generator: Generator, classifier: Classifier, discriminator: Classifier,
-                    train_loader: DataLoader, device: torch.device):
 
+def train_generator(generator: Generator,
+                    classifier: Classifier,
+                    discriminator: Classifier,
+                    train_loader: DataLoader,
+                    device: torch.device,
+                    alpha: float = 1.0,
+                    beta: float = 1.0):
     generator.to(device)
     discriminator.to(device)
     classifier.to(device)
@@ -54,7 +63,7 @@ def train_generator(generator: Generator, classifier: Classifier, discriminator:
         regularization = torch.mean(torch.abs(changes))
         loss_class = criterion_classifier(pred_class, targets)
         loss_disc = criterion_discriminator(pred_disc, torch.zeros_like(labels))
-        loss = loss_class + loss_disc + regularization
+        loss = loss_class + alpha * loss_disc + beta * regularization
 
         loss.backward()
         optimizer.step()
@@ -71,6 +80,7 @@ def train_generator(generator: Generator, classifier: Classifier, discriminator:
                             f"regularization: {regularization.item():.4f} "
                             f"label acc {label_acc.item():.4f} "
                             f"target acc {target_acc.item():.4f})")
+
 
 def train_discriminator(generator: Generator,
                         discriminator: Classifier,
@@ -169,6 +179,9 @@ def train_classifier(classifier, train_loader, device, num_epochs=5):
         accuracy = 100 * correct / total
         print(f"Epoch [{epoch}/{num_epochs}], Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
 
+    os.makedirs("./models", exist_ok=True)
+    torch.save(classifier.state_dict(), "./models/classifier.pt")
+
 
 def main():
     transform = transforms.Compose([transforms.ToTensor(), transforms.Pad(2, 0.0)])
@@ -183,17 +196,21 @@ def main():
     print(f"using device: {device}")
 
     classifier = Classifier((1, 32, 32), 10)
-    train_classifier(classifier, train_loader, device, num_epochs=EPOCHS)
+
+    if os.path.exists("./models/classifier.pt"):
+        classifier.load_state_dict(torch.load("./models/classifier.pt"))
+    else:
+        train_classifier(classifier, train_loader, device, num_epochs=EPOCHS)
 
     discriminator = Classifier((1, 32, 32), 1)
     generator = Generator(1)
 
     for i in range(1, ITERATIONS + 1):
         print(f"Iteration {i}:")
-        train_generator(generator, classifier, discriminator, train_loader, device)
-        plot_samples(generator, samples, title=f"Iteration {i}")
+        alpha = 0.0 if i == 1 else ALPHA
+        train_generator(generator, classifier, discriminator, train_loader, device, alpha=alpha, beta=BETA)
+        plot_samples(generator, samples, device, title=f"Iteration {i}")
         train_discriminator(generator, discriminator, train_loader, device)
-
 
 
 if __name__ == '__main__':

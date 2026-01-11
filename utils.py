@@ -47,7 +47,10 @@ def get_one_of_each(dataset):
     return torch.cat([samples[i] for i in range(10)])[:, None]
 
 
-def plot_samples(generator: Generator, samples: torch.Tensor, title:str =""):
+def plot_samples(generator: Generator, samples: torch.Tensor, device, title:str =""):
+    generator = generator.to(device)
+    samples = samples.to(device)
+
     images = [[x for x in samples]]
     for y in range(10):
         targets = torch.full((len(samples),), y)
