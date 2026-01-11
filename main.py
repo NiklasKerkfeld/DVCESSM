@@ -111,7 +111,7 @@ def train_discriminator(generator: Generator,
         with torch.no_grad():
             change = generator(images, F.one_hot(targets, num_classes=N_CLASSES).float())
             fakes = images + change
-            new_fakes.extend([x for x in fakes])
+            new_fakes.extend([x.cpu() for x in fakes])
 
 
     discriminator_dataset.add_fakes(new_fakes)
