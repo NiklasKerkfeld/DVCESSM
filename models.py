@@ -122,9 +122,8 @@ class Classifier(nn.Module):
         height = in_shape[2]
 
         # Feature extraction
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.pool = nn.MaxPool2d(2, 2)
+        self.conv1 = Layer(in_channels, 32)
+        self.conv2 = Layer(32, 64)
 
         # Classification head
         self.fc1 = nn.Linear(64 * width // 4 * height // 4, 128)
@@ -132,8 +131,8 @@ class Classifier(nn.Module):
 
     def forward(self, x):
         # Convolution + ReLU + Pooling
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
+        x = self.conv1(x)
+        x = self.conv2(x)
 
         # Flatten the image into a vector
         x = torch.flatten(x, 1)

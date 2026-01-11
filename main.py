@@ -10,6 +10,7 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 import torch.nn.functional as F
 
+from dataset import DiscriminatorDataset
 from models import Classifier, Generator, DiscriminatorLoss
 from utils import random_target, get_one_of_each, plot_samples, process
 
@@ -18,7 +19,7 @@ BATCH_SIZE = 64
 EPOCHS = 10
 ITERATIONS = 100
 ALPHA = 1.0
-BETA = 1.0
+BETA = 10.0
 
 
 def train_generator(generator: Generator,
@@ -84,7 +85,9 @@ def train_generator(generator: Generator,
 
 def train_discriminator(generator: Generator,
                         discriminator: Classifier,
-                        train_loader, device):
+                        discriminator_dataset: DiscriminatorDataset,
+                        train_loader,
+                        device):
     for param in generator.parameters():
         param.requires_grad = False
 
@@ -99,8 +102,7 @@ def train_discriminator(generator: Generator,
     optimizer = torch.optim.Adam(discriminator.parameters(), lr=0.001)
 
     # generate faces
-    list_images = []
-    list_labels = []
+    new_fakes = []
     bar = tqdm(train_loader, "generating", total=len(train_loader))
     for images, labels in bar:
         images, labels = images.to(device), labels.to(device)
@@ -108,16 +110,12 @@ def train_discriminator(generator: Generator,
 
         with torch.no_grad():
             change = generator(images, F.one_hot(targets, num_classes=N_CLASSES).float())
-            list_images.append(images + change)
-            list_labels.append(torch.ones_like(labels))
-            list_images.append(images)
-            list_labels.append(torch.zeros_like(labels))
+            fakes = images + change
+            new_fakes.extend([x for x in fakes])
 
-    images = torch.cat(list_images, dim=0)
-    labels = torch.cat(list_labels, dim=0)
 
-    dataset = TensorDataset(images, labels)
-    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+    discriminator_dataset.add_fakes(new_fakes)
+    dataloader = DataLoader(discriminator_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     bar = tqdm(dataloader, "training", total=len(dataloader))
     for images, labels in bar:
@@ -186,7 +184,8 @@ def train_classifier(classifier, train_loader, device, num_epochs=5):
 def main():
     transform = transforms.Compose([transforms.ToTensor(), transforms.Pad(2, 0.0)])
     train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-    # train_dataset = Subset(train_dataset, range(10240))
+    discriminator_dataset = DiscriminatorDataset(
+        [train_dataset[i][0] for i in range(len(train_dataset))])
 
     samples = get_one_of_each(train_dataset)
 
@@ -208,9 +207,10 @@ def main():
     for i in range(1, ITERATIONS + 1):
         print(f"Iteration {i}:")
         alpha = 0.0 if i == 1 else ALPHA
-        train_generator(generator, classifier, discriminator, train_loader, device, alpha=alpha, beta=BETA)
+        train_generator(generator, classifier, discriminator, train_loader, device, alpha=alpha,
+                        beta=BETA)
         plot_samples(generator, samples, device, title=f"Iteration {i}")
-        train_discriminator(generator, discriminator, train_loader, device)
+        train_discriminator(generator, discriminator, discriminator_dataset, train_loader, device)
 
 
 if __name__ == '__main__':
