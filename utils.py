@@ -51,12 +51,14 @@ def plot_samples(generator: Generator, samples: torch.Tensor, device, title:str 
     generator = generator.to(device)
     samples = samples.to(device)
 
-    images = [[x for x in samples]]
+    images = [[x.cpu() for x in samples]]
     for y in range(10):
         targets = torch.full((len(samples),), y)
+        targets = targets.to(device)
+
         changes = generator(process(samples), F.one_hot(targets, num_classes=10).float())
         new_images = samples + changes
-        images.append([x for x in new_images])
+        images.append([x.cpu() for x in new_images])
 
     fig, axes = plt.subplots(11, 10, figsize=(10, 11))
     plt.subplots_adjust(wspace=0.1, hspace=0.3)
