@@ -18,6 +18,11 @@ ITERATIONS = 100
 
 def train_generator(generator: Generator, classifier: Classifier, discriminator: Classifier,
                     train_loader: DataLoader, device: torch.device):
+
+    generator.to(device)
+    discriminator.to(device)
+    classifier.to(device)
+
     for param in generator.parameters():
         param.requires_grad = True
 
@@ -75,6 +80,9 @@ def train_discriminator(generator: Generator,
 
     for param in discriminator.parameters():
         param.requires_grad = True
+
+    generator.to(device)
+    discriminator.to(device)
 
     criterion_discriminator = DiscriminatorLoss()
 
@@ -172,6 +180,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"using device: {device}")
 
     classifier = Classifier((1, 32, 32), 10)
     train_classifier(classifier, train_loader, device, num_epochs=EPOCHS)
