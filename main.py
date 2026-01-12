@@ -1,3 +1,4 @@
+import glob
 import os
 from dotenv import load_dotenv
 
@@ -72,7 +73,7 @@ def train_classifier(classifier, train_dataset, device, batch_size: int = BATCH_
 
 
 def main():
-    nr = len([name for name in os.listdir('./runs/') if os.path.isdir(name)])
+    nr = len(glob.glob('runs/*'))
     print(f"Start {nr}. CounterFactualGenerator...")
 
     transform = transforms.Compose([transforms.ToTensor(), transforms.Pad(2, 0.0)])
