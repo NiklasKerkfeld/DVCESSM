@@ -14,24 +14,27 @@ class DiscriminatorDataset(Dataset):
         self.limit = limit
         self.real_images = real_images
         self.fake_images = []
-
+        self.add_count = 0
 
     def __getitem__(self, idx):
         if idx < (len(self.real_images) * self.limit):
             return self.real_images[idx % len(self.real_images)], 0
         else:
-            return self.fake_images[idx - (len(self.real_images) * self.limit)], 1
+            return self.fake_images[idx - (len(self.real_images) * min(self.limit, self.add_count))], 1
 
     def __len__(self):
         return (2 *  self.limit) * len(self.real_images)
 
     def add_fakes(self, fake_images):
-        if len(self.fake_images) > self.limit * len(self.real_images):
+        assert len(fake_images) == len(self.real_images), f"{len(fake_images)} != {len(self.real_images)}"
+
+        if self.add_count >= self.limit:
             remove_idx = numpy.random.choice(np.arange(len(self.fake_images)), len(self.real_images))
             for idx in sorted(remove_idx, reverse=True):
                 del self.fake_images[idx]
 
         self.fake_images.extend(fake_images)
+        self.add_count += 1
 
    
 if __name__ == '__main__':
