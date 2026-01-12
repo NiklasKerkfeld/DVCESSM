@@ -73,6 +73,7 @@ def train_classifier(classifier, train_dataset, device, batch_size: int = BATCH_
 
 def main():
     nr = len([name for name in os.listdir('./runs/') if os.path.isdir(name)])
+    print(f"Start {nr}. CounterFactualGenerator...")
 
     transform = transforms.Compose([transforms.ToTensor(), transforms.Pad(2, 0.0)])
     train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
