@@ -67,6 +67,10 @@ class CounterFactualGenerator:
         self.writer.add_image('general/samples', img_grid, global_step=self.interation)
 
     def train(self, interations: int = ITERATIONS):
+        self.generator = self.generator.to(self.device)
+        self.discriminator = self.discriminator.to(self.device)
+        self.classifier = self.classifier.to(self.device)
+
         print(f"using device: {self.device}")
 
         for i in range(1, interations + 1):
@@ -95,17 +99,7 @@ class CounterFactualGenerator:
             self.discriminator.train()
 
     def _train_generator(self, alpha: float, beta: float):
-        self.generator.to(self.device)
-        self.discriminator.to(self.device)
-        self.classifier.to(self.device)
-
-        # activate training of generator
-        for param in self.generator.parameters():
-            param.requires_grad = True
-
-        # deactivate training of discriminator
-        for param in self.discriminator.parameters():
-            param.requires_grad = False
+        self._set_mode("generator")
 
         losses, discriminator_losses, classifier_losses, regularizations = [], [], [], []
         like_label = 0
@@ -169,16 +163,7 @@ class CounterFactualGenerator:
                                self.interation)
 
     def _train_discriminator(self):
-        self.generator.to(self.device)
-        self.discriminator.to(self.device)
-
-        # deactivate training of generator
-        for param in self.generator.parameters():
-            param.requires_grad = False
-
-        # activate training of discriminator
-        for param in self.discriminator.parameters():
-            param.requires_grad = True
+        self._set_mode("discriminator")
 
         # generate faces
         new_fakes = []
@@ -228,8 +213,8 @@ class CounterFactualGenerator:
                                self.interation)
 
     def _plot_samples(self):
-        self.generator = self.generator.to(self.device)
         samples = self.samples.to(self.device)
+        self.generator.eval()
 
         counter_factuals = []
         visualizations = []
@@ -237,7 +222,8 @@ class CounterFactualGenerator:
             targets = torch.full((len(samples),), y)
             targets = targets.to(self.device)
 
-            changes = self.generator(process(samples), F.one_hot(targets, num_classes=10).float())
+            with torch.no_grad():
+                changes = self.generator(process(samples), F.one_hot(targets, num_classes=10).float())
 
             # counter factuals
             counter_factuals.append(samples + changes)

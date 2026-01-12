@@ -23,7 +23,7 @@ BETA = float(os.getenv('BETA'))
 class DiscriminatorLoss(nn.Module):
     def __init__(self):
         super(DiscriminatorLoss, self).__init__()
-        self.loss_fn = nn.BCELoss()
+        self.loss_fn = nn.MSELoss()
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, prediction, target):
