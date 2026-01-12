@@ -230,8 +230,8 @@ class CounterFactualGenerator:
 
             # visualization
             rgb_images = samples.repeat(1, 3, 1, 1)
-            rgb_images[:, 0] = ((changes < 0) * torch.abs(changes)).squeeze(1)
-            rgb_images[:, 2] = ((changes > 0) * torch.abs(changes)).squeeze(1)
+            rgb_images[:, 0][(changes < -0.01).squeeze(1)] = torch.abs(changes)[changes < -0.01]
+            rgb_images[:, 2][(changes > 0.01).squeeze(1)] = torch.abs(changes)[changes > 0.01]
             visualizations.append(rgb_images)
 
         img_grid = torchvision.utils.make_grid(torch.concatenate(counter_factuals).cpu(), nrow=10)
