@@ -142,7 +142,7 @@ class Classifier(nn.Module):
         # Classification head
         self.fc1 = nn.Linear(128 * (IN_WIDTH // 8) * (IN_HEIGHT // 8), 128)
         self.fc2 = nn.Linear(128, 128)
-        self.fc2 = nn.Linear(128, num_classes)
+        self.fc3 = nn.Linear(128, num_classes)
 
     def forward(self, x):
         # Convolutional Layers
