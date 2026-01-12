@@ -23,7 +23,7 @@ class DiscriminatorDataset(Dataset):
             return self.fake_images[idx - (len(self.real_images) * self.limit)], 1
 
     def __len__(self):
-        return (2 *  self.factor) * len(self.real_images)
+        return (2 *  self.limit) * len(self.real_images)
 
     def add_fakes(self, fake_images):
         if len(self.fake_images) > self.limit * len(self.real_images):
