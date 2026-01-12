@@ -52,7 +52,7 @@ class Layer(nn.Module):
         h = self.layer2(h)
         h = self.relu2(h)
 
-        x = h + self.layer3(x)
+        x = self.relu3(h + self.layer3(x))
 
         return self.pool(x)
 
@@ -134,27 +134,29 @@ class Generator(nn.Module):
 class Classifier(nn.Module):
     def __init__(self, num_classes:int=N_CLASSES):
         super(Classifier, self).__init__()
-        # Feature extraction
+        # Convolutional Layers
         self.conv1 = Layer(IN_CHANNELS, 32)
         self.conv2 = Layer(32, 64)
+        self.conv3 = Layer(64, 128)
 
         # Classification head
-        self.fc1 = nn.Linear(64 * IN_WIDTH // 4 * IN_HEIGHT // 4, 128)
+        self.fc1 = nn.Linear(128 * (IN_WIDTH // 8) * (IN_HEIGHT // 8), 128)
+        self.fc2 = nn.Linear(128, 128)
         self.fc2 = nn.Linear(128, num_classes)
 
     def forward(self, x):
-        # Convolution + ReLU + Pooling
+        # Convolutional Layers
         x = self.conv1(x)
         x = self.conv2(x)
+        x = self.conv3(x)
 
-        # Flatten the image into a vector
+        # Flatten
         x = torch.flatten(x, 1)
 
-        # Fully connected layers
+        # Fully connected head
         x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-
-        return x
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
 
 
 if __name__ == '__main__':

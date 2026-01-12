@@ -11,7 +11,7 @@ class DiscriminatorDataset(Dataset):
         self.fake_images = []
 
 
-    def __getitem__(self,idx):
+    def __getitem__(self, idx):
         if idx < (len(self.real_images) * self.factor):
             return self.real_images[idx % len(self.real_images)], 0
         else:
