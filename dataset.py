@@ -17,13 +17,13 @@ class DiscriminatorDataset(Dataset):
         self.add_count = 0
 
     def __getitem__(self, idx):
-        if idx < (len(self.real_images) * self.limit):
+        if idx < (len(self.real_images) * min(self.limit, self.add_count)):
             return self.real_images[idx % len(self.real_images)], 0
         else:
             return self.fake_images[idx - (len(self.real_images) * min(self.limit, self.add_count))], 1
 
     def __len__(self):
-        return (2 *  self.limit) * len(self.real_images)
+        return (2 *  min(self.limit, self.add_count)) * len(self.real_images)
 
     def add_fakes(self, fake_images):
         assert len(fake_images) == len(self.real_images), f"{len(fake_images)} != {len(self.real_images)}"
