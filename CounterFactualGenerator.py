@@ -120,7 +120,7 @@ class CounterFactualGenerator:
             pred_class = self.classifier(counterfactuals)
             pred_disc = self.discriminator(counterfactuals)[:, 0]
 
-            regularization = beta * torch.mean(torch.abs(changes))
+            regularization = beta * torch.sum(torch.abs(changes))
             loss_class = self.classifier_criterion(pred_class, targets)
             loss_disc = alpha * self.discriminator_criterion(pred_disc, torch.zeros_like(labels))
             loss = loss_class + loss_disc + regularization
