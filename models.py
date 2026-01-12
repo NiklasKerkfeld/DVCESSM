@@ -1,6 +1,23 @@
+import os
+
+from dotenv import load_dotenv
+
 import torch
 from torch import nn
 import torch.nn.functional as F
+
+
+load_dotenv()
+
+N_CLASSES = int(os.getenv('N_CLASSES'))
+IN_CHANNELS = int(os.getenv('IN_CHANNELS'))
+IN_HEIGHT = int(os.getenv('IN_HEIGHT'))
+IN_WIDTH = int(os.getenv('IN_WIDTH'))
+BATCH_SIZE = int(os.getenv('BATCH_SIZE'))
+EPOCHS = int(os.getenv('EPOCHS'))
+ITERATIONS = int(os.getenv('ITERATIONS'))
+ALPHA = float(os.getenv('ALPHA'))
+BETA = float(os.getenv('BETA'))
 
 
 class DiscriminatorLoss(nn.Module):
@@ -115,18 +132,14 @@ class Generator(nn.Module):
 
 
 class Classifier(nn.Module):
-    def __init__(self, in_shape, num_classes):
+    def __init__(self, num_classes:int=N_CLASSES):
         super(Classifier, self).__init__()
-        in_channels = in_shape[0]
-        width = in_shape[1]
-        height = in_shape[2]
-
         # Feature extraction
-        self.conv1 = Layer(in_channels, 32)
+        self.conv1 = Layer(IN_CHANNELS, 32)
         self.conv2 = Layer(32, 64)
 
         # Classification head
-        self.fc1 = nn.Linear(64 * width // 4 * height // 4, 128)
+        self.fc1 = nn.Linear(64 * IN_WIDTH // 4 * IN_HEIGHT // 4, 128)
         self.fc2 = nn.Linear(128, num_classes)
 
     def forward(self, x):

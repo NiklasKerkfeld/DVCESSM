@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
@@ -16,6 +16,9 @@ from utils import process
 load_dotenv()
 
 N_CLASSES = int(os.getenv('N_CLASSES'))
+IN_CHANNELS = int(os.getenv('IN_CHANNELS'))
+IN_HEIGHT = int(os.getenv('IN_HEIGHT'))
+IN_WIDTH = int(os.getenv('IN_WIDTH'))
 BATCH_SIZE = int(os.getenv('BATCH_SIZE'))
 EPOCHS = int(os.getenv('EPOCHS'))
 ITERATIONS = int(os.getenv('ITERATIONS'))
@@ -75,7 +78,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    classifier = Classifier((1, 32, 32), 10)
+    classifier = Classifier(N_CLASSES)
 
     if os.path.exists("./models/classifier.pt"):
         classifier.load_state_dict(torch.load("./models/classifier.pt"))
