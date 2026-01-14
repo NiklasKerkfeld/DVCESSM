@@ -49,9 +49,9 @@ class DiscriminatorDataset(Dataset):
         # return normalized result
         return (image - 0.5) / 0.5, target
 
-    def add_fakes(self, fake_images):
-        assert len(fake_images) == len(
-            self.real_images), f"{len(fake_images)} != {len(self.real_images)}"
+    def add_fakes(self, new_fakes: List[torch.Tensor]) -> None:
+        assert len(new_fakes) == len(
+            self.real_images), f"{len(new_fakes)} != {len(self.real_images)}"
 
         if self.add_count >= self.limit:
             remove_idx = numpy.random.choice(np.arange(len(self.fake_images)),
@@ -59,7 +59,7 @@ class DiscriminatorDataset(Dataset):
             for idx in sorted(remove_idx, reverse=True):
                 del self.fake_images[idx]
 
-        self.fake_images.extend(fake_images)
+        self.fake_images.extend(new_fakes)
         self.add_count += 1
 
 
