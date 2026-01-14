@@ -13,7 +13,6 @@ from tqdm import tqdm
 from CounterFactualGenerator import CounterFactualGenerator
 from dataset import ClassificatorDataset
 from models import Classifier
-from utils import process
 
 load_dotenv()
 
@@ -27,11 +26,24 @@ ITERATIONS = int(os.getenv('ITERATIONS'))
 ALPHA = float(os.getenv('ALPHA'))
 BETA = float(os.getenv('BETA'))
 
+STD_CLS = float(os.getenv('STD_CLS'))
+P_CLS = float(os.getenv('P_CLS'))
+B_CLS = float(os.getenv('B_CLS'))
+B_H_MAX_CLS = int(os.getenv('B_H_MAX_CLS'))
+B_W_MAX_CLS = int(os.getenv('B_W_MAX_CLS'))
+
+
+
 
 def train_classifier(classifier, dataset, device, batch_size: int = BATCH_SIZE, num_epochs=5):
     images = torch.concatenate([dataset[i][0] for i in range(len(dataset))])
     targets = torch.tensor([dataset[i][1] for i in range(len(dataset))])
-    dataset = ClassificatorDataset(images, targets, std=0.1, p=0.1, p_block=0.2, max_block_width=15, max_block_height=15)
+    dataset = ClassificatorDataset(images, targets,
+                                   std=STD_CLS,
+                                   p=P_CLS,
+                                   p_block=B_CLS,
+                                   max_block_width=B_H_MAX_CLS,
+                                   max_block_height=B_W_MAX_CLS)
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     criterion = nn.CrossEntropyLoss()

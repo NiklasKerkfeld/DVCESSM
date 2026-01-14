@@ -28,6 +28,12 @@ ITERATIONS = int(os.getenv('ITERATIONS'))
 ALPHA = float(os.getenv('ALPHA'))
 BETA = float(os.getenv('BETA'))
 
+STD_DISC = float(os.getenv('STD_DISC'))
+P_DISC = float(os.getenv('P_DISC'))
+B_DISC = float(os.getenv('B_DISC'))
+B_H_MAX_DISC = int(os.getenv('B_H_MAX_DISC'))
+B_W_MAX_DICS = int(os.getenv('B_W_MAX_DICS'))
+
 
 class CounterFactualGenerator:
     def __init__(self,
@@ -55,7 +61,9 @@ class CounterFactualGenerator:
 
         self.discriminator = Classifier(num_classes=1)
         self.discriminator_dataset = DiscriminatorDataset(
-            [self.dataset[i][0] for i in range(len(self.dataset))], std=0.1, p=0.1)
+            [self.dataset[i][0] for i in range(len(self.dataset))],
+            std=STD_DISC,
+            p=P_DISC)
         self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.001)
 
         self.classifier_criterion = nn.CrossEntropyLoss()
@@ -231,7 +239,8 @@ class CounterFactualGenerator:
             targets = targets.to(self.device)
 
             with torch.no_grad():
-                changes = self.generator(process(samples), F.one_hot(targets, num_classes=10).float())
+                changes = self.generator(process(samples),
+                                         F.one_hot(targets, num_classes=10).float())
 
             # counter factuals
             counter_factuals.append(samples + changes)
