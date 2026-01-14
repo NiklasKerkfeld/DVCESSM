@@ -185,6 +185,7 @@ class CounterFactualGenerator:
         correct = 0
         total = 0
         positive = 0
+        label_positive = 0
 
         bar = tqdm(dataloader, "training", total=len(dataloader))
         for images, labels in bar:
@@ -203,6 +204,7 @@ class CounterFactualGenerator:
             correct += (pred == labels).float().sum().detach().cpu().item()
             total += len(images)
             positive += pred.float().sum().detach().cpu().item()
+            label_positive += labels.float().sum().detach().cpu().item()
             losses.append(loss.detach().cpu().item())
 
             bar.set_description(f"training loss: {loss.item():.4f}")
@@ -215,6 +217,9 @@ class CounterFactualGenerator:
                                self.interation)
         self.writer.add_scalar('general/discriminator_positive_prediction_rate',
                                positive / total,
+                               self.interation)
+        self.writer.add_scalar('general/discriminator_positive_label_rate',
+                               label_positive / total,
                                self.interation)
 
     def _plot_samples(self):
