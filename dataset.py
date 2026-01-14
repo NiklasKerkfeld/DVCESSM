@@ -48,6 +48,7 @@ class StandardDataset(Dataset):
         # Gaussian noise
         if self.std != 0.0:
             image += torch.randn_like(image) * self.std
+            image = torch.clamp(image, 0, 1)
 
         # salt and paper noise
         if self.p != 0.0:
@@ -67,7 +68,7 @@ class DiscriminatorDataset(StandardDataset):
         self.add_count = 0
 
     def __getitem__(self, idx):
-        if idx < (len(self.images) * min(self.limit, self.add_count)):
+        if idx <= (len(self.images) * min(self.limit, self.add_count)):
             image = self.images[idx % len(self.images)]
             target = 0
         else:
