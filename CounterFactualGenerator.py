@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from dataset import DiscriminatorDataset
 from models import Generator, Classifier, DiscriminatorLoss, ChangeRegularizationLoss
-from utils import get_one_of_each, random_target, process, func
+from utils import get_one_of_each, random_target, process
 
 load_dotenv()
 
