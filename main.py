@@ -33,8 +33,6 @@ B_H_MAX_CLS = int(os.getenv('B_H_MAX_CLS'))
 B_W_MAX_CLS = int(os.getenv('B_W_MAX_CLS'))
 
 
-
-
 def train_classifier(classifier, dataset, device, batch_size: int = BATCH_SIZE, num_epochs=5):
     images = torch.concatenate([dataset[i][0] for i in range(len(dataset))])
     targets = torch.tensor([dataset[i][1] for i in range(len(dataset))])

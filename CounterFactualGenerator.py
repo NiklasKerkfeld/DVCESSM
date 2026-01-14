@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from dataset import DiscriminatorDataset
 from models import Generator, Classifier, DiscriminatorLoss
-from utils import get_one_of_each, random_target, process
+from utils import get_one_of_each, random_target, process, func
 
 load_dotenv()
 
@@ -27,6 +27,8 @@ EPOCHS = int(os.getenv('EPOCHS'))
 ITERATIONS = int(os.getenv('ITERATIONS'))
 ALPHA = float(os.getenv('ALPHA'))
 BETA = float(os.getenv('BETA'))
+LR_GEN = float(os.getenv('LR_GEN'))
+LR_DISC = float(os.getenv('LR_DISC'))
 
 STD_DISC = float(os.getenv('STD_DISC'))
 P_DISC = float(os.getenv('P_DISC'))
@@ -57,14 +59,14 @@ class CounterFactualGenerator:
         self.generator = Generator(1)
         self.generator_dataloader = DataLoader(self.dataset, batch_size=self.batch_size,
                                                shuffle=True)
-        self.generator_optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.001)
+        self.generator_optimizer = torch.optim.Adam(self.generator.parameters(), lr=LR_GEN)
 
         self.discriminator = Classifier(num_classes=1)
         self.discriminator_dataset = DiscriminatorDataset(
             torch.concatenate([self.dataset[i][0] for i in range(len(self.dataset))]),
             std=STD_DISC,
             p=P_DISC)
-        self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.001)
+        self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=LR_DISC)
 
         self.classifier_criterion = nn.CrossEntropyLoss()
         self.discriminator_criterion = DiscriminatorLoss()
@@ -140,9 +142,9 @@ class CounterFactualGenerator:
             total += len(images)
 
             losses.append(loss.detach().cpu().item())
-            discriminator_losses.append(loss.detach().cpu().item())
-            classifier_losses.append(loss.detach().cpu().item())
-            regularizations.append(loss.detach().cpu().item())
+            discriminator_losses.append(loss_disc.detach().cpu().item())
+            classifier_losses.append(loss_class.detach().cpu().item())
+            regularizations.append(regularization.detach().cpu().item())
 
             bar.set_description(f"training loss: {loss.item():.4f} "
                                 f"(class: {loss_class.item():.4f} "

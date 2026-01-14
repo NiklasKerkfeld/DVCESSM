@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 from models import Generator
 
+
 def process(images, std=0.0, p=0.0):
     # Gaussian noise
     if std != 0.0:
@@ -47,40 +48,6 @@ def get_one_of_each(dataset):
     return torch.cat([samples[i] for i in range(10)])[:, None]
 
 
-def plot_samples(generator: Generator, samples: torch.Tensor, device, title:str =""):
-    generator = generator.to(device)
-    samples = samples.to(device)
-
-    images = [[x.cpu() for x in samples]]
-    for y in range(10):
-        targets = torch.full((len(samples),), y)
-        targets = targets.to(device)
-
-        changes = generator(process(samples), F.one_hot(targets, num_classes=10).float())
-        new_images = samples + changes
-        images.append([x.cpu() for x in new_images])
-
-    fig, axes = plt.subplots(11, 10, figsize=(10, 11))
-    plt.subplots_adjust(wspace=0.1, hspace=0.3)
-
-    for row_idx, row_data in enumerate(images):
-        for col_idx, img_tensor in enumerate(row_data):
-            ax = axes[row_idx, col_idx]
-
-            img = img_tensor.detach().cpu().squeeze().numpy()
-
-            ax.imshow(img, cmap='gray', vmin=0, vmax=1)
-            ax.axis('off')
-
-            if col_idx == 0:
-                if row_idx == 0:
-                    ax.set_title("Original", loc='left', fontsize=10)
-                else:
-                    ax.set_title(f"Target {row_idx - 1}", loc='left', fontsize=10)
-
-    plt.tight_layout()
-    plt.suptitle(title)
-
-    os.makedirs("./figures", exist_ok=True)
-    plt.savefig(f"figures/{title}.png")
-    plt.close()
+def func(x: torch.Tensor, eps: float = 1e-2):
+    eps = torch.FloatTensor([eps])
+    return torch.log(torch.abs(x) + eps) - torch.log(eps)

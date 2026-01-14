@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import torch
 from torch import nn
 import torch.nn.functional as F
-
+from torch.nn.utils.parametrizations import spectral_norm
 
 load_dotenv()
 
@@ -29,28 +29,67 @@ class DiscriminatorLoss(nn.Module):
         return self.loss_fn(prediction, target.float())
 
 
-class Layer(nn.Module):
+class ClassifierLayer(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(Layer, self).__init__()
-        self.layer1 = nn.Conv2d(in_channels, out_channels // 4, kernel_size=3, padding=1)
+        super(ClassifierLayer, self).__init__()
+        self.layer1 = spectral_norm(nn.Conv2d(in_channels, out_channels // 4, kernel_size=3, padding=1))
+        self.bn1 = nn.BatchNorm2d(out_channels // 4)
         self.relu1 = nn.ReLU(inplace=True)
 
-        self.layer2 = nn.Conv2d(out_channels // 4, out_channels, kernel_size=3, padding=1)
+        self.layer2 = spectral_norm(nn.Conv2d(out_channels // 4, out_channels, kernel_size=3, padding=1))
+        self.bn2 = nn.BatchNorm2d(out_channels)
         self.relu2 = nn.ReLU(inplace=True)
 
-        self.layer3 = nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
+        self.layer3 = spectral_norm(nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0))
+        self.bn3 = nn.BatchNorm2d(out_channels)
         self.relu3 = nn.ReLU(inplace=True)
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
     def forward(self, x):
         h = self.layer1(x)
+        h = self.bn1(h)
         h = self.relu1(h)
 
         h = self.layer2(h)
+        h = self.bn2(h)
         h = self.relu2(h)
 
-        x = self.relu3(h + self.layer3(x))
+        x = h + self.layer3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+
+        return self.pool(x)
+
+class GeneratorLayer(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(GeneratorLayer, self).__init__()
+        self.layer1 = nn.Conv2d(in_channels, out_channels // 4, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels // 4)
+        self.relu1 = nn.ReLU(inplace=True)
+
+        self.layer2 = nn.Conv2d(out_channels // 4, out_channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu2 = nn.ReLU(inplace=True)
+
+        self.layer3 = nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
+        self.bn3 = nn.BatchNorm2d(out_channels)
+        self.relu3 = nn.ReLU(inplace=True)
+
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+    def forward(self, x):
+        h = self.layer1(x)
+        h = self.bn1(h)
+        h = self.relu1(h)
+
+        h = self.layer2(h)
+        h = self.bn2(h)
+        h = self.relu2(h)
+
+        x = h + self.layer3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
 
         return self.pool(x)
 
@@ -59,7 +98,7 @@ class BottleneckWithPrior(nn.Module):
     def __init__(self, input_channels, out_channels):
         super().__init__()
         self.prior_mlp = nn.Linear(10, input_channels)
-        self.bottleneck = Layer(2 * input_channels, out_channels)
+        self.bottleneck = GeneratorLayer(2 * input_channels, out_channels)
 
     def forward(self, x, prior):
         prior_mapped = self.prior_mlp(prior)  # (Batch, input_channels)
@@ -76,9 +115,9 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
 
         # Encoder
-        self.down_conv1 = Layer(channels, 64)
-        self.down_conv2 = Layer(64, 128)
-        self.down_conv3 = Layer(128, 256)
+        self.down_conv1 = GeneratorLayer(channels, 64)
+        self.down_conv2 = GeneratorLayer(64, 128)
+        self.down_conv3 = GeneratorLayer(128, 256)
 
         # Bottleneck
         self.bottleneck = BottleneckWithPrior(256, 512)
@@ -133,9 +172,9 @@ class Classifier(nn.Module):
     def __init__(self, num_classes:int=N_CLASSES):
         super(Classifier, self).__init__()
         # Convolutional Layers
-        self.conv1 = Layer(IN_CHANNELS, 32)
-        self.conv2 = Layer(32, 64)
-        self.conv3 = Layer(64, 128)
+        self.conv1 = ClassifierLayer(IN_CHANNELS, 32)
+        self.conv2 = ClassifierLayer(32, 64)
+        self.conv3 = ClassifierLayer(64, 128)
 
         # Classification head
         self.fc1 = nn.Linear(128 * (IN_WIDTH // 8) * (IN_HEIGHT // 8), 128)

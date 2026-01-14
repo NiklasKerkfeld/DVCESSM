@@ -64,7 +64,7 @@ class StandardDataset(Dataset):
             image[noise] = prob[noise]
 
         # return normalized result
-        return (image - 0.5) / 0.5
+        return image
 
 class DiscriminatorDataset(StandardDataset):
     def __init__(self, images: torch.Tensor, limit: int = 3, std: float = 0.0, p: float = 0.0, p_block: float = 0.0, max_block_height: int = None, max_block_width: int = None):
