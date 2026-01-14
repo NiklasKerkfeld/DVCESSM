@@ -1,4 +1,5 @@
-from typing import List, Tuple
+import os
+from dotenv import load_dotenv
 
 import numpy
 import numpy as np
@@ -7,6 +8,11 @@ from torch.utils.data import Dataset
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 
+load_dotenv()
+
+IN_CHANNELS = int(os.getenv('IN_CHANNELS'))
+IN_HEIGHT = int(os.getenv('IN_HEIGHT'))
+IN_WIDTH = int(os.getenv('IN_WIDTH'))
 
 class StandardDataset(Dataset):
     def __init__(self, images: torch.Tensor, std: float = 0.0, p: float = 0.0, p_block: float = 0.0, max_block_height: int = None, max_block_width: int = None):
@@ -64,7 +70,7 @@ class DiscriminatorDataset(StandardDataset):
     def __init__(self, images: torch.Tensor, limit: int = 3, std: float = 0.0, p: float = 0.0, p_block: float = 0.0, max_block_height: int = None, max_block_width: int = None):
         super(DiscriminatorDataset, self).__init__(images, std, p, p_block, max_block_height, max_block_width)
         self.limit = limit
-        self.fake_images = []
+        self.fake_images = torch.zeros((limit * len(self.images), IN_CHANNELS, IN_HEIGHT, IN_WIDTH), dtype=torch.float)
         self.add_count = 0
 
     def __getitem__(self, idx):
@@ -81,19 +87,23 @@ class DiscriminatorDataset(StandardDataset):
         return image, target
 
     def __len__(self):
-        return (2 * min(self.limit, self.add_count)) * len(self.real_images)
+        return (2 * self.prop) * len(self.images)
 
-    def add_fakes(self, new_fakes: List[torch.Tensor]) -> None:
+    @property
+    def prop(self):
+        return min(self.limit, self.add_count)
+
+    def add_fakes(self, new_fakes: torch.Tensor) -> None:
         assert len(new_fakes) == len(
-            self.real_images), f"{len(new_fakes)} != {len(self.real_images)}"
+            self.images), f"{len(new_fakes)} != {len(self.images)}"
 
         if self.add_count >= self.limit:
-            remove_idx = numpy.random.choice(np.arange(len(self.fake_images)),
-                                             len(self.real_images))
-            for idx in sorted(remove_idx, reverse=True):
-                del self.fake_images[idx]
+            indices = numpy.random.choice(np.arange(len(self.fake_images)),
+                                             len(self.images))
+        else:
+            indices = numpy.arange(self.length) + (self.add_count * self.prop)
 
-        self.fake_images.extend(new_fakes)
+        self.fake_images[indices] = new_fakes
         self.add_count += 1
 
 
@@ -111,26 +121,34 @@ class ClassificatorDataset(StandardDataset):
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
     transform = transforms.Compose([transforms.ToTensor(), transforms.Pad(2, 0.0)])
     train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-    images = torch.concatenate([train_dataset[i][0] for i in range(len(train_dataset))])
+    images = torch.concatenate([train_dataset[i][0][:, None] for i in range(len(train_dataset))])
     targets = torch.tensor([train_dataset[i][1] for i in range(len(train_dataset))])
 
     print(images.shape, targets.shape)
 
-    dataset = ClassificatorDataset(images, targets,
-                                   std=0.1,
-                                   p=0.1,
-                                   p_block=1.0,
-                                   max_block_height=10,
-                                   max_block_width=10)
+    dataset = DiscriminatorDataset(images)
+    dataset.add_fakes(images)
 
-    for i in range(10):
-        image, label = dataset[i]
-        plt.imshow((image[0] * 0.5 + 0.5).clip(0.0, 1.0), cmap='gray')
-        plt.title(f"label: {str(label.item())}")
-        plt.show()
+    print(len(dataset))
+    image, label = dataset[0]
+    print(image.shape)
+    print(label)
+
+    image, label = dataset[120000]
+    print(image.shape)
+    print(label)
+
+    dataset.add_fakes(images)
+
+    print(len(dataset))
+    image, label = dataset[0]
+    print(image.shape)
+    print(label)
+
+    image, label = dataset[180000]
+    print(image.shape)
+    print(label)
 
 

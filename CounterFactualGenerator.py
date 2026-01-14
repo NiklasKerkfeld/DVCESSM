@@ -61,7 +61,7 @@ class CounterFactualGenerator:
 
         self.discriminator = Classifier(num_classes=1)
         self.discriminator_dataset = DiscriminatorDataset(
-            [self.dataset[i][0] for i in range(len(self.dataset))],
+            torch.concatenate([self.dataset[i][0] for i in range(len(self.dataset))]),
             std=STD_DISC,
             p=P_DISC)
         self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.001)
@@ -172,16 +172,16 @@ class CounterFactualGenerator:
         self._set_mode("discriminator")
 
         # generate faces
-        new_fakes = []
+        new_fakes = torch.zeros(len(self.generator_dataloader), IN_CHANNELS, IN_HEIGHT, IN_HEIGHT)
         bar = tqdm(self.generator_dataloader, "generating", total=len(self.generator_dataloader))
-        for images, labels in bar:
+        for i, (images, labels) in enumerate(bar):
             images, labels = images.to(self.device), labels.to(self.device)
             targets = random_target(labels, N_CLASSES)
 
             with torch.no_grad():
                 change = self.generator(images, F.one_hot(targets, num_classes=N_CLASSES).float())
                 fakes = images + change
-                new_fakes.extend([x.cpu() for x in fakes])
+                new_fakes[i * BATCH_SIZE:(i + 1) * BATCH_SIZE] = fakes
 
         self.discriminator_dataset.add_fakes(new_fakes)
 
