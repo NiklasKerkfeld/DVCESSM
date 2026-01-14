@@ -152,22 +152,22 @@ class CounterFactualGenerator:
                                 f"disc: {loss_disc.item():.4f} "
                                 f"regularization: {regularization.item():.4f})")
 
-        self.writer.add_scalar('general/generator_loss',
+        self.writer.add_scalar('generator/loss',
                                torch.mean(torch.tensor(losses)).item(),
                                self.interation)
-        self.writer.add_scalar('general/generator_classifier_loss',
+        self.writer.add_scalar('generator/classifier_loss',
                                torch.mean(torch.tensor(classifier_losses)).item(),
                                self.interation)
-        self.writer.add_scalar('general/generator_discriminator_loss',
+        self.writer.add_scalar('generator/discriminator_loss',
                                torch.mean(torch.tensor(discriminator_losses)).item(),
                                self.interation)
-        self.writer.add_scalar('general/generator_regularization',
+        self.writer.add_scalar('generator/regularization',
                                torch.mean(torch.tensor(regularizations)).item(),
                                self.interation)
-        self.writer.add_scalar('general/generator_like_target',
+        self.writer.add_scalar('generator/like_target',
                                like_target / total,
                                self.interation)
-        self.writer.add_scalar('general/generator_like_label',
+        self.writer.add_scalar('generator/like_label',
                                like_label / total,
                                self.interation)
 
@@ -195,8 +195,6 @@ class CounterFactualGenerator:
         correct = 0
         total = 0
         positive = 0
-        label_positive = 0
-
         bar = tqdm(dataloader, "training", total=len(dataloader))
         for images, labels in bar:
             images, labels = images.to(self.device), labels.to(self.device)
@@ -214,22 +212,18 @@ class CounterFactualGenerator:
             correct += (pred == labels).float().sum().detach().cpu().item()
             total += len(images)
             positive += pred.float().sum().detach().cpu().item()
-            label_positive += labels.float().sum().detach().cpu().item()
             losses.append(loss.detach().cpu().item())
 
             bar.set_description(f"training loss: {loss.item():.4f}")
 
-        self.writer.add_scalar('general/discriminator_loss',
+        self.writer.add_scalar('discriminator/loss',
                                torch.mean(torch.tensor(losses)).item(),
                                self.interation)
-        self.writer.add_scalar('general/discriminator_accuracy',
+        self.writer.add_scalar('discriminator/accuracy',
                                correct / total,
                                self.interation)
-        self.writer.add_scalar('general/discriminator_positive_prediction_rate',
+        self.writer.add_scalar('discriminator/positive_prediction_rate',
                                positive / total,
-                               self.interation)
-        self.writer.add_scalar('general/discriminator_positive_label_rate',
-                               label_positive / total,
                                self.interation)
 
     def _plot_samples(self):
@@ -256,6 +250,6 @@ class CounterFactualGenerator:
             visualizations.append(rgb_images)
 
         img_grid = torchvision.utils.make_grid(torch.concatenate(counter_factuals).cpu(), nrow=10)
-        self.writer.add_image('general/counterfactuals', img_grid, global_step=self.interation)
+        self.writer.add_image('images/counterfactuals', img_grid, global_step=self.interation)
         img_grid = torchvision.utils.make_grid(torch.concatenate(visualizations).cpu(), nrow=10)
-        self.writer.add_image('general/visualization', img_grid, global_step=self.interation)
+        self.writer.add_image('images/visualization', img_grid, global_step=self.interation)
