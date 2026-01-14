@@ -48,6 +48,4 @@ def get_one_of_each(dataset):
     return torch.cat([samples[i] for i in range(10)])[:, None]
 
 
-def func(x: torch.Tensor, eps: float = 1e-2):
-    eps = torch.FloatTensor([eps])
-    return torch.log(torch.abs(x) + eps) - torch.log(eps)
+

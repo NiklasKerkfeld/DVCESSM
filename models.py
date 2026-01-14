@@ -29,6 +29,23 @@ class DiscriminatorLoss(nn.Module):
         return self.loss_fn(prediction, target.float())
 
 
+class ChangeRegularizationLoss(nn.Module):
+    def __init__(self, eps=1e-2):
+        super(ChangeRegularizationLoss, self).__init__()
+        self.eps = torch.FloatTensor([eps])
+
+    def _func(self, x: torch.Tensor):
+        # return torch.log(torch.abs(x) + self.eps) - torch.log(self.eps)
+        return torch.abs(x)
+
+    def forward(self, images, changes):
+        overshooting = F.relu(images + changes - 1).sum()
+        undershooting = F.relu(-(images + changes)).sum()
+        regularization = torch.mean(self._func(changes))
+
+        return overshooting + undershooting + regularization
+
+
 class ClassifierLayer(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ClassifierLayer, self).__init__()

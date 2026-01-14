@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from dataset import DiscriminatorDataset
-from models import Generator, Classifier, DiscriminatorLoss
+from models import Generator, Classifier, DiscriminatorLoss, ChangeRegularizationLoss
 from utils import get_one_of_each, random_target, process, func
 
 load_dotenv()
@@ -70,6 +70,7 @@ class CounterFactualGenerator:
 
         self.classifier_criterion = nn.CrossEntropyLoss()
         self.discriminator_criterion = DiscriminatorLoss()
+        self.regularization_criterion = ChangeRegularizationLoss()
 
         self.samples = get_one_of_each(self.dataset)
         self.writer = SummaryWriter(f'runs/{name}')
@@ -128,7 +129,7 @@ class CounterFactualGenerator:
             pred_class = self.classifier(counterfactuals)
             pred_disc = self.discriminator(counterfactuals)[:, 0]
 
-            regularization = beta * torch.mean(torch.abs(changes))
+            regularization = beta * self.regularization_criterion(images, changes)
             loss_class = self.classifier_criterion(pred_class, targets)
             loss_disc = alpha * self.discriminator_criterion(pred_disc, torch.zeros_like(labels))
             loss = loss_class + loss_disc + regularization
