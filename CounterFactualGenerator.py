@@ -172,7 +172,7 @@ class CounterFactualGenerator:
         self._set_mode("discriminator")
 
         # generate faces
-        new_fakes = torch.zeros(len(self.generator_dataloader), IN_CHANNELS, IN_HEIGHT, IN_HEIGHT)
+        new_fakes = torch.zeros(len(self.generator_dataloader.dataset), IN_CHANNELS, IN_HEIGHT, IN_HEIGHT)
         bar = tqdm(self.generator_dataloader, "generating", total=len(self.generator_dataloader))
         for i, (images, labels) in enumerate(bar):
             images, labels = images.to(self.device), labels.to(self.device)
