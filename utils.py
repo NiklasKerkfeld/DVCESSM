@@ -1,11 +1,4 @@
-import os
-
 import torch
-from matplotlib import pyplot as plt
-
-import torch.nn.functional as F
-
-from models import Generator
 
 
 def process(images, std=0.0, p=0.0):
@@ -21,7 +14,7 @@ def process(images, std=0.0, p=0.0):
         images[noise] = prob[noise]
 
     # return normalized result
-    return (images - 0.5) / 0.5
+    return images
 
 
 def random_target(input_tensor, n):
