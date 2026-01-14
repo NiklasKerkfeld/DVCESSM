@@ -23,12 +23,10 @@ BETA = float(os.getenv('BETA'))
 class DiscriminatorLoss(nn.Module):
     def __init__(self):
         super(DiscriminatorLoss, self).__init__()
-        self.loss_fn = nn.MSELoss()
-        self.sigmoid = nn.Sigmoid()
+        self.loss_fn = nn.BCEWithLogitsLoss()
 
     def forward(self, prediction, target):
-        return self.loss_fn(self.sigmoid(prediction), target.float())
-
+        return self.loss_fn(prediction, target.float())
 
 
 class Layer(nn.Module):

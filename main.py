@@ -11,6 +11,7 @@ from torchvision.transforms import transforms
 from tqdm import tqdm
 
 from CounterFactualGenerator import CounterFactualGenerator
+from dataset import ClassificatorDataset
 from models import Classifier
 from utils import process
 
@@ -27,8 +28,11 @@ ALPHA = float(os.getenv('ALPHA'))
 BETA = float(os.getenv('BETA'))
 
 
-def train_classifier(classifier, train_dataset, device, batch_size: int = BATCH_SIZE, num_epochs=5):
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+def train_classifier(classifier, dataset, device, batch_size: int = BATCH_SIZE, num_epochs=5):
+    images = torch.concatenate([dataset[i][0] for i in range(len(dataset))])
+    targets = torch.tensor([dataset[i][1] for i in range(len(dataset))])
+    dataset = ClassificatorDataset(images, targets, std=0.1, p=0.1, p_block=0.2, max_block_width=15, max_block_height=15)
+    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
@@ -43,22 +47,15 @@ def train_classifier(classifier, train_dataset, device, batch_size: int = BATCH_
         total = 0
 
         for images, labels in tqdm(train_loader, "training", total=len(train_loader)):
-            # Move data to the same device as the model (GPU or CPU)
             images, labels = images.to(device), labels.to(device)
 
-            # add noise and normalize
-            images = process(images, std=0.1, p=0.1)
-
-            # 1. Forward pass
             outputs = classifier(images)
             loss = criterion(outputs, labels)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-            # 2. Backward pass and optimization
-            optimizer.zero_grad()  # Clear previous gradients
-            loss.backward()  # Compute new gradients
-            optimizer.step()  # Update weights
-
-            # Statistics
+            # statistics
             running_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
@@ -78,6 +75,7 @@ def main():
 
     transform = transforms.Compose([transforms.ToTensor(), transforms.Pad(2, 0.0)])
     train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
+    train_dataset = Subset(train_dataset, list(range(1024)))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")

@@ -55,7 +55,7 @@ class CounterFactualGenerator:
 
         self.discriminator = Classifier(num_classes=1)
         self.discriminator_dataset = DiscriminatorDataset(
-            [self.dataset[i][0] for i in range(len(self.dataset))])
+            [self.dataset[i][0] for i in range(len(self.dataset))], std=0.1, p=0.1)
         self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.001)
 
         self.classifier_criterion = nn.CrossEntropyLoss()
@@ -110,8 +110,6 @@ class CounterFactualGenerator:
         for images, labels in bar:
             images, labels = images.to(self.device), labels.to(self.device)
             targets = random_target(labels, N_CLASSES)
-
-            images = process(images)
 
             self.generator_optimizer.zero_grad()
             changes = self.generator(images, F.one_hot(targets, num_classes=N_CLASSES).float())
