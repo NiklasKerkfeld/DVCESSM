@@ -181,7 +181,8 @@ class CounterFactualGenerator:
             with torch.no_grad():
                 change = self.generator(images, F.one_hot(targets, num_classes=N_CLASSES).float())
                 fakes = images + change
-                new_fakes[i * BATCH_SIZE:(i + 1) * BATCH_SIZE] = fakes
+                start_idx = i * BATCH_SIZE
+                new_fakes[start_idx:start_idx + len(fakes)] = fakes
 
         self.discriminator_dataset.add_fakes(new_fakes)
 
