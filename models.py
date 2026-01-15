@@ -38,12 +38,10 @@ class ChangeRegularizationLoss(nn.Module):
         # return torch.log(torch.abs(x) + self.eps) - torch.log(self.eps)
         return torch.abs(x)
 
-    def forward(self, images, changes):
-        overshooting = F.relu(images + changes - 1).sum()
-        undershooting = F.relu(-(images + changes)).sum()
+    def forward(self, changes):
         regularization = torch.mean(self._func(changes))
 
-        return overshooting + undershooting + regularization
+        return regularization
 
 
 class ClassifierLayer(nn.Module):

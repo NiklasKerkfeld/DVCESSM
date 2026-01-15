@@ -124,12 +124,12 @@ class CounterFactualGenerator:
 
             self.generator_optimizer.zero_grad()
             changes = self.generator(images, F.one_hot(targets, num_classes=N_CLASSES).float())
-            counterfactuals = images + changes
+            counterfactuals = torch.clamp(images + changes, 0, 1)
 
             pred_class = self.classifier(counterfactuals)
             pred_disc = self.discriminator(counterfactuals)[:, 0]
 
-            regularization = beta * self.regularization_criterion(images, changes)
+            regularization = beta * self.regularization_criterion(changes)
             loss_class = self.classifier_criterion(pred_class, targets)
             loss_disc = alpha * self.discriminator_criterion(pred_disc, torch.zeros_like(labels))
             loss = loss_class + loss_disc + regularization
