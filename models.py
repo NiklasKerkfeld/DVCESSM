@@ -130,7 +130,6 @@ class BottleneckWithPrior(nn.Module):
 class Generator(nn.Module):
     def __init__(self, channels):
         super(Generator, self).__init__()
-
         # Encoder
         self.down_conv1 = GeneratorLayer(channels, 64)
         self.down_conv2 = GeneratorLayer(64, 128)
@@ -182,7 +181,7 @@ class Generator(nn.Module):
         d4 = torch.cat([u4, x], dim=1)
         out = self.out_conv(d4)
 
-        return out
+        return F.tanh(out)
 
 
 class Classifier(nn.Module):
