@@ -21,11 +21,14 @@ BETA = float(os.getenv('BETA'))
 
 
 class DiscriminatorLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, label_smoothing: bool = False):
         super(DiscriminatorLoss, self).__init__()
+        self.label_smoothing = label_smoothing
         self.loss_fn = nn.BCEWithLogitsLoss()
 
     def forward(self, prediction, target):
+        if self.label_smoothing:
+            target = 0.9 * target + 0.1 * (1 - target)
         return self.loss_fn(prediction, target.float())
 
 

@@ -76,11 +76,11 @@ class DiscriminatorDataset(StandardDataset):
     def __getitem__(self, idx):
         if idx <= (len(self.images) * min(self.limit, self.add_count)):
             image = self.images[idx % len(self.images)]
-            target = 0.1
+            target = 0.0
         else:
             image = self.fake_images[
                 idx - (len(self.images) * min(self.limit, self.add_count))]
-            target = 0.9
+            target = 1.0
 
         image = self._process(image)
 

@@ -35,6 +35,7 @@ P_DISC = float(os.getenv('P_DISC'))
 B_DISC = float(os.getenv('B_DISC'))
 B_H_MAX_DISC = int(os.getenv('B_H_MAX_DISC'))
 B_W_MAX_DICS = int(os.getenv('B_W_MAX_DICS'))
+LABEL_SMOOTHING = os.getenv('LABEL_SMOOTHING') == 'True'
 
 
 class CounterFactualGenerator:
@@ -69,7 +70,7 @@ class CounterFactualGenerator:
         self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=LR_DISC)
 
         self.classifier_criterion = nn.CrossEntropyLoss()
-        self.discriminator_criterion = DiscriminatorLoss()
+        self.discriminator_criterion = DiscriminatorLoss(label_smoothing=LABEL_SMOOTHING)
         self.regularization_criterion = ChangeRegularizationLoss()
 
         self.samples = get_one_of_each(self.dataset)
