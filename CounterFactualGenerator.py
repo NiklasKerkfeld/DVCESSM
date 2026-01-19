@@ -261,11 +261,11 @@ class CounterFactualGenerator:
 
 
         counter_factuals = torch.concatenate(counter_factuals)
-        counter_factuals[torch.arange(10), torch.arange(10)] = 0.0
+        counter_factuals[torch.arange(10) * torch.arange(10)] = 0.0
         img_grid = torchvision.utils.make_grid(counter_factuals, nrow=10)
         self.writer.add_image('images/counterfactuals', img_grid, global_step=self.interation)
 
         visualizations = torch.concatenate(visualizations)
-        visualizations[torch.arange(10), torch.arange(10)] = 0.0
+        visualizations[torch.arange(10) * torch.arange(10)] = 0.0
         img_grid = torchvision.utils.make_grid(visualizations, nrow=10)
         self.writer.add_image('images/visualization', img_grid, global_step=self.interation)
