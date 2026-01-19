@@ -266,5 +266,5 @@ class CounterFactualGenerator:
         img_grid = torchvision.utils.make_grid(counter_factuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT), nrow=10)
         self.writer.add_image('images/counterfactuals', img_grid, global_step=self.interation)
 
-        img_grid = torchvision.utils.make_grid(visualizations.reshape(-1, 1, IN_WIDTH, IN_HEIGHT), nrow=10)
+        img_grid = torchvision.utils.make_grid(visualizations.reshape(-1, 3, IN_WIDTH, IN_HEIGHT), nrow=10)
         self.writer.add_image('images/visualization', img_grid, global_step=self.interation)
