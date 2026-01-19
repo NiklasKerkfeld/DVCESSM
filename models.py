@@ -38,8 +38,8 @@ class ChangeRegularizationLoss(nn.Module):
         self.eps = torch.FloatTensor([eps])
 
     def _func(self, x: torch.Tensor):
-        # return torch.log(torch.abs(x) + self.eps) - torch.log(self.eps)
-        return torch.abs(x)
+        return torch.log(torch.abs(x) + self.eps) - torch.log(self.eps)
+        # return torch.abs(x)
 
     def forward(self, changes):
         regularization = torch.mean(self._func(changes))
