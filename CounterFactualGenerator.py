@@ -114,6 +114,7 @@ class CounterFactualGenerator:
         self._set_mode("generator")
 
         losses, discriminator_losses, classifier_losses, regularizations = [], [], [], []
+        correct = 0
         like_label = 0
         like_target = 0
         total = 0
@@ -139,6 +140,7 @@ class CounterFactualGenerator:
             self.generator_optimizer.step()
 
             pred = torch.argmax(pred_class, dim=1)
+            correct += (pred_disc == labels).float().sum().detach().cpu().item()
             like_label += (pred == labels).float().sum().detach().cpu().item()
             like_target += (pred == targets).float().sum().detach().cpu().item()
             total += len(images)
@@ -165,6 +167,9 @@ class CounterFactualGenerator:
                                self.interation)
         self.writer.add_scalar('generator/like_label',
                                like_label / total,
+                               self.interation)
+        self.writer.add_scalar('generator/discriminator_accuracy',
+                               correct / total,
                                self.interation)
 
     def _train_discriminator(self):
