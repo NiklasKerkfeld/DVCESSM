@@ -242,7 +242,7 @@ class CounterFactualGenerator:
                                          F.one_hot(targets, num_classes=10).float())
 
             # counter factuals
-            counter_factuals.append(samples + changes)
+            counter_factuals.append((samples + changes).cpu())
 
             # visualization
             rgb_images = samples.repeat(1, 3, 1, 1)
@@ -257,8 +257,15 @@ class CounterFactualGenerator:
             rgb_images[:, 2][blue_mask] = torch.abs(changes)[changes > 0.01]
             rgb_images[:, 0][blue_mask] = 0.0
             rgb_images[:, 1][blue_mask] = 0.0
+            visualizations.append(rgb_images.cpu())
 
-        img_grid = torchvision.utils.make_grid(torch.concatenate(counter_factuals).cpu(), nrow=10)
+
+        counter_factuals = torch.concatenate(counter_factuals)
+        counter_factuals[torch.arange(10), torch.arange(10)] = 0.0
+        img_grid = torchvision.utils.make_grid(counter_factuals, nrow=10)
         self.writer.add_image('images/counterfactuals', img_grid, global_step=self.interation)
-        img_grid = torchvision.utils.make_grid(torch.concatenate(visualizations).cpu(), nrow=10)
+
+        visualizations = torch.concatenate(visualizations)
+        visualizations[torch.arange(10), torch.arange(10)] = 0.0
+        img_grid = torchvision.utils.make_grid(visualizations, nrow=10)
         self.writer.add_image('images/visualization', img_grid, global_step=self.interation)
