@@ -153,17 +153,12 @@ class CounterFactualGenerator:
                                 f"disc: {loss_disc.item():.4f} "
                                 f"regularization: {regularization.item():.4f})")
 
+        self.writer.add_scalar("generator/loss_classificator", torch.mean(torch.tensor(classifier_losses)).item(), self.interation)
+        self.writer.add_scalar("generator/loss_discriminator", torch.mean(torch.tensor(discriminator_losses)).item(), self.interation)
+        self.writer.add_scalar("generator/loss_regularization", torch.mean(torch.tensor(regularizations)).item(), self.interation)
+
         self.writer.add_scalar('generator/loss',
                                torch.mean(torch.tensor(losses)).item(),
-                               self.interation)
-        self.writer.add_scalar('generator/classifier_loss',
-                               torch.mean(torch.tensor(classifier_losses)).item(),
-                               self.interation)
-        self.writer.add_scalar('generator/discriminator_loss',
-                               torch.mean(torch.tensor(discriminator_losses)).item(),
-                               self.interation)
-        self.writer.add_scalar('generator/regularization',
-                               torch.mean(torch.tensor(regularizations)).item(),
                                self.interation)
         self.writer.add_scalar('generator/like_target',
                                like_target / total,
@@ -176,7 +171,8 @@ class CounterFactualGenerator:
         self._set_mode("discriminator")
 
         # generate faces
-        new_fakes = torch.zeros(len(self.generator_dataloader.dataset), IN_CHANNELS, IN_WIDTH, IN_HEIGHT)
+        new_fakes = torch.zeros(len(self.generator_dataloader.dataset), IN_CHANNELS, IN_WIDTH,
+                                IN_HEIGHT)
         bar = tqdm(self.generator_dataloader, "generating", total=len(self.generator_dataloader))
         for i, (images, labels) in enumerate(bar):
             images, labels = images.to(self.device), labels.to(self.device)
@@ -263,8 +259,10 @@ class CounterFactualGenerator:
         counter_factuals[torch.arange(10), torch.arange(10)] = 0.0
         visualizations[torch.arange(10), torch.arange(10)] = 0.0
 
-        img_grid = torchvision.utils.make_grid(counter_factuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT), nrow=10)
+        img_grid = torchvision.utils.make_grid(counter_factuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT),
+                                               nrow=10)
         self.writer.add_image('images/counterfactuals', img_grid, global_step=self.interation)
 
-        img_grid = torchvision.utils.make_grid(visualizations.reshape(-1, 3, IN_WIDTH, IN_HEIGHT), nrow=10)
+        img_grid = torchvision.utils.make_grid(visualizations.reshape(-1, 3, IN_WIDTH, IN_HEIGHT),
+                                               nrow=10)
         self.writer.add_image('images/visualization', img_grid, global_step=self.interation)
