@@ -132,7 +132,7 @@ class CounterFactualGenerator:
             counterfactuals = torch.clamp(images + changes, 0, 1)
 
             pred_class = self.classifier(counterfactuals)
-            pred_disc = self.discriminator(counterfactuals)[:, 0]
+            pred_disc = self.discriminator(counterfactuals).squeeze(1)
 
             regularization = beta * self.regularization_criterion(changes)
             loss_class = self.classifier_criterion(pred_class, targets)
@@ -142,10 +142,11 @@ class CounterFactualGenerator:
             loss.backward()
             self.generator_optimizer.step()
 
-            pred = torch.argmax(pred_class, dim=1)
-            correct += (pred_disc == labels).float().sum().detach().cpu().item()
-            like_label += (pred == labels).float().sum().detach().cpu().item()
-            like_target += (pred == targets).float().sum().detach().cpu().item()
+            pred_class = torch.argmax(pred_class, dim=1)
+            pred_disc = (torch.sigmoid(pred_disc) > 0.5).int()
+            correct += (pred_disc == 1.0).float().sum().detach().cpu().item()
+            like_label += (pred_class == labels).float().sum().detach().cpu().item()
+            like_target += (pred_class == targets).float().sum().detach().cpu().item()
             total += len(images)
 
             losses.append(loss.detach().cpu().item())
