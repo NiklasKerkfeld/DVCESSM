@@ -38,7 +38,7 @@ class ChangeRegularizationLoss(nn.Module):
         self.eps = eps
 
     def _func(self, x: torch.Tensor):
-        eps = torch.FloatTensor(self.eps).to(x.device)
+        eps = torch.FloatTensor([self.eps]).to(x.device)
         return torch.log(torch.abs(x) + eps) - torch.log(eps)
         # return torch.abs(x)
 
