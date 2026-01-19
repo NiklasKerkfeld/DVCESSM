@@ -29,6 +29,7 @@ ALPHA = float(os.getenv('ALPHA'))
 BETA = float(os.getenv('BETA'))
 LR_GEN = float(os.getenv('LR_GEN'))
 LR_DISC = float(os.getenv('LR_DISC'))
+WD_DISC = float(os.getenv('WD_DISC'))
 
 STD_DISC = float(os.getenv('STD_DISC'))
 P_DISC = float(os.getenv('P_DISC'))
@@ -67,7 +68,9 @@ class CounterFactualGenerator:
             torch.concatenate([self.dataset[i][0] for i in range(len(self.dataset))]),
             std=STD_DISC,
             p=P_DISC)
-        self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=LR_DISC)
+        self.discriminator_optimizer = torch.optim.Adam(self.discriminator.parameters(),
+                                                        lr=LR_DISC,
+                                                        weight_decay=WD_DISC)
 
         self.classifier_criterion = nn.CrossEntropyLoss()
         self.discriminator_criterion = DiscriminatorLoss(label_smoothing=LABEL_SMOOTHING)
