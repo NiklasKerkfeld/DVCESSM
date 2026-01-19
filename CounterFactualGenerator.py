@@ -176,7 +176,7 @@ class CounterFactualGenerator:
         self._set_mode("discriminator")
 
         # generate faces
-        new_fakes = torch.zeros(len(self.generator_dataloader.dataset), IN_CHANNELS, IN_HEIGHT, IN_HEIGHT)
+        new_fakes = torch.zeros(len(self.generator_dataloader.dataset), IN_CHANNELS, IN_WIDTH, IN_HEIGHT)
         bar = tqdm(self.generator_dataloader, "generating", total=len(self.generator_dataloader))
         for i, (images, labels) in enumerate(bar):
             images, labels = images.to(self.device), labels.to(self.device)
@@ -231,9 +231,9 @@ class CounterFactualGenerator:
         samples = self.samples.to(self.device)
         self.generator.eval()
 
-        counter_factuals = []
-        visualizations = []
-        for y in range(10):
+        counter_factuals = torch.zeros(N_CLASSES, len(self.samples), IN_WIDTH, IN_HEIGHT)
+        visualizations = torch.zeros(N_CLASSES, len(self.samples), 3, IN_WIDTH, IN_HEIGHT)
+        for y in range(N_CLASSES):
             targets = torch.full((len(samples),), y)
             targets = targets.to(self.device)
 
@@ -241,31 +241,30 @@ class CounterFactualGenerator:
                 changes = self.generator(process(samples),
                                          F.one_hot(targets, num_classes=10).float())
 
+            changes = changes.cpu()
+
             # counter factuals
-            counter_factuals.append((samples + changes).cpu())
+            counter_factuals[y] = (self.samples + changes).squeeze(1)
 
             # visualization
-            rgb_images = samples.repeat(1, 3, 1, 1)
+            visualizations[y] = self.samples.repeat(1, 3, 1, 1)
 
             red_mask = (changes < -0.01).squeeze(1)
             blue_mask = (changes > 0.01).squeeze(1)
 
-            rgb_images[:, 0][red_mask] = torch.abs(changes)[changes < -0.01]
-            rgb_images[:, 1][red_mask] = 0.0
-            rgb_images[:, 2][red_mask] = 0.0
+            visualizations[y, :, 0][red_mask] = torch.abs(changes)[changes < -0.01]
+            visualizations[y, :, 1][red_mask] = 0.0
+            visualizations[y, :, 2][red_mask] = 0.0
 
-            rgb_images[:, 2][blue_mask] = torch.abs(changes)[changes > 0.01]
-            rgb_images[:, 0][blue_mask] = 0.0
-            rgb_images[:, 1][blue_mask] = 0.0
-            visualizations.append(rgb_images.cpu())
+            visualizations[y, :, 2][blue_mask] = torch.abs(changes)[changes > 0.01]
+            visualizations[y, :, 0][blue_mask] = 0.0
+            visualizations[y, :, 1][blue_mask] = 0.0
 
+        counter_factuals[torch.arange(10), torch.arange(10)] = 0.0
+        visualizations[torch.arange(10), torch.arange(10)] = 0.0
 
-        counter_factuals = torch.concatenate(counter_factuals)
-        counter_factuals[torch.arange(10) * torch.arange(10)] = 0.0
-        img_grid = torchvision.utils.make_grid(counter_factuals, nrow=10)
+        img_grid = torchvision.utils.make_grid(counter_factuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT), nrow=10)
         self.writer.add_image('images/counterfactuals', img_grid, global_step=self.interation)
 
-        visualizations = torch.concatenate(visualizations)
-        visualizations[torch.arange(10) * torch.arange(10)] = 0.0
-        img_grid = torchvision.utils.make_grid(visualizations, nrow=10)
+        img_grid = torchvision.utils.make_grid(visualizations.reshape(-1, 1, IN_WIDTH, IN_HEIGHT), nrow=10)
         self.writer.add_image('images/visualization', img_grid, global_step=self.interation)
