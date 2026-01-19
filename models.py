@@ -35,10 +35,11 @@ class DiscriminatorLoss(nn.Module):
 class ChangeRegularizationLoss(nn.Module):
     def __init__(self, eps=1e-2):
         super(ChangeRegularizationLoss, self).__init__()
-        self.eps = torch.FloatTensor([eps])
+        self.eps = eps
 
     def _func(self, x: torch.Tensor):
-        return torch.log(torch.abs(x) + self.eps) - torch.log(self.eps)
+        eps = torch.FloatTensor(self.eps).to(x.device)
+        return torch.log(torch.abs(x) + eps) - torch.log(eps)
         # return torch.abs(x)
 
     def forward(self, changes):
