@@ -17,14 +17,8 @@ from models import Classifier
 load_dotenv()
 
 N_CLASSES = int(os.getenv('N_CLASSES'))
-IN_CHANNELS = int(os.getenv('IN_CHANNELS'))
-IN_HEIGHT = int(os.getenv('IN_HEIGHT'))
-IN_WIDTH = int(os.getenv('IN_WIDTH'))
 BATCH_SIZE = int(os.getenv('BATCH_SIZE'))
 EPOCHS = int(os.getenv('EPOCHS'))
-ITERATIONS = int(os.getenv('ITERATIONS'))
-ALPHA = float(os.getenv('ALPHA'))
-BETA = float(os.getenv('BETA'))
 
 STD_CLS = float(os.getenv('STD_CLS'))
 P_CLS = float(os.getenv('P_CLS'))

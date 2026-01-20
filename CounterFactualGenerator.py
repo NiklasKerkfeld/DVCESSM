@@ -30,6 +30,8 @@ BETA = float(os.getenv('BETA'))
 LR_GEN = float(os.getenv('LR_GEN'))
 LR_DISC = float(os.getenv('LR_DISC'))
 WD_DISC = float(os.getenv('WD_DISC'))
+L1_REG = float(os.getenv('L1_REG'))
+L2_REG = float(os.getenv('L2_REG'))
 
 STD_DISC = float(os.getenv('STD_DISC'))
 P_DISC = float(os.getenv('P_DISC'))
@@ -74,7 +76,7 @@ class CounterFactualGenerator:
 
         self.classifier_criterion = nn.CrossEntropyLoss()
         self.discriminator_criterion = DiscriminatorLoss(label_smoothing=LABEL_SMOOTHING)
-        self.regularization_criterion = ChangeRegularizationLoss()
+        self.regularization_criterion = ChangeRegularizationLoss(alpha=L1_REG, beta=L2_REG)
 
         self.samples = get_one_of_each(self.dataset)
         self.writer = SummaryWriter(f'runs/{name}')

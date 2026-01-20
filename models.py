@@ -32,9 +32,9 @@ class DiscriminatorLoss(nn.Module):
         return self.loss_fn(prediction, target.float())
 
 
-class ChangeRegularizationLoss(nn.Module):
+class ChangeRegularizationLossExperimental(nn.Module):
     def __init__(self, eps=1e-2):
-        super(ChangeRegularizationLoss, self).__init__()
+        super(ChangeRegularizationLossExperimental, self).__init__()
         self.eps = eps
 
     def _func(self, x: torch.Tensor):
@@ -48,14 +48,29 @@ class ChangeRegularizationLoss(nn.Module):
         return regularization
 
 
+class ChangeRegularizationLoss(nn.Module):
+    def __init__(self, alpha: float = 1.0, beta: float = 1.0):
+        super(ChangeRegularizationLoss, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+
+    def forward(self, changes):
+        l1_reg = torch.mean(torch.abs(changes))
+        l2_reg = torch.mean(changes ** 2)
+
+        return self.alpha * l1_reg + self.beta * l2_reg
+
+
 class ClassifierLayer(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ClassifierLayer, self).__init__()
-        self.layer1 = spectral_norm(nn.Conv2d(in_channels, out_channels // 4, kernel_size=3, padding=1))
+        self.layer1 = spectral_norm(
+            nn.Conv2d(in_channels, out_channels // 4, kernel_size=3, padding=1))
         self.bn1 = nn.BatchNorm2d(out_channels // 4)
         self.relu1 = nn.ReLU(inplace=True)
 
-        self.layer2 = spectral_norm(nn.Conv2d(out_channels // 4, out_channels, kernel_size=3, padding=1))
+        self.layer2 = spectral_norm(
+            nn.Conv2d(out_channels // 4, out_channels, kernel_size=3, padding=1))
         self.bn2 = nn.BatchNorm2d(out_channels)
         self.relu2 = nn.ReLU(inplace=True)
 
@@ -79,6 +94,7 @@ class ClassifierLayer(nn.Module):
         x = self.relu3(x)
 
         return self.pool(x)
+
 
 class GeneratorLayer(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -187,7 +203,7 @@ class Generator(nn.Module):
 
 
 class Classifier(nn.Module):
-    def __init__(self, num_classes:int=N_CLASSES):
+    def __init__(self, num_classes: int = N_CLASSES):
         super(Classifier, self).__init__()
         # Convolutional Layers
         self.conv1 = ClassifierLayer(IN_CHANNELS, 32)
