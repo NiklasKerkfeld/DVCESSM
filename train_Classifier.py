@@ -71,25 +71,27 @@ def evaluate(model, dataset, device, batch_size=64):
 
     test_loss = 0
     all_preds = []
-    all_targets = []
+    all_labels = []
 
     with torch.no_grad():
-        for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
+        for data, labels in test_loader:
+            data, labels = data.to(device), labels.to(device)
             output = model(data)
 
-            test_loss += F.cross_entropy(output, target, reduction='sum').item()
+            test_loss += F.cross_entropy(output, labels, reduction='sum').item()
 
             pred = output.argmax(dim=1)
             all_preds.append(pred.cpu().numpy())
-            all_targets.append(target.cpu().numpy())
+            all_labels.append(labels.cpu().numpy())
 
     test_loss /= len(dataset)
     all_preds = np.concatenate(all_preds)
-    all_targets = np.concatenate(all_targets)
+    all_labels = np.concatenate(all_labels)
+
+    print(f"{all_labels.shape=}\n{all_preds.shape=}\n")
 
     precision, recall, f1, _ = precision_recall_fscore_support(
-        all_targets, all_preds, average='macro'
+        all_labels, all_preds, average='macro'
     )
 
     print(f'\nTest Results:')
@@ -99,7 +101,7 @@ def evaluate(model, dataset, device, batch_size=64):
     print(f'\tF1-Score:     {f1:.4f}')
 
     print("\nDetailed Classification Report:")
-    print(classification_report(all_targets, all_preds))
+    print(classification_report(all_labels, all_preds))
 
 
 def main():
@@ -113,7 +115,7 @@ def main():
     print(f"using device: {device}")
 
     classifier = Classifier(num_classes=N_CLASSES)
-    train_classifier(classifier, train_dataset, device, num_epochs=EPOCHS)
+    train_classifier(classifier, train_dataset, device, num_epochs=5)
     evaluate(classifier, test_dataset, device)
 
 
