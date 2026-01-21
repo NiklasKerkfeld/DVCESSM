@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import torch
 from sklearn.metrics import precision_recall_fscore_support, classification_report
 from torch import nn
@@ -61,8 +62,12 @@ def train_classifier(classifier, dataset, device, batch_size: int = BATCH_SIZE, 
 
 
 def evaluate(model, dataset, device, batch_size=64):
+    images = torch.concatenate([dataset[i][0] for i in range(len(dataset))])
+    targets = torch.tensor([dataset[i][1] for i in range(len(dataset))])
+    dataset = ClassificatorDataset(images, targets)
+    test_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
     model.eval()
-    test_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     test_loss = 0
     all_preds = []
@@ -76,10 +81,12 @@ def evaluate(model, dataset, device, batch_size=64):
             test_loss += F.cross_entropy(output, target, reduction='sum').item()
 
             pred = output.argmax(dim=1)
-            all_preds.extend(pred.cpu().numpy())
-            all_targets.extend(target.cpu().numpy())
+            all_preds.append(pred.cpu().numpy())
+            all_targets.append(target.cpu().numpy())
 
     test_loss /= len(dataset)
+    all_preds = np.concatenate(all_preds)
+    all_targets = np.concatenate(all_targets)
 
     precision, recall, f1, _ = precision_recall_fscore_support(
         all_targets, all_preds, average='macro'
