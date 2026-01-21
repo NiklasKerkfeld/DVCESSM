@@ -1,31 +1,23 @@
-import glob
-import os
-
 import torch
 from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torchvision.datasets import MNIST
-from torchvision.transforms import transforms
 from tqdm import tqdm
 
 from architecture.DiffusionModel import DiffusionModel
 from Datasets import DiffusionDataset
-from main import train_classifier
-from architecture.Classifier import Classifier
 from Parameter import T, BETA_MIN, BETA_MAX
 
 
 class CounterFactualDiffusion:
     def __init__(self,
-                 diffusion_model: nn.Module,
                  classifier: nn.Module,
                  images: torch.Tensor,
                  device: torch.device,
                  lr: float,
                  name='DiffusionModel'):
-        self.diffusion_model = diffusion_model
+        self.diffusion_model = DiffusionModel(images.shape[1])
         self.classifier = classifier
         self.device = device
 
@@ -111,30 +103,3 @@ class CounterFactualDiffusion:
         x_prev = torch.sqrt(alpha_prev) * estimated_x0 + torch.sqrt(1 - alpha_prev) * combined_noise
         return x_prev
 
-
-def main():
-    nr = len(glob.glob('runs/Diffusion/'))
-    print(f"Start {nr}. Diffusion ...")
-
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Pad(2, 0.0), transforms.Normalize(0.5, 0.5)])
-    train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-    images = torch.concatenate([x[0] for x in train_dataset], dim=0).unsqueeze(1)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"using device: {device}")
-
-    classifier = Classifier(10)
-
-    if os.path.exists("./models/classifier.pt"):
-        classifier.load_state_dict(torch.load("./models/classifier.pt"))
-    else:
-        train_classifier(classifier, train_dataset, device, num_epochs=15)
-
-    model = DiffusionModel(1)
-
-    trainer = CounterFactualDiffusion(model, classifier, images, device, lr=1e-3, name=f"{nr}_DiffusionModel")
-    trainer.train_diffusion(epochs=15)
-
-
-if __name__ == '__main__':
-    main()
