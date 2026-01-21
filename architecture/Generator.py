@@ -1,99 +1,6 @@
-import os
-
-from dotenv import load_dotenv
-
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.nn.utils.parametrizations import spectral_norm
-
-load_dotenv()
-
-N_CLASSES = int(os.getenv('N_CLASSES'))
-IN_CHANNELS = int(os.getenv('IN_CHANNELS'))
-IN_HEIGHT = int(os.getenv('IN_HEIGHT'))
-IN_WIDTH = int(os.getenv('IN_WIDTH'))
-BATCH_SIZE = int(os.getenv('BATCH_SIZE'))
-EPOCHS = int(os.getenv('EPOCHS'))
-ITERATIONS = int(os.getenv('ITERATIONS'))
-ALPHA = float(os.getenv('ALPHA'))
-BETA = float(os.getenv('BETA'))
-
-
-class DiscriminatorLoss(nn.Module):
-    def __init__(self, label_smoothing: bool = False):
-        super(DiscriminatorLoss, self).__init__()
-        self.label_smoothing = label_smoothing
-        self.loss_fn = nn.BCEWithLogitsLoss()
-
-    def forward(self, prediction, target):
-        if self.label_smoothing:
-            target = 0.9 * target + 0.1 * (1 - target)
-        return self.loss_fn(prediction, target.float())
-
-
-class ChangeRegularizationLossExperimental(nn.Module):
-    def __init__(self, eps=1e-2):
-        super(ChangeRegularizationLossExperimental, self).__init__()
-        self.eps = eps
-
-    def _func(self, x: torch.Tensor):
-        eps = torch.FloatTensor([self.eps]).to(x.device)
-        return torch.log(torch.abs(x) + eps) - torch.log(eps)
-        # return torch.abs(x)
-
-    def forward(self, changes):
-        regularization = torch.mean(self._func(changes))
-
-        return regularization
-
-
-class ChangeRegularizationLoss(nn.Module):
-    def __init__(self, alpha: float = 1.0, beta: float = 1.0):
-        super(ChangeRegularizationLoss, self).__init__()
-        self.alpha = alpha
-        self.beta = beta
-
-    def forward(self, changes):
-        l1_reg = torch.mean(torch.abs(changes))
-        l2_reg = torch.mean(changes ** 2)
-
-        return self.alpha * l1_reg + self.beta * l2_reg
-
-
-class ClassifierLayer(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(ClassifierLayer, self).__init__()
-        self.layer1 = spectral_norm(
-            nn.Conv2d(in_channels, out_channels // 4, kernel_size=3, padding=1))
-        self.bn1 = nn.BatchNorm2d(out_channels // 4)
-        self.relu1 = nn.ReLU(inplace=True)
-
-        self.layer2 = spectral_norm(
-            nn.Conv2d(out_channels // 4, out_channels, kernel_size=3, padding=1))
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.relu2 = nn.ReLU(inplace=True)
-
-        self.layer3 = spectral_norm(nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0))
-        self.bn3 = nn.BatchNorm2d(out_channels)
-        self.relu3 = nn.ReLU(inplace=True)
-
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-
-    def forward(self, x):
-        h = self.layer1(x)
-        h = self.bn1(h)
-        h = self.relu1(h)
-
-        h = self.layer2(h)
-        h = self.bn2(h)
-        h = self.relu2(h)
-
-        x = h + self.layer3(x)
-        x = self.bn3(x)
-        x = self.relu3(x)
-
-        return self.pool(x)
 
 
 class GeneratorLayer(nn.Module):
@@ -200,34 +107,6 @@ class Generator(nn.Module):
         out = self.out_conv(d4)
 
         return F.tanh(out)
-
-
-class Classifier(nn.Module):
-    def __init__(self, num_classes: int = N_CLASSES):
-        super(Classifier, self).__init__()
-        # Convolutional Layers
-        self.conv1 = ClassifierLayer(IN_CHANNELS, 32)
-        self.conv2 = ClassifierLayer(32, 64)
-        self.conv3 = ClassifierLayer(64, 128)
-
-        # Classification head
-        self.fc1 = nn.Linear(128 * (IN_WIDTH // 8) * (IN_HEIGHT // 8), 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, num_classes)
-
-    def forward(self, x):
-        # Convolutional Layers
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-
-        # Flatten
-        x = torch.flatten(x, 1)
-
-        # Fully connected head
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,3 @@
-import os
-from dotenv import load_dotenv
-
 import numpy
 import numpy as np
 import torch
@@ -8,11 +5,8 @@ from torch.utils.data import Dataset
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 
-load_dotenv()
+from Parameter import IN_CHANNELS, IN_HEIGHT, IN_WIDTH, BETA_MIN, BETA_MAX, T
 
-IN_CHANNELS = int(os.getenv('IN_CHANNELS'))
-IN_HEIGHT = int(os.getenv('IN_HEIGHT'))
-IN_WIDTH = int(os.getenv('IN_WIDTH'))
 
 class StandardDataset(Dataset):
     def __init__(self, images: torch.Tensor, std: float = 0.0, p: float = 0.0, p_block: float = 0.0, max_block_height: int = None, max_block_width: int = None):
@@ -118,6 +112,29 @@ class ClassificatorDataset(StandardDataset):
 
         image = self._process(image)
         return image, target
+
+
+class DiffusionDataset(Dataset):
+    def __init__(self, images: torch.Tensor):
+        self.images = images
+
+        self.beta = torch.linspace(BETA_MIN, BETA_MAX, T)
+        self.alphas = 1.0 - self.beta
+        self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
+        self.alphas_cumprod_prev = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1]])
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, index):
+        image = self.images[index]
+        t = torch.randint(0, T, (1,))[0]
+        noise = torch.randn(image.size())
+
+        noised = torch.sqrt(self.alphas_cumprod[t]) * image + torch.sqrt(
+            1 - self.alphas_cumprod[t]) * noise
+        return noised, noise, t
+
 
 
 if __name__ == '__main__':

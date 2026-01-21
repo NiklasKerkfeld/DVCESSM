@@ -1,8 +1,6 @@
-import os
 from typing import Literal
 
 import torchvision
-from dotenv import load_dotenv
 
 import torch
 from torch import nn
@@ -12,33 +10,13 @@ from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
 
-from dataset import DiscriminatorDataset
-from models import Generator, Classifier, DiscriminatorLoss, ChangeRegularizationLoss
+from architecture.Classifier import Classifier
+from architecture.Losses import DiscriminatorLoss, ChangeRegularizationLoss
+from Datasets import DiscriminatorDataset
+from architecture.Generator import Generator
+from Parameter import BATCH_SIZE, LR_GEN, STD_DISC, P_DISC, WD_DISC, LR_DISC, LABEL_SMOOTHING, \
+    L2_REG, L1_REG, ITERATIONS, ALPHA, BETA, N_CLASSES, IN_CHANNELS, IN_WIDTH, IN_HEIGHT
 from utils import get_one_of_each, random_target, process
-
-load_dotenv()
-
-N_CLASSES = int(os.getenv('N_CLASSES'))
-IN_CHANNELS = int(os.getenv('IN_CHANNELS'))
-IN_HEIGHT = int(os.getenv('IN_HEIGHT'))
-IN_WIDTH = int(os.getenv('IN_WIDTH'))
-BATCH_SIZE = int(os.getenv('BATCH_SIZE'))
-EPOCHS = int(os.getenv('EPOCHS'))
-ITERATIONS = int(os.getenv('ITERATIONS'))
-ALPHA = float(os.getenv('ALPHA'))
-BETA = float(os.getenv('BETA'))
-LR_GEN = float(os.getenv('LR_GEN'))
-LR_DISC = float(os.getenv('LR_DISC'))
-WD_DISC = float(os.getenv('WD_DISC'))
-L1_REG = float(os.getenv('L1_REG'))
-L2_REG = float(os.getenv('L2_REG'))
-
-STD_DISC = float(os.getenv('STD_DISC'))
-P_DISC = float(os.getenv('P_DISC'))
-B_DISC = float(os.getenv('B_DISC'))
-B_H_MAX_DISC = int(os.getenv('B_H_MAX_DISC'))
-B_W_MAX_DICS = int(os.getenv('B_W_MAX_DICS'))
-LABEL_SMOOTHING = os.getenv('LABEL_SMOOTHING') == 'True'
 
 
 class CounterFactualGenerator:
@@ -79,7 +57,7 @@ class CounterFactualGenerator:
         self.regularization_criterion = ChangeRegularizationLoss(alpha=L1_REG, beta=L2_REG)
 
         self.samples = get_one_of_each(self.dataset)
-        self.writer = SummaryWriter(f'runs/{name}')
+        self.writer = SummaryWriter(f'runs/GAN/{name}')
         img_grid = torchvision.utils.make_grid(torch.tensor(self.samples).cpu(), nrow=10)
         self.writer.add_image('general/samples', img_grid, global_step=self.interation)
 
@@ -140,6 +118,10 @@ class CounterFactualGenerator:
             loss_class = self.classifier_criterion(pred_class, targets)
             loss_disc = alpha * self.discriminator_criterion(pred_disc, torch.zeros_like(labels))
             loss = loss_class + loss_disc + regularization
+
+            for name, param in self.discriminator.named_parameters():
+                if param.grad is not None:
+                    self.writer.add_histogram(f'Grads/Discriminator/{name}', param.grad, self.interation)
 
             loss.backward()
             self.generator_optimizer.step()
