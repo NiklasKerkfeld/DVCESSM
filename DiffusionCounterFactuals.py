@@ -67,8 +67,8 @@ class CounterFactualDiffusion:
         self.classifier.eval()
 
         image = image.to(self.device)
-        self.classifier = self.classifier.to(self.device)
-        self.diffusion_model = self.diffusion_model.to(self.device)
+        self.classifier.to(self.device)
+        self.diffusion_model.to(self.device)
 
         x = self._ddim_inversion(image)
         s = 50.0
@@ -94,7 +94,8 @@ class CounterFactualDiffusion:
     def _ddim_inversion(self, image: torch.Tensor):
         x = image.clone()
         for t in range(self.T - 1):
-            noise_pred = self.diffusion_model(x, torch.tensor([t]))
+            t_tensor = torch.full((1,), t, device=self.device, dtype=torch.long)
+            noise_pred = self.diffusion_model(x, t_tensor)
 
             alpha_now = self.alphas_cumprod[t]
             alpha_next = self.alphas_cumprod[t + 1]
