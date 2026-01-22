@@ -33,13 +33,14 @@ def main():
     counterfactuals = torch.zeros(N_CLASSES, len(samples), IN_WIDTH, IN_HEIGHT)
     for i in trange(N_CLASSES):
         cf = trainer.generate_counterfactual(samples, target_class=i).detach().cpu()
+        print(f"{cf.shape=}")
         counterfactuals[i] = cf.squeeze(1)
 
     counterfactuals[torch.arange(10), torch.arange(10)] = 0.0
     img_grid = torchvision.utils.make_grid(counterfactuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT), nrow=10)
 
     plt.imshow(img_grid.permute(1, 2, 0), cmap="gray")
-    plt.savefig("counterfactuals.png")
+    plt.savefig("./figures/counterfactuals.png")
     plt.close()
 
 
