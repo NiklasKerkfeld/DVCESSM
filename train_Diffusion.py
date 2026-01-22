@@ -24,8 +24,8 @@ def main():
     classifier = Classifier(10)
     classifier.load_state_dict(torch.load("./models/classifier.pt"))
 
-    trainer = CounterFactualDiffusion(classifier, images, device, lr=1e-3, name=f"{nr}_DiffusionModel")
-    trainer.train_diffusion(epochs=15)
+    trainer = CounterFactualDiffusion(classifier, 1, device, lr=1e-3, name=f"{nr}_DiffusionModel")
+    trainer.train_diffusion(images, epochs=15)
 
 
 if __name__ == '__main__':

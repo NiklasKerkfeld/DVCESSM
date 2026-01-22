@@ -13,11 +13,11 @@ from Parameter import T, BETA_MIN, BETA_MAX
 class CounterFactualDiffusion:
     def __init__(self,
                  classifier: nn.Module,
-                 images: torch.Tensor,
+                 dims: int,
                  device: torch.device,
                  lr: float,
                  name='DiffusionModel'):
-        self.diffusion_model = DiffusionModel(images.shape[1])
+        self.diffusion_model = DiffusionModel(dims)
         self.classifier = classifier
         self.device = device
 
@@ -27,20 +27,21 @@ class CounterFactualDiffusion:
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
         self.alphas_cumprod_prev = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1]])
 
-        dataset = DiffusionDataset(images)
-        self.dataloader = DataLoader(dataset, batch_size=32, shuffle=True, drop_last=True)
         self.loss_fn = nn.MSELoss()
         self.optimizer = Adam(self.diffusion_model.parameters(), lr=lr)
 
         self.writer = SummaryWriter(f'runs/Diffusion/{name}')
 
-    def train_diffusion(self, epochs: int):
+    def train_diffusion(self, images: torch.Tensor, epochs: int):
+        dataset = DiffusionDataset(images)
+        dataloader = DataLoader(dataset, batch_size=32, shuffle=True, drop_last=True)
+
         self.diffusion_model.to(self.device)
         self.diffusion_model.train()
 
         for epoch in range(1, epochs + 1):
-            losses = torch.zeros((len(self.dataloader),))
-            bar = tqdm(self.dataloader, total=len(self.dataloader), desc=f"Epoch {epoch}")
+            losses = torch.zeros((len(dataloader),))
+            bar = tqdm(dataloader, total=len(dataloader), desc=f"Epoch {epoch}")
             for i, (images, noises, t) in enumerate(bar):
                 images = images.to(self.device)
                 noises = noises.to(self.device)
