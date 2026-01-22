@@ -85,7 +85,7 @@ class CounterFactualDiffusion:
                 x_in = x.detach().requires_grad_(True)
                 logits = self.classifier(x_in)
                 loss = torch.mean(logits[:, targets])
-                grad = torch.autograd.grad(loss, x_in)
+                grad = torch.autograd.grad(loss, x_in)[0]
 
             combined_noise = noise_pred - torch.sqrt(1 - self.alphas_cumprod[t]) * s * grad
 
