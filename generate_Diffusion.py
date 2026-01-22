@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torchvision
 from torchvision.transforms import transforms
@@ -37,9 +38,15 @@ def main():
         counterfactuals[i] = cf.squeeze(1)
 
     counterfactuals[torch.arange(10), torch.arange(10)] = 0.0
+    counterfactuals /= 0.5
+    counterfactuals += 0.5
     img_grid = torchvision.utils.make_grid(counterfactuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT), nrow=10)
 
     plt.imshow(img_grid.permute(1, 2, 0), cmap="gray")
+    plt.xlabel('image class')
+    plt.ylabel('target class')
+    plt.xticks(np.arange(N_CLASSES))
+    plt.yticks(np.arange(N_CLASSES))
     plt.savefig("./figures/counterfactuals.png")
     plt.close()
 
