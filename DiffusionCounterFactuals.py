@@ -111,34 +111,3 @@ class CounterFactualDiffusion:
         estimated_x0 = (x - torch.sqrt(1 - alpha_now) * combined_noise) / torch.sqrt(alpha_now)
         x_prev = torch.sqrt(alpha_prev) * estimated_x0 + torch.sqrt(1 - alpha_prev) * combined_noise
         return x_prev
-
-if __name__ == '__main__':
-    from torchvision.transforms import transforms
-    from torchvision.datasets import MNIST
-
-    from architecture.Classifier import Classifier
-    from matplotlib import pyplot as plt
-
-    transform = transforms.Compose([transforms.ToTensor(),
-                                    transforms.Pad(2, 0.0),
-                                    transforms.Normalize(0.5, 0.5)])
-    train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-    images = torch.concatenate([x[0] for x in train_dataset], dim=0).unsqueeze(1)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"using device: {device}")
-
-    classifier = Classifier(10)
-    classifier.load_state_dict(torch.load("./models/classifier.pt"))
-
-    trainer = CounterFactualDiffusion(classifier, images[:1024], device, lr=1e-3)
-    trainer.load_model()
-
-    plt.imshow(images[1024][0], cmap="gray")
-    plt.show()
-
-    cf = trainer.generate_counterfactual(images[1024][None], target_class=6).detach().numpy()
-
-    print(f"{cf.shape=}")
-    plt.imshow(cf[0, 0], cmap="gray")
-    plt.show()
