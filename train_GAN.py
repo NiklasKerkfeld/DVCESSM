@@ -19,7 +19,6 @@ def main():
                                     transforms.Pad(2, 0.0),
                                     transforms.Normalize(mean=0.5, std=0.5)])
     train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-    train_dataset = Subset(train_dataset, torch.arange(1024))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
