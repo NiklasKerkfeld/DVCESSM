@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from architecture.DiffusionModel import DiffusionModel
 from Datasets import DiffusionDataset
-from Parameter import T, BETA_MIN, BETA_MAX
+from Parameter import T, BETA_MIN, BETA_MAX, BATCH_SIZE
 
 
 class CounterFactualDiffusion:
@@ -15,7 +15,6 @@ class CounterFactualDiffusion:
                  classifier: nn.Module,
                  dims: int,
                  device: torch.device,
-                 lr: float,
                  name='DiffusionModel'):
         self.diffusion_model = DiffusionModel(dims)
         self.classifier = classifier
@@ -28,13 +27,14 @@ class CounterFactualDiffusion:
         self.alphas_cumprod_prev = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1]])
 
         self.loss_fn = nn.MSELoss()
-        self.optimizer = Adam(self.diffusion_model.parameters(), lr=lr)
 
         self.writer = SummaryWriter(f'runs/Diffusion/{name}')
 
-    def train_diffusion(self, images: torch.Tensor, epochs: int):
+    def train_diffusion(self, images: torch.Tensor, epochs: int, lr: float):
         dataset = DiffusionDataset(images)
-        dataloader = DataLoader(dataset, batch_size=32, shuffle=True, drop_last=True)
+        dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+
+        self.optimizer = Adam(self.diffusion_model.parameters(), lr=lr)
 
         self.diffusion_model.to(self.device)
         self.diffusion_model.train()
