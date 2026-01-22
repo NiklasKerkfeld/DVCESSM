@@ -38,7 +38,7 @@ def main():
     counterfactuals[torch.arange(10), torch.arange(10)] = 0.0
     img_grid = torchvision.utils.make_grid(counterfactuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT), nrow=10)
 
-    plt.imshow(img_grid, cmap="gray")
+    plt.imshow(img_grid.permute(1, 2, 0), cmap="gray")
     plt.savefig("counterfactuals.png")
     plt.close()
 
