@@ -16,7 +16,7 @@ from Datasets import DiscriminatorDataset
 from architecture.Generator import Generator
 from Parameter import BATCH_SIZE, LR_GEN, STD_DISC, P_DISC, WD_DISC, LR_DISC, LABEL_SMOOTHING, \
     L2_REG, L1_REG, ITERATIONS, ALPHA, BETA, N_CLASSES, IN_CHANNELS, IN_WIDTH, IN_HEIGHT
-from utils import get_one_of_each, random_target, process
+from utils import get_one_of_each, random_target
 
 
 class CounterFactualGenerator:
@@ -189,8 +189,6 @@ class CounterFactualGenerator:
         for images, labels in bar:
             images, labels = images.to(self.device), labels.to(self.device)
 
-            images = process(images, std=0.1, p=0.1)
-
             pred = self.discriminator(images)[:, 0]
 
             self.discriminator_optimizer.zero_grad()
@@ -227,8 +225,7 @@ class CounterFactualGenerator:
             targets = targets.to(self.device)
 
             with torch.no_grad():
-                changes = self.generator(process(samples),
-                                         F.one_hot(targets, num_classes=10).float())
+                changes = self.generator(samples, F.one_hot(targets, num_classes=10).float())
 
             changes = changes.cpu()
 

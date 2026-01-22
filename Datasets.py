@@ -48,7 +48,7 @@ class StandardDataset(Dataset):
         # Gaussian noise
         if self.std != 0.0:
             image += torch.randn_like(image) * self.std
-            image = torch.clamp(image, 0, 1)
+            image = torch.clamp(image, -1, 1)
 
         # salt and paper noise
         if self.p != 0.0:

@@ -49,7 +49,7 @@ def train_classifier(classifier, dataset, device, batch_size: int = BATCH_SIZE, 
 
             # statistics
             running_loss += loss.item()
-            _, predicted = torch.max(outputs.data, 1)
+            predicted = torch.argmax(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
@@ -65,7 +65,7 @@ def evaluate(model, dataset, device, batch_size=64):
     images = torch.concatenate([dataset[i][0] for i in range(len(dataset))])
     targets = torch.tensor([dataset[i][1] for i in range(len(dataset))])
     dataset = ClassificatorDataset(images, targets)
-    test_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     model.eval()
 
@@ -73,29 +73,32 @@ def evaluate(model, dataset, device, batch_size=64):
     all_preds = []
     all_labels = []
 
-    with torch.no_grad():
-        for data, labels in test_loader:
-            data, labels = data.to(device), labels.to(device)
+    for data, labels in test_loader:
+        data, labels = data.to(device), labels.to(device)
+
+        with torch.no_grad():
             output = model(data)
 
-            test_loss += F.cross_entropy(output, labels, reduction='sum').item()
+        test_loss += F.cross_entropy(output, labels, reduction='sum').item()
 
-            pred = output.argmax(dim=1)
-            all_preds.append(pred.cpu().numpy())
-            all_labels.append(labels.cpu().numpy())
+        pred = F.softmax(output, dim=1).argmax(dim=1)
+        all_preds.append(pred.cpu().numpy())
+        all_labels.append(labels.cpu().numpy())
+
 
     test_loss /= len(dataset)
     all_preds = np.concatenate(all_preds)
     all_labels = np.concatenate(all_labels)
 
-    print(f"{all_labels.shape=}\n{all_preds.shape=}\n")
-
+    correct = (all_preds == all_labels).sum()
+    accuracy = correct / len(dataset)
     precision, recall, f1, _ = precision_recall_fscore_support(
         all_labels, all_preds, average='macro'
     )
 
     print(f'\nTest Results:')
     print(f'\tAverage loss: {test_loss:.4f}')
+    print(f'\tAccuracy:     {accuracy:.4f}')
     print(f'\tPrecision:    {precision:.4f}')
     print(f'\tRecall:       {recall:.4f}')
     print(f'\tF1-Score:     {f1:.4f}')
@@ -115,7 +118,8 @@ def main():
     print(f"using device: {device}")
 
     classifier = Classifier(num_classes=N_CLASSES)
-    train_classifier(classifier, train_dataset, device, num_epochs=5)
+    train_classifier(classifier, train_dataset, device, num_epochs=EPOCHS)
+    # classifier.load_state_dict(torch.load("./models/classifier.pt"))
     evaluate(classifier, test_dataset, device)
 
 

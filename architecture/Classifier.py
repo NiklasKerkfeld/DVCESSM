@@ -1,14 +1,8 @@
-import os
-
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 
-from Datasets import ClassificatorDataset
-from Parameter import BATCH_SIZE, STD_CLS, P_CLS, B_CLS, B_H_MAX_CLS, B_W_MAX_CLS, IN_CHANNELS, \
-    N_CLASSES, IN_WIDTH, IN_HEIGHT
+from Parameter import IN_CHANNELS, N_CLASSES, IN_WIDTH, IN_HEIGHT
 
 
 class ClassifierLayer(nn.Module):

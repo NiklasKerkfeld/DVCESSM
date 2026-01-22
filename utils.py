@@ -1,22 +1,6 @@
 import torch
 
 
-def process(images, std=0.0, p=0.0):
-    # Gaussian noise
-    if std != 0.0:
-        images += torch.randn_like(images) * std
-
-    # salt and paper noise
-    if p != 0.0:
-        noise = torch.randint_like(images, 1000) < (1000 * p)
-        prob = torch.randint_like(images, 2)
-
-        images[noise] = prob[noise]
-
-    # return normalized result
-    return images
-
-
 def random_target(input_tensor, n):
     offset = torch.randint(1, n - 1, input_tensor.shape, device=input_tensor.device)
     target = ((input_tensor - 1 + offset) % (n - 1)) + 1
