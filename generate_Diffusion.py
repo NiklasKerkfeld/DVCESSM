@@ -33,8 +33,9 @@ def main():
 
     counterfactuals = torch.zeros(N_CLASSES, len(samples), IN_WIDTH, IN_HEIGHT)
     for i in trange(N_CLASSES):
-        cf = trainer.generate_counterfactual(samples, target_class=i).detach().cpu()
-        print(f"{cf.shape=}")
+        targets = torch.full((len(samples), 1), i, dtype=torch.long)
+        cf = trainer.generate_counterfactual(samples, targets=targets).detach().cpu()
+        print(f"{i} {cf.shape=}")
         counterfactuals[i] = cf.squeeze(1)
 
     counterfactuals[torch.arange(10), torch.arange(10)] = 0.0

@@ -62,19 +62,21 @@ class CounterFactualDiffusion:
     def load_model(self):
         self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
 
-    def generate_counterfactual(self, image: torch.Tensor, target_class: int):
+    def generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor):
+        batch_size = images.size(0)
+
         self.diffusion_model.eval()
         self.classifier.eval()
 
-        image = image.to(self.device)
+        images = images.to(self.device)
         self.classifier.to(self.device)
         self.diffusion_model.to(self.device)
 
-        x = self._ddim_inversion(image)
+        x = self._ddim_inversion(images)
         s = 50.0
 
         for t in reversed(range(self.T)):
-            t_tensor = torch.full((1,), t, device=self.device, dtype=torch.long)
+            t_tensor = torch.full((batch_size,), t, device=self.device, dtype=torch.long)
 
             with torch.no_grad():
                 noise_pred = self.diffusion_model(x, t_tensor)
@@ -82,8 +84,8 @@ class CounterFactualDiffusion:
             with torch.enable_grad():
                 x_in = x.detach().requires_grad_(True)
                 logits = self.classifier(x_in)
-                loss = logits[0, target_class]
-                grad = torch.autograd.grad(loss, x_in)[0]
+                loss = torch.mean(logits[:, targets])
+                grad = torch.autograd.grad(loss, x_in)
 
             combined_noise = noise_pred - torch.sqrt(1 - self.alphas_cumprod[t]) * s * grad
 
