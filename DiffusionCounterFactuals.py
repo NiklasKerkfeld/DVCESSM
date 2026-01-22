@@ -52,15 +52,24 @@ class CounterFactualDiffusion:
                 loss.backward()
                 self.optimizer.step()
 
-                bar.set_postfix({"loss": loss.detach.item()})
+                bar.set_postfix({"loss": loss.detach().item()})
                 losses[i] = loss.detach().item()
 
             self.writer.add_scalar("loss", torch.mean(losses), epoch)
 
         torch.save(self.diffusion_model, "./models/DiffusionModel.pt")
 
+    def load_model(self):
+        self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
+
     def generate_counterfactual(self, image: torch.Tensor, target_class: int):
+        self.diffusion_model.eval()
+        self.classifier.eval()
+
         image = image.to(self.device)
+        self.classifier = self.classifier.to(self.device)
+        self.diffusion_model = self.diffusion_model.to(self.device)
+
         x = self._ddim_inversion(image)
         s = 50.0
 
@@ -85,7 +94,7 @@ class CounterFactualDiffusion:
     def _ddim_inversion(self, image: torch.Tensor):
         x = image.clone()
         for t in range(self.T - 1):
-            noise_pred = self.diffusion_model(x, t)
+            noise_pred = self.diffusion_model(x, torch.tensor([t]))
 
             alpha_now = self.alphas_cumprod[t]
             alpha_next = self.alphas_cumprod[t + 1]
@@ -103,3 +112,33 @@ class CounterFactualDiffusion:
         x_prev = torch.sqrt(alpha_prev) * estimated_x0 + torch.sqrt(1 - alpha_prev) * combined_noise
         return x_prev
 
+if __name__ == '__main__':
+    from torchvision.transforms import transforms
+    from torchvision.datasets import MNIST
+
+    from architecture.Classifier import Classifier
+    from matplotlib import pyplot as plt
+
+    transform = transforms.Compose([transforms.ToTensor(),
+                                    transforms.Pad(2, 0.0),
+                                    transforms.Normalize(0.5, 0.5)])
+    train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
+    images = torch.concatenate([x[0] for x in train_dataset], dim=0).unsqueeze(1)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"using device: {device}")
+
+    classifier = Classifier(10)
+    classifier.load_state_dict(torch.load("./models/classifier.pt"))
+
+    trainer = CounterFactualDiffusion(classifier, images[:1024], device, lr=1e-3)
+    trainer.load_model()
+
+    plt.imshow(images[1024][0], cmap="gray")
+    plt.show()
+
+    cf = trainer.generate_counterfactual(images[1024][None], target_class=6).detach().numpy()
+
+    print(f"{cf.shape=}")
+    plt.imshow(cf[0, 0], cmap="gray")
+    plt.show()
