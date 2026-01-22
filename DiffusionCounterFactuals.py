@@ -34,7 +34,7 @@ class CounterFactualDiffusion:
         dataset = DiffusionDataset(images)
         dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
-        self.optimizer = Adam(self.diffusion_model.parameters(), lr=lr)
+        optimizer = Adam(self.diffusion_model.parameters(), lr=lr)
 
         self.diffusion_model.to(self.device)
         self.diffusion_model.train()
@@ -47,11 +47,11 @@ class CounterFactualDiffusion:
                 noises = noises.to(self.device)
                 t = t.to(self.device)
 
-                self.optimizer.zero_grad()
+                optimizer.zero_grad()
                 pred = self.diffusion_model(images, t)
                 loss = self.loss_fn(pred, noises)
                 loss.backward()
-                self.optimizer.step()
+                optimizer.step()
 
                 bar.set_postfix({"loss": loss.detach().item()})
                 losses[i] = loss.detach().item()
