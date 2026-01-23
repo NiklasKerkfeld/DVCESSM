@@ -92,7 +92,9 @@ class CounterFactualDiffusion:
 
             x = self._step_backwards(x, combined_noise, t)
 
-        return x
+        x /= 0.5
+        x += 0.5
+        return x.clip(0, 1)
 
     def _ddim_inversion(self, image: torch.Tensor):
         x = image.clone()
