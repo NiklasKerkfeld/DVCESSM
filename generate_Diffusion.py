@@ -44,8 +44,8 @@ def main():
     plt.imshow(img_grid.permute(1, 2, 0), cmap="gray")
     plt.xlabel('image class')
     plt.ylabel('target class')
-    plt.xticks(np.arange(10) * 32 + 16, np.arange(N_CLASSES))
-    plt.yticks(np.arange(10) * 32 + 16, np.arange(N_CLASSES))
+    plt.xticks(np.arange(10) * 33 + 17, np.arange(N_CLASSES))
+    plt.yticks(np.arange(10) * 33 + 17, np.arange(N_CLASSES))
     plt.savefig("./figures/counterfactuals.png")
     plt.close()
 
