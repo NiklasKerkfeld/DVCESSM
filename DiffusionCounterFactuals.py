@@ -74,7 +74,7 @@ class CounterFactualDiffusion:
         self.diffusion_model.to(self.device)
 
         x = self._ddim_inversion(images)
-        s = 5.0
+        s = 0.1
 
         for t in reversed(range(self.T)):
             t_tensor = torch.full((batch_size,), t, device=self.device, dtype=torch.long)
@@ -88,7 +88,7 @@ class CounterFactualDiffusion:
                 loss = torch.mean(logits[:, targets])
                 grad = torch.autograd.grad(loss, x_in)[0]
 
-            combined_noise = noise_pred - torch.sqrt(1 - self.alphas_cumprod[t]) * s * grad
+            combined_noise = noise_pred - torch.sqrt(1 - self.alphas_cumprod[t]) * s * t * grad
 
             x = self._step_backwards(x, combined_noise, t)
 
