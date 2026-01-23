@@ -28,7 +28,7 @@ def main():
     classifier = Classifier(10)
     classifier.load_state_dict(torch.load("./models/classifier.pt"))
 
-    trainer = CounterFactualDiffusion(classifier, images, device, lr=1e-3)
+    trainer = CounterFactualDiffusion(classifier, images, device)
     trainer.load_model()
 
     counterfactuals = torch.zeros(N_CLASSES, len(samples), IN_WIDTH, IN_HEIGHT)
