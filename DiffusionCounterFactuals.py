@@ -74,7 +74,7 @@ class CounterFactualDiffusion:
         self.diffusion_model.to(self.device)
 
         x = self._ddim_inversion(images)
-        s = 50.0
+        s = 2.0
 
         for t in reversed(range(self.T)):
             t_tensor = torch.full((batch_size,), t, device=self.device, dtype=torch.long)
