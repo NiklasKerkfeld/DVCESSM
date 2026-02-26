@@ -63,6 +63,35 @@ class CounterFactualDiffusion:
     def load_model(self):
         self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
 
+    def generate_image(self):
+        image = torch.randn(1, 1, 32, 32).to(self.device)
+
+        self.diffusion_model.eval()
+        self.classifier.eval()
+
+        image = image.to(self.device)
+        self.diffusion_model.to(self.device)
+
+        for t in reversed(range(self.T)):
+            t_tensor = torch.full((1,), t, device=self.device, dtype=torch.long)
+            z = torch.randn(1, 1, 32, 32).to(self.device) if t > 1 else 0
+
+            epsilon_pred = self.diffusion_model(image, t_tensor)
+
+            print(t, epsilon_pred.min(), epsilon_pred.max())
+
+            coeff = 1 / torch.sqrt(self.alphas[t])
+            eps_coeff = self.beta[t] / torch.sqrt(1 - self.alphas_cumprod[t])
+            mu = coeff * (image - eps_coeff * epsilon_pred)
+
+            # Update image: x_{t-1} = mu + sigma * z
+            # Note: sigma is typically sqrt(beta_t)
+            sigma = torch.sqrt(self.beta[t])
+            image = mu + sigma * z
+
+        return image.detach().cpu().numpy()
+
+
     def generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor):
         batch_size = images.size(0)
 

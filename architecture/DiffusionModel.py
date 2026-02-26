@@ -107,14 +107,14 @@ class DiffusionModel(nn.Module):
         self.up4 = UpBlock(64, 32, 32, TIME_DIM)
         self.up5 = UpBlock(32, 16, 16, TIME_DIM)
 
-        self.final_conv = ConvLayer(16, channels, kernel_size=3, padding=1, activation=nn.Tanh())
+        self.final_conv = ConvLayer(16, channels, kernel_size=3, padding=1)
 
     def get_timestep_embedding(self, timesteps: torch.Tensor):
         emb = timesteps[:, None] * self.emb[None, :]
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb
 
-    def forward(self, x, timesteps):
+    def forward(self, x: torch.Tensor, timesteps: torch.Tensor):
         t_emb = self.get_timestep_embedding(timesteps)
         t_emb = self.time_mlp(t_emb)
 
