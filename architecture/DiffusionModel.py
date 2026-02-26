@@ -11,12 +11,12 @@ class ConvLayer(nn.Module):
         super(ConvLayer, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding)
         self.bn = nn.BatchNorm2d(out_channels)
-        self.relu = activation
+        self.activation = activation
 
     def forward(self, x):
         x = self.conv(x)
         x = self.bn(x)
-        x = self.relu(x)
+        x = self.activation(x)
 
         return x
 
@@ -107,7 +107,7 @@ class DiffusionModel(nn.Module):
         self.up4 = UpBlock(64, 32, 32, TIME_DIM)
         self.up5 = UpBlock(32, 16, 16, TIME_DIM)
 
-        self.final_conv = ConvLayer(16, channels, kernel_size=3, padding=1)
+        self.final_conv = ConvLayer(16, channels, kernel_size=3, padding=1, activation=nn.Identity())
 
     def get_timestep_embedding(self, timesteps: torch.Tensor):
         emb = timesteps[:, None] * self.emb[None, :]
