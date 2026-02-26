@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 from torch import nn
 from torch.optim import Adam
@@ -108,15 +110,16 @@ class CounterFactualDiffusion:
     def load_model(self):
         self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
 
-    def generate_image(self):
-        image = torch.randn(1, 1, 32, 32).to(self.device)
+    def generate_image(self, image: Optional[torch.Tensor] = None, T: Optional[int] = None):
+        image = torch.randn(1, 1, 32, 32) if image is None else image
+        T = self.T if T is None else T
 
         self.diffusion_model.eval()
 
         image = image.to(self.device)
         self.diffusion_model.to(self.device)
 
-        for t in reversed(range(self.T)):
+        for t in reversed(range(T)):
             t_tensor = torch.full((1,), t, device=self.device, dtype=torch.long)
 
             beta_t = self.beta[t]
@@ -128,7 +131,7 @@ class CounterFactualDiffusion:
                 print(f"t: {t} | Image Mean: {image.mean():.4f}, Image Std: {image.std():.4f} | Noise Range: [{epsilon_pred.min():.2f}, {epsilon_pred.max():.2f}]")
 
             pred_x0 = (image - torch.sqrt(1 - alpha_bar_t) * epsilon_pred) / torch.sqrt(alpha_bar_t)
-            pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
+            pred_x0 = torch.clamp(pred_x0, -2.0, 2.0)
 
             if t > 0:
                 alpha_bar_t_prev = self.alphas_cumprod[t - 1]
@@ -139,7 +142,7 @@ class CounterFactualDiffusion:
                 sigma = torch.sqrt(beta_t)
                 image = mu + sigma * torch.randn_like(image)
             else:
-                image = pred_x0  # Final step is just the clean estimate
+                image = pred_x0.clamp(-1.0, 1.0)  # Final step is just the clean estimate
 
         return image.detach().cpu().numpy()
 
