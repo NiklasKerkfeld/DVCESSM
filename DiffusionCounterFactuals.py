@@ -112,30 +112,34 @@ class CounterFactualDiffusion:
         image = torch.randn(1, 1, 32, 32).to(self.device)
 
         self.diffusion_model.eval()
-        self.classifier.eval()
 
         image = image.to(self.device)
         self.diffusion_model.to(self.device)
 
         for t in reversed(range(self.T)):
             t_tensor = torch.full((1,), t, device=self.device, dtype=torch.long)
-            z = torch.randn(1, 1, 32, 32).to(self.device) if t > 1 else 0
+
+            beta_t = self.beta[t]
+            alpha_t = self.alphas[t]
+            alpha_bar_t = self.alphas_cumprod[t]
 
             with torch.no_grad():
                 epsilon_pred = self.diffusion_model(image, t_tensor)
+                print(f"t: {t} | Image Mean: {image.mean():.4f}, Image Std: {image.std():.4f} | Noise Range: [{epsilon_pred.min():.2f}, {epsilon_pred.max():.2f}]")
 
-            print(t, epsilon_pred.min(), epsilon_pred.max())
+            pred_x0 = (image - torch.sqrt(1 - alpha_bar_t) * epsilon_pred) / torch.sqrt(alpha_bar_t)
+            pred_x0 = torch.clamp(pred_x0, -1.0, 1.0)
 
-            coeff = 1 / torch.sqrt(self.alphas[t])
-            eps_coeff = self.beta[t] / torch.sqrt(1 - self.alphas_cumprod[t])
-            mu = coeff * (image - eps_coeff * epsilon_pred)
+            if t > 0:
+                alpha_bar_t_prev = self.alphas_cumprod[t - 1]
+                coeff_x0 = (torch.sqrt(alpha_bar_t_prev) * beta_t) / (1 - alpha_bar_t)
+                coeff_xt = (torch.sqrt(alpha_t) * (1 - alpha_bar_t_prev)) / (1 - alpha_bar_t)
+                mu = coeff_x0 * pred_x0 + coeff_xt * image
 
-            # Update image: x_{t-1} = mu + sigma * z
-            # Note: sigma is typically sqrt(beta_t)
-            sigma = torch.sqrt(self.beta[t])
-            image = mu + sigma * z
-
-            image = image.clamp(-1.0, 1.0)
+                sigma = torch.sqrt(beta_t)
+                image = mu + sigma * torch.randn_like(image)
+            else:
+                image = pred_x0  # Final step is just the clean estimate
 
         return image.detach().cpu().numpy()
 
