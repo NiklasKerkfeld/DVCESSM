@@ -58,7 +58,7 @@ class CounterFactualDiffusion:
                 losses[i] = loss.detach().item()
 
             self.writer.add_scalar("loss", torch.mean(losses), epoch)
-            self.visual_check(x_t, pred, t, epoch)
+            self.visual_check(x_t.detach().cpu(), pred.detach().cpu(), t.detach().cpu(), epoch)
 
         torch.save(self.diffusion_model, "./models/DiffusionModel.pt")
 
