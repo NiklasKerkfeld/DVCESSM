@@ -3,6 +3,7 @@ from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from architecture.DiffusionModel import DiffusionModel
@@ -42,13 +43,13 @@ class CounterFactualDiffusion:
         for epoch in range(1, epochs + 1):
             losses = torch.zeros((len(dataloader),))
             bar = tqdm(dataloader, total=len(dataloader), desc=f"Epoch {epoch}")
-            for i, (images, noises, t) in enumerate(bar):
-                images = images.to(self.device)
+            for i, (x_t, noises, t) in enumerate(bar):
+                x_t = x_t.to(self.device)
                 noises = noises.to(self.device)
                 t = t.to(self.device)
 
                 optimizer.zero_grad()
-                pred = self.diffusion_model(images, t)
+                pred = self.diffusion_model(x_t, t)
                 loss = self.loss_fn(pred, noises)
                 loss.backward()
                 optimizer.step()
@@ -57,8 +58,27 @@ class CounterFactualDiffusion:
                 losses[i] = loss.detach().item()
 
             self.writer.add_scalar("loss", torch.mean(losses), epoch)
+            self.visual_check(x_t, pred, t, epoch)
 
         torch.save(self.diffusion_model, "./models/DiffusionModel.pt")
+
+    def visual_check(self, x_t: torch.Tensor, pred: torch.Tensor, t: torch.Tensor, epoch: int):
+        # --- VISUAL CHECK ---
+        self.diffusion_model.eval()
+        with torch.no_grad():
+            a_bar = self.alphas_cumprod[t].view(-1, 1, 1, 1)
+            x_0_reconstructed = (x_t - torch.sqrt(1 - a_bar) * pred) / torch.sqrt(a_bar)
+            def to_vis(x):
+                return torch.clamp((x + 1) / 2, 0, 1)
+
+            # Log Noised input vs Reconstructed output
+            grid_noised = make_grid(to_vis(x_t[:8]))
+            grid_recon = make_grid(to_vis(x_0_reconstructed[:8]))
+
+            self.writer.add_image("Train/Noised_Input_xt", grid_noised, epoch)
+            self.writer.add_image("Train/Reconstructed_x0", grid_recon, epoch)
+
+        self.diffusion_model.train()
 
     def load_model(self):
         self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
@@ -91,7 +111,6 @@ class CounterFactualDiffusion:
 
         return image.detach().cpu().numpy()
 
-
     def generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor):
         batch_size = images.size(0)
 
@@ -117,7 +136,7 @@ class CounterFactualDiffusion:
                 loss = torch.mean(logits[:, targets])
                 grad = torch.autograd.grad(loss, x_in)[0]
 
-            combined_noise = noise_pred - torch.sqrt(1 - self.alphas_cumprod[t]) * s  * grad
+            combined_noise = noise_pred - torch.sqrt(1 - self.alphas_cumprod[t]) * s * grad
 
             x = self._step_backwards(x, combined_noise, t)
 
