@@ -10,12 +10,15 @@ class ConvLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, activation=nn.ReLU(), apply_norm:bool=True):
         super(ConvLayer, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding)
-        self.norm = nn.GroupNorm(8, out_channels) if apply_norm else nn.Identity()
+
+        num_groups = 8 if out_channels >= 8 else 1
+        self.norm = nn.GroupNorm(num_groups, out_channels) if apply_norm else nn.Identity()
+
         self.activation = activation
 
     def forward(self, x):
         x = self.conv(x)
-        x = self.bn(x)
+        x = self.norm(x)
         x = self.activation(x)
 
         return x
