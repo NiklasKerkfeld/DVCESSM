@@ -58,25 +58,45 @@ class CounterFactualDiffusion:
                 losses[i] = loss.detach().item()
 
             self.writer.add_scalar("loss", torch.mean(losses), epoch)
-            self.visual_check(x_t.detach().cpu(), pred.detach().cpu(), t.detach().cpu(), epoch)
+            self.visual_check(images[:5], epoch)
 
         torch.save(self.diffusion_model, "./models/DiffusionModel.pt")
 
-    def visual_check(self, x_t: torch.Tensor, pred: torch.Tensor, t: torch.Tensor, epoch: int):
-        # --- VISUAL CHECK ---
+    def visual_check(self, fixed_images: torch.Tensor, epoch: int):
+        """
+        fixed_images: A batch of clean images (x0) normalized to [-1, 1].
+        """
         self.diffusion_model.eval()
+
+        # Define the timesteps we want to inspect (e.g., start, middle, end)
+        # Using 4 stages to see the progression
+        check_steps = [
+            int(self.T * 0.1),  # Early noise (t=20)
+            int(self.T * 0.5),  # Medium noise (t=100)
+            int(self.T * 0.8),  # Heavy noise (t=160)
+            self.T - 1  # Almost pure noise (t=199)
+        ]
+
         with torch.no_grad():
-            a_bar = self.alphas_cumprod[t].view(-1, 1, 1, 1)
-            x_0_reconstructed = (x_t - torch.sqrt(1 - a_bar) * pred) / torch.sqrt(a_bar)
-            def to_vis(x):
-                return torch.clamp((x + 1) / 2, 0, 1)
+            for t_val in check_steps:
+                images = fixed_images.to(self.device)
+                batch_size = images.shape[0]
+                t_tensor = torch.full((batch_size,), t_val, device=self.device, dtype=torch.long)
 
-            # Log Noised input vs Reconstructed output
-            grid_noised = make_grid(to_vis(x_t[:8]))
-            grid_recon = make_grid(to_vis(x_0_reconstructed[:8]))
+                noise = torch.randn_like(images)
+                a_bar = self.alphas_cumprod[t_val]
+                x_t = torch.sqrt(a_bar) * images + torch.sqrt(1 - a_bar) * noise
 
-            self.writer.add_image("Train/Noised_Input_xt", grid_noised, epoch)
-            self.writer.add_image("Train/Reconstructed_x0", grid_recon, epoch)
+                pred_noise = self.diffusion_model(x_t, t_tensor)
+
+                x_0_recon = (x_t - torch.sqrt(1 - a_bar) * pred_noise) / torch.sqrt(a_bar)
+
+                def to_vis(x):
+                    return torch.clamp((x + 1) / 2, 0, 1)
+
+                comparison = torch.cat([to_vis(x_t[:4]), to_vis(x_0_recon[:4])], dim=0)
+                grid = make_grid(comparison, nrow=4)
+                self.writer.add_image(f"Visual_Check/T_{t_val}", grid, epoch)
 
         self.diffusion_model.train()
 
