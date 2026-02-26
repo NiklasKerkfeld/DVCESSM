@@ -98,6 +98,11 @@ class CounterFactualDiffusion:
                 grid = make_grid(comparison, nrow=4)
                 self.writer.add_image(f"Visual_Check/T_{t_val}", grid, epoch)
 
+                if t_val == check_steps[-1]:
+                    self.writer.add_scalar("min_predicted_noise", pred_noise.min(), epoch)
+                    self.writer.add_scalar("max_predicted_noise", pred_noise.max(), epoch)
+                    self.writer.add_scalar("mean_predicted_noise", pred_noise.mean(), epoch)
+
         self.diffusion_model.train()
 
     def load_model(self):
@@ -116,7 +121,8 @@ class CounterFactualDiffusion:
             t_tensor = torch.full((1,), t, device=self.device, dtype=torch.long)
             z = torch.randn(1, 1, 32, 32).to(self.device) if t > 1 else 0
 
-            epsilon_pred = self.diffusion_model(image, t_tensor)
+            with torch.no_grad():
+                epsilon_pred = self.diffusion_model(image, t_tensor)
 
             print(t, epsilon_pred.min(), epsilon_pred.max())
 
@@ -128,6 +134,8 @@ class CounterFactualDiffusion:
             # Note: sigma is typically sqrt(beta_t)
             sigma = torch.sqrt(self.beta[t])
             image = mu + sigma * z
+
+            image = image.clamp(-1.0, 1.0)
 
         return image.detach().cpu().numpy()
 
