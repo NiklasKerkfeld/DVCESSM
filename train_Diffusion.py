@@ -9,7 +9,7 @@ from architecture.Classifier import Classifier
 
 
 def main():
-    nr = len(glob.glob('runs/Diffusion/'))
+    nr = len(glob.glob('runs/Diffusion/*'))
     print(f"Start {nr}. Diffusion ...")
 
     transform = transforms.Compose([transforms.ToTensor(),
@@ -25,7 +25,7 @@ def main():
     classifier.load_state_dict(torch.load("./models/classifier.pt"))
 
     trainer = CounterFactualDiffusion(classifier, 1, device, name=f"{nr}_DiffusionModel")
-    trainer.train_diffusion(images, epochs=15, lr=1e-4)
+    trainer.train_diffusion(images, epochs=15, lr=3e-4)
 
 
 if __name__ == '__main__':

@@ -121,7 +121,6 @@ class DiffusionDataset(Dataset):
         self.beta = torch.linspace(BETA_MIN, BETA_MAX, T)
         self.alphas = 1.0 - self.beta
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
-        self.alphas_cumprod_prev = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1]])
 
     def __len__(self):
         return len(self.images)
