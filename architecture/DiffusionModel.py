@@ -85,7 +85,7 @@ class DiffusionModel(nn.Module):
         self.in_channels = channels
 
         half_dim = TIME_DIM // 2
-        emb = math.log(T) / (half_dim - 1)
+        emb = math.log(10_000) / (half_dim - 1)
         emb = torch.exp(torch.arange(half_dim) * -emb)
         self.register_buffer('emb', emb)
         
