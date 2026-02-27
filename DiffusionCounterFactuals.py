@@ -76,7 +76,8 @@ class CounterFactualDiffusion:
             int(self.T * 0.1),  # Early noise (t=20)
             int(self.T * 0.5),  # Medium noise (t=100)
             int(self.T * 0.8),  # Heavy noise (t=160)
-            self.T - 1  # Almost pure noise (t=199)
+            self.T - 1,  # Almost pure noise (t=199)
+            self.T
         ]
 
         with torch.no_grad():
@@ -131,7 +132,6 @@ class CounterFactualDiffusion:
                 print(f"t: {t} | Image Mean: {image.mean():.4f}, Image Std: {image.std():.4f} | Noise Range: [{epsilon_pred.min():.2f}, {epsilon_pred.max():.2f}]")
 
             pred_x0 = (image - torch.sqrt(1 - alpha_bar_t) * epsilon_pred) / torch.sqrt(alpha_bar_t)
-            pred_x0 = torch.clamp(pred_x0, -2.0, 2.0)
 
             if t > 0:
                 alpha_bar_t_prev = self.alphas_cumprod[t - 1]

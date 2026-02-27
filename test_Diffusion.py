@@ -37,7 +37,7 @@ def main():
     noised = torch.sqrt(alphas_cumprod[t]) * image + torch.sqrt(
         1 - alphas_cumprod[t]) * torch.randn(image.size())
 
-    gen_image = diffusion_model.generate_image(noised, t)[0, 0]
+    gen_image = diffusion_model.generate_image()[0, 0]
 
     print(gen_image.max())
     print(gen_image.min())
