@@ -7,9 +7,9 @@ from Parameter import TIME_DIM, T
 
 
 class ConvLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, activation=nn.ReLU(), apply_norm:bool=True):
+    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, stride:int=1, activation=nn.SiLU(), apply_norm:bool=True):
         super(ConvLayer, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
 
         num_groups = 8 if out_channels >= 8 else 1
         self.norm = nn.GroupNorm(num_groups, out_channels) if apply_norm else nn.Identity()
@@ -31,7 +31,7 @@ class DownBlock(nn.Module):
         self.time_mlp = nn.Linear(time_emb_dim, in_channels // 4)
         self.conv2 = ConvLayer(in_channels // 4, out_channels, kernel_size=3, padding=1)
         self.conv3 = ConvLayer(in_channels, out_channels, kernel_size=3, padding=1)
-        self.pool = nn.MaxPool2d(2, 2)
+        self.pool = ConvLayer(out_channels, out_channels, kernel_size=2, padding=0, stride=2)
 
     def forward(self, x, t_emb):
         h = self.conv1(x)
@@ -87,7 +87,7 @@ class DiffusionModel(nn.Module):
         half_dim = TIME_DIM // 2
         emb = math.log(T) / (half_dim - 1)
         emb = torch.exp(torch.arange(half_dim) * -emb)
-        self.emb = torch.nn.Parameter(emb)
+        self.register_buffer('emb', emb)
         
         self.time_mlp = nn.Sequential(
             nn.Linear(TIME_DIM , TIME_DIM ),
