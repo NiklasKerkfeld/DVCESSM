@@ -77,7 +77,6 @@ class CounterFactualDiffusion:
             int(self.T * 0.5),  # Medium noise (t=100)
             int(self.T * 0.8),  # Heavy noise (t=160)
             self.T - 1,  # Almost pure noise (t=199)
-            self.T
         ]
 
         with torch.no_grad():
@@ -111,6 +110,7 @@ class CounterFactualDiffusion:
     def load_model(self):
         self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
 
+    @torch.no_grad()
     def generate_image(self, image: Optional[torch.Tensor] = None, T: Optional[int] = None):
         image = torch.randn(1, 1, 32, 32) if image is None else image
         T = self.T if T is None else T
@@ -127,22 +127,27 @@ class CounterFactualDiffusion:
             alpha_t = self.alphas[t]
             alpha_bar_t = self.alphas_cumprod[t]
 
-            with torch.no_grad():
-                epsilon_pred = self.diffusion_model(image, t_tensor)
-                print(f"t: {t} | Image Mean: {image.mean():.4f}, Image Std: {image.std():.4f} | Noise Range: [{epsilon_pred.min():.2f}, {epsilon_pred.max():.2f}]")
+            epsilon_pred = self.diffusion_model(image, t_tensor)
+            print(f"t: {t} | Image Mean: {image.mean():.4f}, Image Std: {image.std():.4f} | Noise Range: [{epsilon_pred.min():.2f}, {epsilon_pred.max():.2f}]")
 
-            pred_x0 = (image - torch.sqrt(1 - alpha_bar_t) * epsilon_pred) / torch.sqrt(alpha_bar_t)
+            if t in [399, 398, 375, 300, 200, 100, 50, 10]:
+                x_0_recon = (image - torch.sqrt(1 - alpha_bar_t) * epsilon_pred) / torch.sqrt(alpha_bar_t)
+                import matplotlib.pyplot as plt
+                plt.imshow(x_0_recon[0, 0], cmap='gray')
+                plt.title(f"Reconstruction at {t}")
+                plt.show()
+
+            # calculate mean of image at t-1
+            coeff1 = 1 / torch.sqrt(alpha_t)
+            coeff2 = (1 - alpha_t) / (torch.sqrt(1 - alpha_bar_t))
+            mean = coeff1 * (image - coeff2 * epsilon_pred)
 
             if t > 0:
-                alpha_bar_t_prev = self.alphas_cumprod[t - 1]
-                coeff_x0 = (torch.sqrt(alpha_bar_t_prev) * beta_t) / (1 - alpha_bar_t)
-                coeff_xt = (torch.sqrt(alpha_t) * (1 - alpha_bar_t_prev)) / (1 - alpha_bar_t)
-                mu = coeff_x0 * pred_x0 + coeff_xt * image
-
+                noise = torch.randn_like(image)
                 sigma = torch.sqrt(beta_t)
-                image = mu + sigma * torch.randn_like(image)
+                image = mean + sigma * noise
             else:
-                image = pred_x0.clamp(-1.0, 1.0)  # Final step is just the clean estimate
+                image = mean.clamp(-1.0, 1.0)  # Final step is just the clean estimate
 
         return image.detach().cpu().numpy()
 
