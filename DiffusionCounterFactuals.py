@@ -33,6 +33,9 @@ class CounterFactualDiffusion:
 
         self.writer = SummaryWriter(f'runs/Diffusion/{name}')
 
+    def load_model(self):
+        self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
+
     def train_diffusion(self, images: torch.Tensor, epochs: int, lr: float):
         dataset = DiffusionDataset(images)
         dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
@@ -64,6 +67,7 @@ class CounterFactualDiffusion:
 
         torch.save(self.diffusion_model, "./models/DiffusionModel.pt")
 
+    @torch.no_grad()
     def visual_check(self, fixed_images: torch.Tensor, epoch: int):
         """
         fixed_images: A batch of clean images (x0) normalized to [-1, 1].
@@ -79,40 +83,40 @@ class CounterFactualDiffusion:
             self.T - 1,  # Almost pure noise (t=199)
         ]
 
-        with torch.no_grad():
-            for t_val in check_steps:
-                images = fixed_images.to(self.device)
-                batch_size = images.shape[0]
-                t_tensor = torch.full((batch_size,), t_val, device=self.device, dtype=torch.long)
+        for t_val in check_steps:
+            images = fixed_images.to(self.device)
+            batch_size = images.shape[0]
+            t_tensor = torch.full((batch_size,), t_val, device=self.device, dtype=torch.long)
 
-                noise = torch.randn_like(images)
-                a_bar = self.alphas_cumprod[t_val]
-                x_t = torch.sqrt(a_bar) * images + torch.sqrt(1 - a_bar) * noise
+            noise = torch.randn_like(images)
+            a_bar = self.alphas_cumprod[t_val]
+            x_t = torch.sqrt(a_bar) * images + torch.sqrt(1 - a_bar) * noise
 
-                pred_noise = self.diffusion_model(x_t, t_tensor)
+            pred_noise = self.diffusion_model(x_t, t_tensor)
 
-                x_0_recon = (x_t - torch.sqrt(1 - a_bar) * pred_noise) / torch.sqrt(a_bar)
+            x_0_recon = (x_t - torch.sqrt(1 - a_bar) * pred_noise) / torch.sqrt(a_bar)
 
-                def to_vis(x):
-                    return torch.clamp((x + 1) / 2, 0, 1)
+            def to_vis(x):
+                return torch.clamp((x + 1) / 2, 0, 1)
 
-                comparison = torch.cat([to_vis(x_t[:4]), to_vis(x_0_recon[:4])], dim=0)
-                grid = make_grid(comparison, nrow=4)
-                self.writer.add_image(f"Visual_Check/T_{t_val}", grid, epoch)
+            comparison = torch.cat([to_vis(x_t[:4]), to_vis(x_0_recon[:4])], dim=0)
+            grid = make_grid(comparison, nrow=4)
+            self.writer.add_image(f"Visual_Check/T_{t_val}", grid, epoch)
 
-                if t_val == check_steps[-1]:
-                    self.writer.add_scalar("min_predicted_noise", pred_noise.min(), epoch)
-                    self.writer.add_scalar("max_predicted_noise", pred_noise.max(), epoch)
-                    self.writer.add_scalar("mean_predicted_noise", pred_noise.mean(), epoch)
+            if t_val == check_steps[-1]:
+                self.writer.add_scalar("min_predicted_noise", pred_noise.min(), epoch)
+                self.writer.add_scalar("max_predicted_noise", pred_noise.max(), epoch)
+                self.writer.add_scalar("mean_predicted_noise", pred_noise.mean(), epoch)
+
+        samples = self.generate_image(batch_size=4)
+        grid = make_grid(samples, nrow=4)
+        self.writer.add_image(f"Visual_Check/samples", grid, epoch)
 
         self.diffusion_model.train()
 
-    def load_model(self):
-        self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
-
     @torch.no_grad()
-    def generate_image(self, image: Optional[torch.Tensor] = None, T: Optional[int] = None):
-        image = torch.randn(1, 1, 32, 32) if image is None else image
+    def generate_image(self, image: Optional[torch.Tensor] = None, T: Optional[int] = None, batch_size: Optional[int] = 1):
+        image = torch.randn(batch_size, 1, 32, 32) if image is None else image
         T = self.T if T is None else T
 
         self.diffusion_model.eval()
@@ -129,13 +133,6 @@ class CounterFactualDiffusion:
 
             epsilon_pred = self.diffusion_model(image, t_tensor)
             print(f"t: {t} | Image Mean: {image.mean():.4f}, Image Std: {image.std():.4f} | Noise Range: [{epsilon_pred.min():.2f}, {epsilon_pred.max():.2f}]")
-
-            if t in [399, 398, 375, 300, 200, 100, 50, 10]:
-                x_0_recon = (image - torch.sqrt(1 - alpha_bar_t) * epsilon_pred) / torch.sqrt(alpha_bar_t)
-                import matplotlib.pyplot as plt
-                plt.imshow(x_0_recon[0, 0], cmap='gray')
-                plt.title(f"Reconstruction at {t}")
-                plt.show()
 
             # calculate mean of image at t-1
             coeff1 = 1 / torch.sqrt(alpha_t)
