@@ -146,7 +146,7 @@ class CounterFactualDiffusion:
             else:
                 image = mean.clamp(-1.0, 1.0)  # Final step is just the clean estimate
 
-        return image.detach().cpu().numpy()
+        return image.detach()
 
     def generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor):
         batch_size = images.size(0)
