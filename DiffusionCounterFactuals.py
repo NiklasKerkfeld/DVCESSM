@@ -1,7 +1,7 @@
 from typing import Optional
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -10,7 +10,8 @@ from tqdm import tqdm
 
 from architecture.DiffusionModel import DiffusionModel
 from Datasets import DiffusionDataset
-from Parameter import T, BETA_MIN, BETA_MAX, BATCH_SIZE
+from Parameter import T, BETA_MIN, BETA_MAX, BATCH_SIZE, WEIGHT_CLASSIFIER, WEIGHT_DISTANCE
+from utils import to_vis
 
 
 class CounterFactualDiffusion:
@@ -18,10 +19,16 @@ class CounterFactualDiffusion:
                  classifier: nn.Module,
                  dims: int,
                  device: torch.device,
-                 name='DiffusionModel'):
+                 name='DiffusionModel',
+                 distance_fn: nn.Module = torch.nn.L1Loss,
+                 weight_classifier: float= WEIGHT_CLASSIFIER,
+                 weight_distance: float = WEIGHT_DISTANCE):
+        self.weight_classifier = weight_classifier
+        self.weight_distance = weight_distance
         self.diffusion_model = DiffusionModel(dims)
         self.classifier = classifier
         self.device = device
+        self.distance_fn = distance_fn
 
         self.T = T
         self.beta = torch.linspace(BETA_MIN, BETA_MAX, self.T)
@@ -34,7 +41,7 @@ class CounterFactualDiffusion:
         self.writer = SummaryWriter(f'runs/Diffusion/{name}')
 
     def load_model(self):
-        self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False)
+        self.diffusion_model = torch.load("./models/DiffusionModel.pt", weights_only=False, map_location=self.device)
 
     def train_diffusion(self, images: torch.Tensor, epochs: int, lr: float):
         dataset = DiffusionDataset(images)
@@ -83,30 +90,23 @@ class CounterFactualDiffusion:
             self.T - 1,  # Almost pure noise (t=199)
         ]
 
-        for t_val in check_steps:
+        for t in check_steps:
             images = fixed_images.to(self.device)
-            batch_size = images.shape[0]
-            t_tensor = torch.full((batch_size,), t_val, device=self.device, dtype=torch.long)
-
             noise = torch.randn_like(images)
-            a_bar = self.alphas_cumprod[t_val]
-            x_t = torch.sqrt(a_bar) * images + torch.sqrt(1 - a_bar) * noise
+            x_t = torch.sqrt(self.alphas_cumprod[t]) * images + torch.sqrt(1 - self.alphas_cumprod[t]) * noise
 
-            pred_noise = self.diffusion_model(x_t, t_tensor)
+            epsilon_pred = self.diffusion_model(x_t, t)
 
-            x_0_recon = (x_t - torch.sqrt(1 - a_bar) * pred_noise) / torch.sqrt(a_bar)
-
-            def to_vis(x):
-                return torch.clamp((x + 1) / 2, 0, 1)
+            x_0_recon = self._image_approximation(x_t, epsilon_pred, t)
 
             comparison = torch.cat([to_vis(x_t[:4]), to_vis(x_0_recon[:4])], dim=0)
             grid = make_grid(comparison, nrow=4)
-            self.writer.add_image(f"Visual_Check/T_{t_val}", grid, epoch)
+            self.writer.add_image(f"Visual_Check/T_{t}", grid, epoch)
 
-            if t_val == check_steps[-1]:
-                self.writer.add_scalar("min_predicted_noise", pred_noise.min(), epoch)
-                self.writer.add_scalar("max_predicted_noise", pred_noise.max(), epoch)
-                self.writer.add_scalar("mean_predicted_noise", pred_noise.mean(), epoch)
+            if t == check_steps[-1]:
+                self.writer.add_scalar("min_predicted_noise", epsilon_pred.min(), epoch)
+                self.writer.add_scalar("max_predicted_noise", epsilon_pred.max(), epoch)
+                self.writer.add_scalar("mean_predicted_noise", epsilon_pred.mean(), epoch)
 
         samples = self.generate_image(batch_size=4)
         grid = make_grid(samples, nrow=4)
@@ -125,32 +125,22 @@ class CounterFactualDiffusion:
         self.diffusion_model.to(self.device)
 
         for t in reversed(range(T)):
-            t_tensor = torch.full((1,), t, device=self.device, dtype=torch.long)
-
-            beta_t = self.beta[t]
-            alpha_t = self.alphas[t]
-            alpha_bar_t = self.alphas_cumprod[t]
-
-            epsilon_pred = self.diffusion_model(image, t_tensor)
-            print(f"t: {t} | Image Mean: {image.mean():.4f}, Image Std: {image.std():.4f} | Noise Range: [{epsilon_pred.min():.2f}, {epsilon_pred.max():.2f}]")
+            epsilon_pred = self.diffusion_model(image, t)
 
             # calculate mean of image at t-1
-            coeff1 = 1 / torch.sqrt(alpha_t)
-            coeff2 = (1 - alpha_t) / (torch.sqrt(1 - alpha_bar_t))
-            mean = coeff1 * (image - coeff2 * epsilon_pred)
+            mean = self._reverse(image, epsilon_pred, t)
 
             if t > 0:
                 noise = torch.randn_like(image)
-                sigma = torch.sqrt(beta_t)
+                sigma = torch.sqrt(self.beta[t])
                 image = mean + sigma * noise
             else:
-                image = mean.clamp(-1.0, 1.0)  # Final step is just the clean estimate
+                image = mean  # Final step is just the clean estimate
 
-        return image.detach()
+        return to_vis(image).detach()
 
+    @torch.no_grad()
     def generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor):
-        batch_size = images.size(0)
-
         self.diffusion_model.eval()
         self.classifier.eval()
 
@@ -158,48 +148,60 @@ class CounterFactualDiffusion:
         self.classifier.to(self.device)
         self.diffusion_model.to(self.device)
 
-        x = self._ddim_inversion(images)
-        s = 2.0
+        x = self._diffuse(images, T // 2)
 
         for t in reversed(range(self.T)):
-            t_tensor = torch.full((batch_size,), t, device=self.device, dtype=torch.long)
-
-            with torch.no_grad():
-                noise_pred = self.diffusion_model(x, t_tensor)
+            epsilon_pred = self.diffusion_model(x, t)
+            mean = self._reverse(x, epsilon_pred, t)
 
             with torch.enable_grad():
-                x_in = x.detach().requires_grad_(True)
-                logits = self.classifier(x_in)
-                loss = torch.mean(logits[:, targets])
-                grad = torch.autograd.grad(loss, x_in)[0]
+                g_update = self.calc_g_update(x, images, targets, epsilon_pred, t)
 
-            combined_noise = noise_pred - torch.sqrt(1 - self.alphas_cumprod[t]) * s * grad
+            mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
 
-            x = self._step_backwards(x, combined_noise, t)
+            sigma = torch.sqrt(self.beta[t])
+            mean += sigma * mu_norm * g_update
 
-        x /= 0.5
-        x += 0.5
-        return x.clip(0, 1)
+            if t > 0:
+                noise = torch.randn_like(images)
+                x = mean + sigma * noise
+            else:
+                x = mean
 
-    def _ddim_inversion(self, image: torch.Tensor):
-        x = image.clone()
-        for t in range(self.T - 1):
-            t_tensor = torch.full((1,), t, device=self.device, dtype=torch.long)
-            noise_pred = self.diffusion_model(x, t_tensor)
+        return to_vis(x).detach()
 
-            alpha_now = self.alphas_cumprod[t]
-            alpha_next = self.alphas_cumprod[t + 1]
+    def calc_g_update(self, x: Tensor, images: Tensor, targets: Tensor, epsilon_pred: Tensor, t: int) -> Tensor:
+        x = x.detach().requires_grad_(True)
+        approx_images = self._image_approximation(x, epsilon_pred, t)
 
-            x0_out = (x - torch.sqrt(1 - alpha_now) * noise_pred) / torch.sqrt(alpha_now)
-            x = torch.sqrt(alpha_next) * x0_out + torch.sqrt(1 - alpha_next) * noise_pred
+        # classifier
+        logits = self.classifier(approx_images)
+        log_probs = torch.log_softmax(logits, dim=1)
+        target_log_prob = log_probs[torch.arange(x.shape[0], device=x.device), targets].sum()
+        grad_c = torch.autograd.grad(target_log_prob, x, retain_graph=True)[0]
+        grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
+                                                                                 1) + 1e-8)
+        # distance
+        distance = torch.norm(images - approx_images, p=1)
+        grad_d = torch.autograd.grad(distance, x)[0]
+        grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
+                                                                                 1) + 1e-8)
+        # g_update
+        return self.weight_classifier * grad_c - self.weight_distance * grad_d
 
-        return x
+    def _diffuse(self, images: Tensor, t):
+        noise = torch.randn_like(images)
 
-    def _step_backwards(self, x: torch.Tensor, combined_noise: torch.Tensor, t: int):
-        alpha_now = self.alphas_cumprod[t]
-        alpha_prev = self.alphas_cumprod_prev[t]
+        noised = torch.sqrt(self.alphas_cumprod[t]) * images + torch.sqrt(
+            1 - self.alphas_cumprod[t]) * noise
+        return noised
 
-        estimated_x0 = (x - torch.sqrt(1 - alpha_now) * combined_noise) / torch.sqrt(alpha_now)
-        estimated_x0 = torch.clamp(estimated_x0, -1, 1)
-        x_prev = torch.sqrt(alpha_prev) * estimated_x0 + torch.sqrt(1 - alpha_prev) * combined_noise
-        return x_prev
+    def _reverse(self, images: Tensor, epsilon_pred: Tensor, t: int):
+        coeff1 = 1 / torch.sqrt(self.alphas[t])
+        coeff2 = (1 - self.alphas[t]) / (torch.sqrt(1 - self.alphas_cumprod[t]))
+        mean = coeff1 * (images - coeff2 * epsilon_pred)
+
+        return mean
+
+    def _image_approximation(self, x_t: Tensor, epsilon_pred: Tensor, t: int):
+        return (x_t - torch.sqrt(1 - self.alphas_cumprod[t]) * epsilon_pred) / torch.sqrt(self.alphas_cumprod[t])

@@ -26,10 +26,11 @@ def main():
     classifier.load_state_dict(torch.load("./models/classifier.pt"))
 
     diffusion_model = CounterFactualDiffusion(classifier, 1, device, name=f"DiffusionModel")
+    diffusion_model.load_model()
 
     image = images[0][None]
     print(image.shape)
-    t = 10
+    t = 1
 
     beta = torch.linspace(BETA_MIN, BETA_MAX, T)
     alphas = 1.0 - beta
@@ -37,7 +38,7 @@ def main():
     noised = torch.sqrt(alphas_cumprod[t]) * image + torch.sqrt(
         1 - alphas_cumprod[t]) * torch.randn(image.size())
 
-    gen_image = diffusion_model.generate_image()[0, 0]
+    gen_image = diffusion_model.generate_image()[0, 0].cpu().numpy()
 
     print(gen_image.max())
     print(gen_image.min())
