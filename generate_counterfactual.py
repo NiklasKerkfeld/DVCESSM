@@ -32,14 +32,14 @@ def main():
     trainer = CounterFactualDiffusion(classifier, 1, device)
     trainer.load_model()
 
-    counterfactuals = torch.zeros(N_CLASSES, len(samples), IN_WIDTH, IN_HEIGHT)
+    counterfactuals = torch.zeros(len(samples), N_CLASSES, IN_WIDTH, IN_HEIGHT)
     for i in trange(N_CLASSES):
         targets = torch.full((len(samples), 1), i, dtype=torch.long)
         cf = trainer.generate_counterfactual(samples, targets=targets).detach().cpu()
         pred = classifier(cf).argmax(dim=1)
 
         print(f"{i} {pred}")
-        counterfactuals[i] = cf.squeeze(1)
+        counterfactuals[:, i] = cf.squeeze(1)
 
     counterfactuals[torch.arange(10), torch.arange(10)] = 0.0
     cf_flat = counterfactuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT)
