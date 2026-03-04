@@ -51,7 +51,7 @@ class DiffusionTrainer:
             for i, (x_t, noises, t) in enumerate(bar):
                 x_t = x_t.to(self.device)
                 noises = noises.to(self.device)
-                t = t.to(self.device)
+                t = t.to(device=self.device, dtype=torch.long)
 
                 optimizer.zero_grad()
                 pred = self.diffusion_model(x_t, t)

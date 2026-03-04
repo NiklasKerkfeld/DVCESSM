@@ -118,10 +118,8 @@ class DiffusionModel(nn.Module):
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb
 
-    def forward(self, x: torch.Tensor, t: int):
-        timesteps = torch.full((x.shape[0],), t, device=x.device, dtype=torch.long)
-
-        t_emb = self.get_timestep_embedding(timesteps)
+    def forward(self, x: torch.Tensor, t: torch.Tensor):
+        t_emb = self.get_timestep_embedding(t)
         t_emb = self.time_mlp(t_emb)
 
         # first convolution
