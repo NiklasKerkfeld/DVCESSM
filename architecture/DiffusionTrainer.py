@@ -101,7 +101,7 @@ class DiffusionTrainer:
             noise = torch.randn_like(images)
             x_t = torch.sqrt(self.alphas_cumprod[t]) * images + torch.sqrt(1 - self.alphas_cumprod[t]) * noise
 
-            epsilon_pred = self.diffusion_model(x_t, t)
+            epsilon_pred = self.diffusion_model(x_t, torch.tensor([[t]]))
 
             x_0_recon = self._image_approximation(x_t, epsilon_pred, t)
 
@@ -141,3 +141,6 @@ class DiffusionTrainer:
 
         return to_vis(image).detach()
 
+    def _image_approximation(self, x_t: Tensor, epsilon_pred: Tensor, t: int):
+        return (x_t - torch.sqrt(1 - self.alphas_cumprod[t]) * epsilon_pred) / torch.sqrt(
+            self.alphas_cumprod[t])
