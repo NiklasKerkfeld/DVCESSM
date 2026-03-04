@@ -4,8 +4,8 @@ import torch
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 
-from DiffusionCounterFactuals import CounterFactualDiffusion
 from architecture.Classifier import Classifier
+from architecture.DiffusionTrainer import DiffusionTrainer
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
     classifier = Classifier(10)
     classifier.load_state_dict(torch.load("./models/classifier.pt"))
 
-    trainer = CounterFactualDiffusion(classifier, 1, device, name=f"{nr}_DiffusionModel")
+    trainer = DiffusionTrainer(1, device, name=f"{nr}_DiffusionModel", beta_schedule='cosine')
     trainer.train_diffusion(images, epochs=250, lr=1e-4)
 
 
