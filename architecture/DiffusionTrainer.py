@@ -127,7 +127,7 @@ class DiffusionTrainer:
         self.diffusion_model.to(self.device)
 
         for t in reversed(range(T)):
-            epsilon_pred = self.diffusion_model(image, t)
+            epsilon_pred = self.diffusion_model(image, torch.tensor([t], device=self.device))
 
             # calculate mean of image at t-1
             mean = self._reverse(image, epsilon_pred, t)
@@ -144,3 +144,10 @@ class DiffusionTrainer:
     def _image_approximation(self, x_t: Tensor, epsilon_pred: Tensor, t: int):
         return (x_t - torch.sqrt(1 - self.alphas_cumprod[t]) * epsilon_pred) / torch.sqrt(
             self.alphas_cumprod[t])
+
+    def _reverse(self, images: Tensor, epsilon_pred: Tensor, t: int):
+        coeff1 = 1 / torch.sqrt(self.alphas[t])
+        coeff2 = (1 - self.alphas[t]) / (torch.sqrt(1 - self.alphas_cumprod[t]))
+        mean = coeff1 * (images - coeff2 * epsilon_pred)
+
+        return mean
