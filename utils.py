@@ -1,8 +1,5 @@
 import torch
 
-from Parameter import BETA_MIN, BETA_MAX, T
-
-
 def random_target(input_tensor, n):
     offset = torch.randint(1, n - 1, input_tensor.shape, device=input_tensor.device)
     target = ((input_tensor - 1 + offset) % (n - 1)) + 1
@@ -43,10 +40,6 @@ def cosine_beta_schedule(timesteps, s=0.008):
 
     # Clamp betas to prevent singularities (max value of 0.999 is standard)
     return torch.clip(betas, 0.0001, 0.9999)
-
-
-def linear_beta_schedule(t:int = T):
-    return torch.linspace(BETA_MIN, BETA_MAX, t)
 
 
 def to_vis(x):
