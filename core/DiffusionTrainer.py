@@ -29,7 +29,7 @@ class DiffusionTrainer:
 
     def train_diffusion(self, dataloader: DataLoader, epochs: int, lr: float):
         optimizer = Adam(self.model.parameters(), lr=lr)
-        samples = dataloader.dataset[:5]
+        samples = torch.tensor([dataloader.dataset[i] for i in range(5)])
 
         self.model.to(self.device)
         self.model.train()
