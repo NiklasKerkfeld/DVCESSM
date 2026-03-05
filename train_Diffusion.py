@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 
+from core.DiffusionDataset import DiffusionDataset
 from models.DiffusionModel import DiffusionModel
 from core.DiffusionEngine import DiffusionEngine
 from core.DiffusionTrainer import DiffusionTrainer
@@ -32,9 +33,10 @@ def main(cfg: DictConfig):
         transforms.Normalize(0.5, 0.5)
     ])
 
-    train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
+    raw_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
+    dataset = DiffusionDataset(raw_dataset)
     train_loader = DataLoader(
-        train_dataset,
+        dataset,
         batch_size=cfg.data.batch_size,
         shuffle=True,
         num_workers=cfg.data.num_workers,
