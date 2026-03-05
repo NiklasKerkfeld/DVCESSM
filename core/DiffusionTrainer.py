@@ -116,6 +116,7 @@ class DiffusionTrainer:
 
             # calculate mean of image at t-1
             mean = self.engine.reverse(images, epsilon_pred, t_tensor)
+            mean = torch.clamp(mean, -1.0, 1.0)
 
             if t > 0:
                 noise = torch.randn_like(images)

@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - engine: linear
+  - engine: cosine
 
 training:
   epochs: 250
