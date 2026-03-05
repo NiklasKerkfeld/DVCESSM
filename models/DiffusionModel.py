@@ -75,6 +75,32 @@ class UpBlock(nn.Module):
         u = self.conv(d)
         
         return u
+
+
+class AttentionBlock(nn.Module):
+    def __init__(self, channels: int, num_heads: int = 8):
+        super().__init__()
+        self.channels = channels
+        self.num_heads = num_heads
+
+        self.norm = nn.GroupNorm(num_groups=32, num_channels=channels)
+
+        self.mha = nn.MultiheadAttention(
+            embed_dim=channels,
+            num_heads=num_heads,
+            batch_first=True
+        )
+
+    def forward(self, x):
+        b, c, h, w = x.shape
+
+        h_norm = self.norm(x)
+        h_flat = h_norm.view(b, c, h * w).transpose(1, 2)
+        attn_output, _ = self.mha(h_flat, h_flat, h_flat)
+
+        attn_output = attn_output.transpose(1, 2).view(b, c, h, w)
+
+        return x + attn_output
     
 
 class DiffusionModel(nn.Module):
@@ -100,11 +126,16 @@ class DiffusionModel(nn.Module):
         self.down2 = DownBlock(32, 64, self.time_dim)
         self.down3 = DownBlock(64, 128, self.time_dim)
         self.down4 = DownBlock(128, 256, self.time_dim)
-        
+
         self.middel = DownBlock(256, 512, self.time_dim)
-        
+        self.middel_att = AttentionBlock(512)
+
         self.up1 = UpBlock(512, 256,256, self.time_dim)
+        self.up1_att = AttentionBlock(256)
+
         self.up2 = UpBlock(256, 128, 128, self.time_dim)
+        self.up2_att = AttentionBlock(128)
+
         self.up3 = UpBlock(128, 64, 64, self.time_dim)
         self.up4 = UpBlock(64, 32, 32, self.time_dim)
         self.up5 = UpBlock(32, 16, 16, self.time_dim)
@@ -131,10 +162,16 @@ class DiffusionModel(nn.Module):
         h4 = self.down4(h3, t_emb)
         
         u = self.middel(h4, t_emb)
+        u = self.middel_att(u)
 
         # decoder
         u = self.up1(u, h4, t_emb)
+        print(f"{u.shape=}")
+        u = self.up1_att(u)
+
         u = self.up2(u, h3, t_emb)
+        u = self.up2_att(u)
+
         u = self.up3(u, h2, t_emb)
         u = self.up4(u, h1, t_emb)
         u = self.up5(u, x, t_emb)

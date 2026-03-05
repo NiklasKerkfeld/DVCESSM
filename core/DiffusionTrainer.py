@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import torch
@@ -58,6 +59,7 @@ class DiffusionTrainer:
             self._visualize_sampling(epoch)
 
         # save model
+        os.makedirs("./checkpoints", exist_ok=True)
         torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
 
     @torch.no_grad()
