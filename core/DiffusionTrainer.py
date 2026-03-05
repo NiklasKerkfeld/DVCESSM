@@ -1,4 +1,4 @@
-from typing import Optional, Literal
+from typing import Optional
 
 import torch
 from torch import nn, Tensor
@@ -8,8 +8,6 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-from Datasets import DiffusionDataset
-from Parameter import BATCH_SIZE
 from core.DiffusionEngine import DiffusionEngine
 from utils import to_vis
 
@@ -29,11 +27,9 @@ class DiffusionTrainer:
 
         self.writer = SummaryWriter(f'runs/Diffusion/{name}')
 
-    def train_diffusion(self, images: torch.Tensor, epochs: int, lr: float):
-        dataset = DiffusionDataset(images)
-        dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-
+    def train_diffusion(self, dataloader: DataLoader, epochs: int, lr: float):
         optimizer = Adam(self.model.parameters(), lr=lr)
+        samples = dataloader.dataset[:5]
 
         self.model.to(self.device)
         self.model.train()
@@ -58,11 +54,11 @@ class DiffusionTrainer:
 
             # visualization
             self.writer.add_scalar("loss", torch.mean(losses), epoch)
-            self._visualize_one_step(images[:5], epoch)
+            self._visualize_one_step(samples, epoch)
             self._visualize_sampling(epoch)
 
         # save model
-        torch.save(self.model, "./models/DiffusionModel.pt")
+        torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
 
     @torch.no_grad()
     def _visualize_sampling(self, epoch: int):
@@ -126,6 +122,6 @@ class DiffusionTrainer:
                 sigma = self.engine.get_sigma(t_tensor, images.shape)
                 images = mean + sigma * noise
             else:
-                images = mean  # Final step is just the clean estimate
+                images = mean
 
         return images.detach()

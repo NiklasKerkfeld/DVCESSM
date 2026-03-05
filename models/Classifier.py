@@ -2,8 +2,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from Parameter import IN_CHANNELS, N_CLASSES, IN_WIDTH, IN_HEIGHT
-
 
 class ClassifierLayer(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -39,15 +37,15 @@ class ClassifierLayer(nn.Module):
 
 
 class Classifier(nn.Module):
-    def __init__(self, num_classes: int = N_CLASSES):
+    def __init__(self, in_channels: int, num_classes: int, img_width: int, img_height: int):
         super(Classifier, self).__init__()
         # Convolutional Layers
-        self.conv1 = ClassifierLayer(IN_CHANNELS, 32)
+        self.conv1 = ClassifierLayer(in_channels, 32)
         self.conv2 = ClassifierLayer(32, 64)
         self.conv3 = ClassifierLayer(64, 128)
 
         # Classification head
-        self.fc1 = nn.Linear(128 * (IN_WIDTH // 8) * (IN_HEIGHT // 8), 128)
+        self.fc1 = nn.Linear(128 * (img_width // 8) * (img_height // 8), 128)
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, num_classes)
 

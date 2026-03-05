@@ -1,48 +1,78 @@
-import os
-
+import hydra
 import numpy as np
 import torch
 import torchvision
-from torchvision.transforms import transforms
+from matplotlib import pyplot as plt
+from omegaconf import DictConfig
+from torch import Tensor
 from torchvision.datasets import MNIST
+from torchvision.transforms import transforms
 from tqdm import trange
 
-from DiffusionCounterFactuals import CounterFactualDiffusion
-from Parameter import N_CLASSES, IN_WIDTH, IN_HEIGHT
-from architecture.Classifier import Classifier
-from matplotlib import pyplot as plt
-
+from core.CounterfactualGenerator import CounterfactualGenerator
+from core.DiffusionEngine import DiffusionEngine
+from models.Classifier import Classifier
+from models.DiffusionModel import DiffusionModel
 from utils import get_one_of_each, to_vis
 
 
-def main():
-    transform = transforms.Compose([transforms.ToTensor(),
-                                    transforms.Pad(2, 0.0),
-                                    transforms.Normalize(0.5, 0.5)])
-    train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-
-    samples = get_one_of_each(train_dataset)
-
+@hydra.main(version_base=None, config_path="conf", config_name="config")
+def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    classifier = Classifier(10)
-    classifier.load_state_dict(torch.load("./models/classifier.pt"))
+    # 2. Data Loading (Using config for paths)
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Pad(2, 0.0),
+        transforms.Normalize(0.5, 0.5)
+    ])
+    train_dataset = MNIST(root=cfg.data.root, train=True, download=True, transform=transform)
+    samples = get_one_of_each(train_dataset).to(device)
 
-    trainer = CounterFactualDiffusion(classifier, 1, device)
-    trainer.load_model()
+    classifier = Classifier(
+        cfg.classifier.dims,
+        cfg.classifier.num_classes,
+        cfg.classifier.image_width,
+        cfg.classifier.image_height
+    )
+    classifier.load_state_dict(torch.load(cfg.inference.classifier_path, map_location=device))
 
-    counterfactuals = torch.zeros(len(samples), N_CLASSES, IN_WIDTH, IN_HEIGHT)
-    for i in trange(N_CLASSES):
+    diffusion_model = DiffusionModel(cfg.model.dims)
+    diffusion_model.load_state_dict(torch.load(cfg.inference.diffusion_path, map_location=device))
+
+    engine = DiffusionEngine(**cfg.engine, device=device)
+
+    cfd = CounterfactualGenerator(classifier, diffusion_model, engine, device,
+                                  weight_classifier=cfg.inference.weight_classifier,
+                                  weight_distance=cfg.inference.weight_distance)
+
+    counterfactuals = torch.zeros(
+        len(samples),
+        cfg.data.n_classes,
+        cfg.data.image_width,
+        cfg.data.image_height
+    )
+
+    for i in trange(cfg.data.n_classes):
         targets = torch.full((len(samples), 1), i, dtype=torch.long)
-        cf = trainer.generate_counterfactual(samples, targets=targets).detach().cpu()
+        cf = cfd.generate_counterfactual(
+            samples,
+            targets=targets,
+            start_fraction=cfg.inference.start_fraction
+        ).detach().cpu()
         pred = classifier(cf).argmax(dim=1)
 
         print(f"{i} {pred}")
         counterfactuals[:, i] = cf.squeeze(1)
 
+    plot_results(counterfactuals, samples)
+
+
+def plot_results(counterfactuals: Tensor, samples: Tensor):
+    counterfactuals = to_vis(counterfactuals)
     counterfactuals[torch.arange(10), torch.arange(10)] = 0.0
-    cf_flat = counterfactuals.reshape(-1, 1, IN_WIDTH, IN_HEIGHT)
+    cf_flat = counterfactuals.reshape(-1, 1, samples.shape[-2], samples.shape[-1])
     cf_grid = torchvision.utils.make_grid(cf_flat, nrow=10, padding=2)
 
     orig_grid = torchvision.utils.make_grid(to_vis(samples), nrow=1, padding=2)

@@ -1,0 +1,4 @@
+T: 800
+beta_schedule: 'linear'
+beta_min: 1e-4
+beta_max: 2e-2

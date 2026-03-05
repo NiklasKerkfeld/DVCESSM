@@ -3,20 +3,22 @@ from typing import Literal, Tuple
 import torch
 from torch import Tensor, nn
 
-from Parameter import T, BETA_MIN, BETA_MAX
 from utils import cosine_beta_schedule
 
 
 class DiffusionEngine(nn.Module):
     def __init__(self,
+                 T: int,
+                 beta_min: float,
+                 beta_max: float,
                  device: torch.device,
                  beta_schedule: Literal["linear", 'cosine'] = 'linear'
                  ):
         super().__init__()
-        self.T: int = T
+        self.T = T
         self.device = device
 
-        beta = cosine_beta_schedule(T) if beta_schedule == 'cosine' else torch.linspace(BETA_MIN, BETA_MAX, T)
+        beta = cosine_beta_schedule(T) if beta_schedule == 'cosine' else torch.linspace(beta_min, beta_max, T)
         alphas = 1.0 - beta
         alphas_cumprod = torch.cumprod(alphas, dim=0)
 
@@ -70,29 +72,3 @@ class DiffusionEngine(nn.Module):
 
     def get_sigma(self, t: Tensor, shape: torch.Size):
         return self._extract(self.sqrt_beta, t, shape)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

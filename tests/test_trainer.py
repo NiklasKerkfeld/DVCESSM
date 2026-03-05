@@ -2,14 +2,14 @@ import pytest
 import torch
 from core.DiffusionEngine import DiffusionEngine
 from core.DiffusionTrainer import DiffusionTrainer
-from architecture.DiffusionModel import DiffusionModel  # Assuming your model class name
+from models.DiffusionModel import DiffusionModel  # Assuming your model class name
 
 
 @pytest.fixture
 def trainer_setup():
     device = torch.device("cpu")  # GitHub Actions friendly
     model = DiffusionModel(channels=1)
-    engine = DiffusionEngine(device=device)  # Low T for speed
+    engine = DiffusionEngine(T=10, beta_min=1e-4, beta_max=2e-2, device=device, beta_schedule='linear')
 
     trainer = DiffusionTrainer(
         model=model,

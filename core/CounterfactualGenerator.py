@@ -1,9 +1,6 @@
-from typing import Literal
-
 import torch
 from torch import nn, Tensor
 
-from Parameter import WEIGHT_CLASSIFIER, WEIGHT_DISTANCE
 from core.DiffusionEngine import DiffusionEngine
 
 
@@ -11,18 +8,17 @@ class CounterfactualGenerator:
     def __init__(self,
                  classifier: nn.Module,
                  diffusion_model: nn.Module,
+                 engine: DiffusionEngine,
                  device: torch.device,
-                 beta_schedule: Literal["linear", 'cosine'] = 'linear',
-                 weight_classifier: float = WEIGHT_CLASSIFIER,
-                 weight_distance: float = WEIGHT_DISTANCE):
+                 weight_classifier: float,
+                 weight_distance: float):
         super().__init__()
         self.classifier = classifier
         self.diffusion_model = diffusion_model
+        self.engine = engine
+        self.device = device
         self.weight_classifier = weight_classifier
         self.weight_distance = weight_distance
-        self.device = device
-
-        self.engine = DiffusionEngine(beta_schedule=beta_schedule, device=device)
 
     @torch.no_grad()
     def generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor, start_fraction: float):

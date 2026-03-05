@@ -1,31 +1,62 @@
 import glob
-
 import torch
+import hydra
+from omegaconf import DictConfig, OmegaConf
+from torch.utils.data import DataLoader
+
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 
-from architecture.Classifier import Classifier
-from architecture.DiffusionTrainer import DiffusionTrainer
+from models.DiffusionModel import DiffusionModel
+from core.DiffusionEngine import DiffusionEngine
+from core.DiffusionTrainer import DiffusionTrainer
 
 
-def main():
+@hydra.main(version_base=None, config_path="conf", config_name="config")
+def main(cfg: DictConfig):
+    # Setup Logging & Run Number
     nr = len(glob.glob('runs/Diffusion/*'))
     print(f"Start {nr}. Diffusion ...")
 
-    transform = transforms.Compose([transforms.ToTensor(),
-                                    transforms.Pad(2, 0.0),
-                                    transforms.Normalize(0.5, 0.5)])
-    train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-    images = torch.concatenate([x[0] for x in train_dataset], dim=0).unsqueeze(1)
+    # print the resolved config to your terminal for sanity
+    print(OmegaConf.to_yaml(cfg))
 
+    # check for gpu available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    classifier = Classifier(10)
-    classifier.load_state_dict(torch.load("./models/classifier.pt"))
+    # load data
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Pad(2, 0.0),
+        transforms.Normalize(0.5, 0.5)
+    ])
 
-    trainer = DiffusionTrainer(1, device, name=f"{nr}_DiffusionModel", beta_schedule='cosine')
-    trainer.train_diffusion(images, epochs=250, lr=1e-4)
+    train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.data.batch_size,
+        shuffle=True,
+        num_workers=cfg.data.num_workers,
+        pin_memory=True,  # Speeds up transfer to GPU
+        drop_last=True
+    )
+
+    model = DiffusionModel(cfg.model.dims).to(device)
+    engine = DiffusionEngine(**cfg.engine, device=device)
+
+    trainer = DiffusionTrainer(
+        model,
+        engine,
+        device,
+        name=f"{nr}_{cfg.training.name_prefix}"
+    )
+
+    trainer.train_diffusion(
+        train_loader,
+        epochs=cfg.training.epochs,
+        lr=cfg.training.lr
+    )
 
 
 if __name__ == '__main__':

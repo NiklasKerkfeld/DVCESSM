@@ -1,0 +1,47 @@
+defaults:
+  - _self_
+  - engine: linear
+
+training:
+  epochs: 250
+  lr: 1e-4
+  batch_size: 128 # You can add this now
+  name_prefix: "DiffusionModel"
+
+data:
+  root: './data'
+  n_classes: 10
+  image_channels: 1
+  image_width: 32
+  image_height: 32
+  batch_size: 128
+  num_workers: 4  # Number of CPU cores for data loading
+
+
+inference:
+  classifier_path: "./checkpoints/classifier.pth"
+  diffusion_path: "./checkpoints/DiffusionModel.pth"
+  start_fraction: 0.5 # noise level for CF generation
+  output_dir: "./figures"
+  weight_classifier: 0.1
+  weight_distance: 0.15
+
+
+model:
+  dims: ${data.image_channels}
+  image_width: ${data.image_width}
+  image_height: ${data.image_height}
+
+classifier:
+  dims: ${data.image_channels}
+  image_width: ${data.image_width}
+  image_height: ${data.image_height}
+  num_classes: ${data.n_classes}
+  lr: 0.001
+  epochs: 10
+  augmentation:
+    std: 0.01
+    p: 0.1
+    p_block: 0.2
+    max_block_width: 4
+    max_block_height: 4
