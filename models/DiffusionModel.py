@@ -143,6 +143,8 @@ class DiffusionModel(nn.Module):
         self.up2_att = AttentionBlock(128, self.width // 8, self.height // 8)
 
         self.up3 = UpBlock(128, 64, 64, self.time_dim)
+        self.up3_att = AttentionBlock(64, self.width // 4, self.height // 4)
+
         self.up4 = UpBlock(64, 32, 32, self.time_dim)
         self.up5 = UpBlock(32, 16, 16, self.time_dim)
 

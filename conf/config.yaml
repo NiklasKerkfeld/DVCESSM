@@ -1,22 +1,13 @@
 defaults:
   - _self_
   - engine: cosine
+  - data: mnist
 
 training:
   epochs: 250
   lr: 1e-4
   batch_size: 128 # You can add this now
   name_prefix: "DiffusionModel"
-
-data:
-  root: './data'
-  n_classes: 10
-  image_channels: 1
-  image_width: 32
-  image_height: 32
-  batch_size: 128
-  num_workers: 4  # Number of CPU cores for data loading
-
 
 inference:
   classifier_path: "./checkpoints/classifier.pth"
