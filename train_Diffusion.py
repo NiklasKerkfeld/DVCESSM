@@ -43,7 +43,7 @@ def main(cfg: DictConfig):
     )
 
     model = DiffusionModel(cfg.model.dims, cfg.model.time_dim)
-    engine = DiffusionEngine(**cfg.engine, device=device)
+    engine = DiffusionEngine(**cfg.engine.cosine, device=device)
 
     trainer = DiffusionTrainer(
         model,
