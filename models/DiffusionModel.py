@@ -78,12 +78,14 @@ class UpBlock(nn.Module):
 
 
 class AttentionBlock(nn.Module):
-    def __init__(self, channels: int, num_heads: int = 8):
+    def __init__(self, channels: int, width: int, height: int, num_heads: int = 8):
         super().__init__()
         self.channels = channels
         self.num_heads = num_heads
 
         self.norm = nn.GroupNorm(num_groups=32, num_channels=channels)
+
+        self.pos_embedding = nn.Parameter(torch.randn(1, width * height, channels))
 
         self.mha = nn.MultiheadAttention(
             embed_dim=channels,
@@ -96,6 +98,8 @@ class AttentionBlock(nn.Module):
 
         h_norm = self.norm(x)
         h_flat = h_norm.view(b, c, h * w).transpose(1, 2)
+        h_flat = h_flat + self.pos_embedding
+
         attn_output, _ = self.mha(h_flat, h_flat, h_flat)
 
         attn_output = attn_output.transpose(1, 2).view(b, c, h, w)
@@ -104,10 +108,12 @@ class AttentionBlock(nn.Module):
     
 
 class DiffusionModel(nn.Module):
-    def __init__(self, channels: int, time_dim: int):
+    def __init__(self, channels: int, width: int, height: int, time_dim: int):
         super().__init__()
         self.in_channels = channels
         self.time_dim = time_dim
+        self.width = width
+        self.height = height
 
         half_dim = self.time_dim // 2
         emb = math.log(10_000) / (half_dim - 1)
@@ -121,20 +127,20 @@ class DiffusionModel(nn.Module):
             nn.SiLU()
         )
         
-        self.conv1 = ConvLayer(channels, 16, kernel_size=3, padding=1)
-        self.down1 = DownBlock(16, 32, self.time_dim)
-        self.down2 = DownBlock(32, 64, self.time_dim)
-        self.down3 = DownBlock(64, 128, self.time_dim)
-        self.down4 = DownBlock(128, 256, self.time_dim)
+        self.conv1 = ConvLayer(channels, 16, kernel_size=3, padding=1)    # size // 2
+        self.down1 = DownBlock(16, 32, self.time_dim)           # size // 4
+        self.down2 = DownBlock(32, 64, self.time_dim)           # size // 8
+        self.down3 = DownBlock(64, 128, self.time_dim)          # size // 16
+        self.down4 = DownBlock(128, 256, self.time_dim)         # # size // 32
 
         self.middel = DownBlock(256, 512, self.time_dim)
-        self.middel_att = AttentionBlock(512)
+        self.middel_att = AttentionBlock(512, self.width // 32, self.height // 32)
 
         self.up1 = UpBlock(512, 256,256, self.time_dim)
-        self.up1_att = AttentionBlock(256)
+        self.up1_att = AttentionBlock(256, self.width // 16, self.height // 16)
 
         self.up2 = UpBlock(256, 128, 128, self.time_dim)
-        self.up2_att = AttentionBlock(128)
+        self.up2_att = AttentionBlock(128, self.width // 8, self.height // 8)
 
         self.up3 = UpBlock(128, 64, 64, self.time_dim)
         self.up4 = UpBlock(64, 32, 32, self.time_dim)
@@ -179,7 +185,7 @@ class DiffusionModel(nn.Module):
         return self.final_conv(u)
 
 if __name__ == '__main__':
-    model = DiffusionModel(1, 256)
+    model = DiffusionModel(1, 32, 32,256)
 
     image = torch.randn(4, 1, 32, 32)
     timesteps = torch.randint(1, 1000, (4,))

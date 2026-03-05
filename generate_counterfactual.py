@@ -38,7 +38,7 @@ def main(cfg: DictConfig):
     )
     classifier.load_state_dict(torch.load(cfg.inference.classifier_path, map_location=device))
 
-    diffusion_model = DiffusionModel(cfg.model.dims, cfg.model.time_dim)
+    diffusion_model = DiffusionModel(cfg.model.dims, cfg.data.image_width, cfg.data.image_height, cfg.model.time_dim)
     diffusion_model.load_state_dict(torch.load(cfg.inference.diffusion_path, map_location=device))
 
     engine = DiffusionEngine(**cfg.engine, device=device)
