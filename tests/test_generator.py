@@ -26,9 +26,10 @@ def cf_setup():
     device = torch.device("cpu")
     model = MockModel()
     classifier = MockClassifier()
+    engine = DiffusionEngine(T=200, beta_min=1e-4, beta_max=2e-2, device=device, beta_schedule='linear')
 
     # Assuming your Generator takes these in __init__
-    gen = CounterfactualGenerator(classifier, model, device)
+    gen = CounterfactualGenerator(classifier, model, engine, device, weight_classifier=.1, weight_distance=.15)
     return gen
 
 

@@ -7,7 +7,7 @@ from core.DiffusionEngine import DiffusionEngine
 def engine():
     """This 'fixture' creates an engine instance for all tests to use."""
     device = torch.device("cpu")
-    return DiffusionEngine(device=device, beta_schedule='linear')
+    return DiffusionEngine(T=200, beta_min=1e-4, beta_max=2e-2, device=device, beta_schedule='linear')
 
 
 def test_diffusion_forward_shapes(engine):
