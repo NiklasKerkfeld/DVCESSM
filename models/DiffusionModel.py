@@ -3,8 +3,6 @@ import math
 import torch
 from torch import nn
 
-from Parameter import TIME_DIM, T
-
 
 class ConvLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, stride:int=1, activation=nn.SiLU(), apply_norm:bool=True):
@@ -80,35 +78,36 @@ class UpBlock(nn.Module):
     
 
 class DiffusionModel(nn.Module):
-    def __init__(self, channels):
+    def __init__(self, channels: int, time_dim: int):
         super().__init__()
         self.in_channels = channels
+        self.time_dim = time_dim
 
-        half_dim = TIME_DIM // 2
+        half_dim = self.time_dim // 2
         emb = math.log(10_000) / (half_dim - 1)
         emb = torch.exp(torch.arange(half_dim) * -emb)
         self.register_buffer('emb', emb)
         
         self.time_mlp = nn.Sequential(
-            nn.Linear(TIME_DIM , TIME_DIM ),
+            nn.Linear(self.time_dim , self.time_dim ),
             nn.SiLU(),
-            nn.Linear(TIME_DIM , TIME_DIM),
+            nn.Linear(self.time_dim , self.time_dim),
             nn.SiLU()
         )
         
         self.conv1 = ConvLayer(channels, 16, kernel_size=3, padding=1)
-        self.down1 = DownBlock(16, 32, TIME_DIM)
-        self.down2 = DownBlock(32, 64, TIME_DIM)
-        self.down3 = DownBlock(64, 128, TIME_DIM)
-        self.down4 = DownBlock(128, 256, TIME_DIM)
+        self.down1 = DownBlock(16, 32, self.time_dim)
+        self.down2 = DownBlock(32, 64, self.time_dim)
+        self.down3 = DownBlock(64, 128, self.time_dim)
+        self.down4 = DownBlock(128, 256, self.time_dim)
         
-        self.middel = DownBlock(256, 512, TIME_DIM)
+        self.middel = DownBlock(256, 512, self.time_dim)
         
-        self.up1 = UpBlock(512, 256,256, TIME_DIM)
-        self.up2 = UpBlock(256, 128, 128, TIME_DIM)
-        self.up3 = UpBlock(128, 64, 64, TIME_DIM)
-        self.up4 = UpBlock(64, 32, 32, TIME_DIM)
-        self.up5 = UpBlock(32, 16, 16, TIME_DIM)
+        self.up1 = UpBlock(512, 256,256, self.time_dim)
+        self.up2 = UpBlock(256, 128, 128, self.time_dim)
+        self.up3 = UpBlock(128, 64, 64, self.time_dim)
+        self.up4 = UpBlock(64, 32, 32, self.time_dim)
+        self.up5 = UpBlock(32, 16, 16, self.time_dim)
 
         self.final_conv = ConvLayer(16, channels, kernel_size=3, padding=1,
                                     activation=nn.Identity(), apply_norm=False)
@@ -143,7 +142,7 @@ class DiffusionModel(nn.Module):
         return self.final_conv(u)
 
 if __name__ == '__main__':
-    model = DiffusionModel(1)
+    model = DiffusionModel(1, 256)
 
     image = torch.randn(4, 1, 32, 32)
     timesteps = torch.randint(1, 1000, (4,))

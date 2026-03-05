@@ -15,7 +15,7 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    model = DiffusionModel(cfg.model.dims)
+    model = DiffusionModel(cfg.model.dims, cfg.model.time_dim)
     model.load_state_dict(torch.load(cfg.inference.diffusion_path, map_location=device))
 
     engine = DiffusionEngine(**cfg.engine, device=device)

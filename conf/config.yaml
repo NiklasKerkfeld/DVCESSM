@@ -29,6 +29,7 @@ inference:
 
 model:
   dims: ${data.image_channels}
+  time_dim: 256
   image_width: ${data.image_width}
   image_height: ${data.image_height}
 

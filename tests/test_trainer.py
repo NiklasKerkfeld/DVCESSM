@@ -8,7 +8,7 @@ from models.DiffusionModel import DiffusionModel  # Assuming your model class na
 @pytest.fixture
 def trainer_setup():
     device = torch.device("cpu")  # GitHub Actions friendly
-    model = DiffusionModel(channels=1)
+    model = DiffusionModel(channels=1, time_dim=128)
     engine = DiffusionEngine(T=10, beta_min=1e-4, beta_max=2e-2, device=device, beta_schedule='linear')
 
     trainer = DiffusionTrainer(
