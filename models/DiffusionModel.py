@@ -174,7 +174,6 @@ class DiffusionModel(nn.Module):
 
         # decoder
         u = self.up1(u, h4, t_emb)
-        print(f"{u.shape=}")
         u = self.up1_att(u)
 
         u = self.up2(u, h3, t_emb)

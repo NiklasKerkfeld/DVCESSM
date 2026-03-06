@@ -53,6 +53,11 @@ def main(cfg: DictConfig):
         cfg.data.image_width,
         cfg.data.image_height
     )
+    predictions = torch.zeros(
+        len(samples),
+        cfg.data.n_classes,
+        dtype=torch.long)  # New tensor
+
 
     for i in trange(cfg.data.n_classes):
         targets = torch.full((len(samples), 1), i, dtype=torch.long)
@@ -62,18 +67,20 @@ def main(cfg: DictConfig):
             start_fraction=cfg.inference.start_fraction
         ).detach().cpu()
         pred = classifier(cf).argmax(dim=1)
-
-        print(f"{i} {pred}")
+        predictions[:, i] = pred.cpu()
         counterfactuals[:, i] = cf.squeeze(1)
 
-    plot_results(counterfactuals, samples)
+    plot_results(counterfactuals, samples, predictions)
 
 
-def plot_results(counterfactuals: Tensor, samples: Tensor):
+def plot_results(counterfactuals: Tensor, samples: Tensor, predictions: Tensor):
+    num_samples = counterfactuals.shape[0]
+    num_targets = counterfactuals.shape[1]
+
     counterfactuals = to_vis(counterfactuals)
-    counterfactuals[torch.arange(10), torch.arange(10)] = 0.0
+    counterfactuals[torch.arange(num_samples), torch.arange(num_targets)] = 0.0
     cf_flat = counterfactuals.reshape(-1, 1, samples.shape[-2], samples.shape[-1])
-    cf_grid = torchvision.utils.make_grid(cf_flat, nrow=10, padding=2)
+    cf_grid = torchvision.utils.make_grid(cf_flat, nrow=num_samples, padding=2)
 
     orig_grid = torchvision.utils.make_grid(to_vis(samples), nrow=1, padding=2)
 
@@ -85,7 +92,7 @@ def plot_results(counterfactuals: Tensor, samples: Tensor):
     ax1.set_title("Original", fontsize=16, pad=20)
     ax1.set_xticks([])
     ax1.set_yticks(np.arange(10) * 34 + 18)
-    ax1.set_yticklabels(np.arange(10))
+    ax1.set_yticklabels(np.arange(num_samples))
 
     # --- Main Plot (Swapped Axes) ---
     ax2.imshow(cf_grid.permute(1, 2, 0), cmap="gray")
@@ -93,13 +100,36 @@ def plot_results(counterfactuals: Tensor, samples: Tensor):
 
     # X-axis
     ax2.set_xlabel('Target Class', fontsize=12)
-    ax2.set_xticks(np.arange(10) * 34 + 18)
-    ax2.set_xticklabels(np.arange(10))
+    ax2.set_xticks(np.arange(num_targets) * 34 + 18)
+    ax2.set_xticklabels(np.arange(num_targets))
 
     # Y-axis
     ax2.set_ylabel('Original Class', fontsize=12)
-    ax2.set_yticks(np.arange(10) * 34 + 18)
-    ax2.set_yticklabels(np.arange(10))
+    ax2.set_yticks(np.arange(num_samples) * 34 + 18)
+    ax2.set_yticklabels(np.arange(num_samples))
+
+    # Cell size in pixels (Padding=2, MNIST=32 after padding in your transform)
+    cell_size = 32 + 2
+    offset = 4  # Small offset from the top-left corner
+
+    for row in range(num_samples):
+        for col in range(num_targets):
+            if row == col:
+                continue
+
+            pred_val = predictions[row, col].item()
+            target_val = col
+
+            # Color: Green if successful CF, Red if failed
+            color = "lime" if pred_val == target_val else "red"
+
+            # Calculate pixel position
+            x_pos = col * cell_size + offset
+            y_pos = row * cell_size + offset + 8  # +8 to adjust for text baseline
+
+            ax2.text(x_pos, y_pos, str(pred_val), color=color,
+                     fontsize=10, fontweight='bold',
+                     bbox=dict(facecolor='black', alpha=0.5, pad=1))
 
     plt.tight_layout()
     plt.savefig("./figures/counterfactuals.png")
