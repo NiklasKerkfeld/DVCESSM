@@ -1,0 +1,6 @@
+root: data/BraTS
+image_channels: 4
+image_width: 128
+image_height: 128
+batch_size: 16
+num_workers: 4  # Number of CPU cores for data loading
