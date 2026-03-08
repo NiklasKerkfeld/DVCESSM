@@ -41,10 +41,11 @@ class SegmentationTrainer:
 
             # evaluation
             iou, precision, recall, f1 = self.evaluate(valid_dataloader, self.device)
-            self.writer.add_scalar('iou', iou, global_step=self.epoch)
-            self.writer.add_scalar('precision', precision, global_step=self.epoch)
-            self.writer.add_scalar('recall', recall, global_step=self.epoch)
-            self.writer.add_scalar('f1', f1, global_step=self.epoch)
+            for i in range(self.num_classes):
+                self.writer.add_scalar(f'class_{i}/iou', iou[i], global_step=self.epoch)
+                self.writer.add_scalar(f'class_{i}/precision', precision[i], global_step=self.epoch)
+                self.writer.add_scalar(f'class_{i}/recall', recall[i], global_step=self.epoch)
+                self.writer.add_scalar(f'class_{i}/f1', f1[i], global_step=self.epoch)
 
             # sample logging
             self.log_samples(images)

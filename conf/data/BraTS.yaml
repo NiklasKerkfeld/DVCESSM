@@ -3,5 +3,5 @@ image_channels: 4
 n_classes: 4
 image_width: 128
 image_height: 128
-batch_size: 16
+batch_size: 32
 num_workers: 4  # Number of CPU cores for data loading

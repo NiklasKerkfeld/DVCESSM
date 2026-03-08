@@ -35,7 +35,8 @@ def main(cfg: DictConfig):
     test_loader = DataLoader(
         test_dataset,
         batch_size=cfg.data.batch_size,
-        shuffle=False
+        shuffle=False,
+        num_workers=cfg.data.num_workers
     )
 
     model = SegmentationUNet(
