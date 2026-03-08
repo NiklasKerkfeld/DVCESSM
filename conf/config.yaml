@@ -46,3 +46,4 @@ segmentation:
   num_classes: ${data.n_classes}
   lr: 0.001
   epochs: 10
+  name_prefix: "SegmentationModel"
