@@ -12,6 +12,7 @@ training:
 inference:
   classifier_path: "./checkpoints/classifier.pth"
   diffusion_path: "./checkpoints/DiffusionModel.pth"
+  segmentation_path: "./checkpoints/SegmentationModel.pth"
   start_fraction: 0.5 # noise level for CF generation
   output_dir: "./figures"
   weight_classifier: 0.1
@@ -37,3 +38,11 @@ classifier:
     p_block: 0.2
     max_block_width: 4
     max_block_height: 4
+
+segmentation:
+  dims: ${data.image_channels}
+  image_width: ${data.image_width}
+  image_height: ${data.image_height}
+  num_classes: ${data.n_classes}
+  lr: 0.001
+  epochs: 10

@@ -1,6 +1,7 @@
 import torch
 
 from models.DiffusionModel import DiffusionModel
+from models.Segmentation import SegmentationUNet
 
 
 def test_diffusion_model():
@@ -11,5 +12,13 @@ def test_diffusion_model():
     pred = model(image, timesteps)
 
     assert pred.shape == (4, 1, 32, 32)
+
+def test_segmentation_model():
+    model = SegmentationUNet(4, 4, 64, 64)
+
+    image = torch.randn(4, 4, 64, 64)
+    pred = model(image)
+
+    assert pred.shape == (4, 4, 64, 64)
     
 

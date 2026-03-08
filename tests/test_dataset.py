@@ -4,6 +4,8 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from omegaconf import OmegaConf
 
+from core.SegmentationDataset import SegmentationDataset
+
 
 # A simple Mock Dataset that behaves like MNIST
 class MockMNIST(Dataset):
@@ -70,3 +72,17 @@ def test_dataloader_from_config():
 
     batch = next(iter(loader))[0]
     assert batch.shape[0] == cfg.data.batch_size
+
+
+def test_semgentation_dataset():
+    batch_size = 4
+
+    dataset = SegmentationDataset()
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    # Get one batch
+    batch_imgs, batch_labels = next(iter(loader))
+
+    # The shape should be (Batch, Channels, Height, Width)
+    assert batch_imgs.shape == (batch_size, 4, 128, 128)
+    assert batch_labels.shape == (batch_size, 128, 128)
