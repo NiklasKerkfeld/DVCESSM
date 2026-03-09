@@ -10,12 +10,13 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from core.DiffusionEngine import DiffusionEngine
+from models.DiffusionModel import DiffusionModel
 from utils import to_vis
 
 
 class DiffusionTrainer:
     def __init__(self,
-                 model: nn.Module,
+                 model: DiffusionModel,
                  engine: DiffusionEngine,
                  device: torch.device,
                  name='DiffusionModel',
@@ -106,7 +107,7 @@ class DiffusionTrainer:
 
     @torch.no_grad()
     def generate_image(self, batch_size: Optional[int] = 1):
-        images = torch.randn(batch_size, 1, 32, 32)
+        images = torch.randn(batch_size, self.model.channels, self.model.width, self.model.height)
         self.model.eval()
 
         images = images.to(self.device)

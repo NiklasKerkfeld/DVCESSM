@@ -110,7 +110,7 @@ class AttentionBlock(nn.Module):
 class DiffusionModel(nn.Module):
     def __init__(self, channels: int, width: int, height: int, time_dim: int):
         super().__init__()
-        self.in_channels = channels
+        self.channels = channels
         self.time_dim = time_dim
         self.width = width
         self.height = height
