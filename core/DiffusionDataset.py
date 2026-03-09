@@ -1,6 +1,7 @@
 import glob
 
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.datasets import MNIST
@@ -31,7 +32,7 @@ class BraTSDiffusionDataset(Dataset):
     def __getitem__(self, index):
         data = np.load(self.images[index])
 
-        return data["image"]
+        return torch.from_numpy(data["image"]).float()
 
 
 def get_MNIST_dataset(train: bool = True):
