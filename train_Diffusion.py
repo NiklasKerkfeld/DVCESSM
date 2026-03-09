@@ -10,6 +10,9 @@ from core.DiffusionEngine import DiffusionEngine
 from core.DiffusionTrainer import DiffusionTrainer
 
 
+torch.manual_seed(42)
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     # Setup Logging & Run Number
