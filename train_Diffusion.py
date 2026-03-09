@@ -4,10 +4,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
-from torchvision.datasets import MNIST
-from torchvision.transforms import transforms
-
-from core.DiffusionDataset import DiffusionDataset
+from core.DiffusionDataset import get_MNIST_dataset, get_BraTS_dataset
 from models.DiffusionModel import DiffusionModel
 from core.DiffusionEngine import DiffusionEngine
 from core.DiffusionTrainer import DiffusionTrainer
@@ -26,15 +23,14 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    # load data
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Pad(2, 0.0),
-        transforms.Normalize(0.5, 0.5)
-    ])
+    if cfg.data == 'mnist':
+        dataset = get_MNIST_dataset()
+    elif cfg.data == 'BraTS':
+        dataset = get_BraTS_dataset()
+    else:
+        raise ValueError(f"Unknown dataset: {cfg.data}")
 
-    raw_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-    dataset = DiffusionDataset(raw_dataset)
+
     train_loader = DataLoader(
         dataset,
         batch_size=cfg.data.batch_size,
@@ -54,7 +50,7 @@ def main(cfg: DictConfig):
         name=f"{nr}_{cfg.training.name_prefix}"
     )
 
-    trainer.train_diffusion(
+    trainer.train(
         train_loader,
         epochs=cfg.training.epochs,
         lr=cfg.training.lr

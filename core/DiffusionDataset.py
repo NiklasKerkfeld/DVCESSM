@@ -2,17 +2,21 @@ import glob
 
 import numpy as np
 from torch.utils.data import Dataset
+from torchvision import transforms
+from torchvision.datasets import MNIST
 
-class DiffusionDataset(Dataset):
-    def __init__(self, base_dataset):
-        self.base_dataset = base_dataset
 
-    def __getitem__(self, index):
-        image, _ = self.base_dataset[index]  # Get image/label, discard label
-        return image
+class MNISTDataset(Dataset):
+    def __init__(self, raw_dataset):
+        self.raw_dataset = raw_dataset
 
     def __len__(self):
-        return len(self.base_dataset)
+        return len(self.raw_dataset)
+
+    def __getitem__(self, index):
+        image, _ = self.raw_dataset[index]
+
+        return image
 
 
 class BraTSDiffusionDataset(Dataset):
@@ -21,15 +25,29 @@ class BraTSDiffusionDataset(Dataset):
         self.path = "data/BraTS/Slices/training"
         self.images = list(glob.glob(f"{self.path}/*/*.npz"))
 
-
     def __len__(self):
         return len(self.images)
-
 
     def __getitem__(self, index):
         data = np.load(self.images[index])
 
-        return data["image"], data["label"], data["has_mask"]
+        return data["image"]
+
+
+def get_MNIST_dataset(train: bool = True):
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Pad(2, 0.0),
+        transforms.Normalize(0.5, 0.5)
+    ])
+
+    raw_dataset = MNIST(root='./data', train=train, download=True, transform=transform)
+
+    return MNISTDataset(raw_dataset)
+
+
+def get_BraTS_dataset():
+    return BraTSDiffusionDataset()
 
 
 if __name__ == "__main__":

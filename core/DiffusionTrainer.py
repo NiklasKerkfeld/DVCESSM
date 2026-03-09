@@ -28,7 +28,7 @@ class DiffusionTrainer:
 
         self.writer = SummaryWriter(f'runs/Diffusion/{name}')
 
-    def train_diffusion(self, dataloader: DataLoader, epochs: int, lr: float):
+    def train(self, dataloader: DataLoader, epochs: int, lr: float):
         optimizer = Adam(self.model.parameters(), lr=lr)
         samples = torch.stack([dataloader.dataset[i] for i in range(5)])
 
