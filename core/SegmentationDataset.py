@@ -11,10 +11,8 @@ class SegmentationDataset(Dataset):
         self.path = "data/BraTS/Slices/training"
         self.images = list(glob.glob(f"{self.path}/*/*.npz"))
 
-
     def __len__(self):
         return len(self.images)
-
 
     def __getitem__(self, index):
         data = np.load(self.images[index])
