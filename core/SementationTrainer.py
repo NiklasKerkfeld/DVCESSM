@@ -116,6 +116,7 @@ class SegmentationTrainer:
 
         out = self.model(images.to(self.device))
         out = torch.argmax(out, dim=1)
+        out = out.unsqueeze(1).float()
 
         self.writer.add_image(
             'predictions',
