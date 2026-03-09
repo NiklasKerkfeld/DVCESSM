@@ -114,7 +114,7 @@ class SegmentationTrainer:
     def log_samples(self, images: torch.Tensor):
         self.model.eval()
 
-        out = self.model(images)
+        out = self.model(images.to(self.device))
         out = torch.argmax(out, dim=1)
 
         self.writer.add_image(
