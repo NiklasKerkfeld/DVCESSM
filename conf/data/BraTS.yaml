@@ -1,3 +1,4 @@
+name: BraTS
 root: data/BraTS
 image_channels: 4
 n_classes: 4

@@ -1,4 +1,5 @@
-root: data
+name: MNIST
+root: data/MNIST
 n_classes: 10
 image_channels: 1
 image_width: 32

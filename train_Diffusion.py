@@ -23,12 +23,12 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    if cfg.data == 'mnist':
+    if cfg.data.name == 'MNIST':
         dataset = get_MNIST_dataset()
-    elif cfg.data == 'BraTS':
+    elif cfg.data.name == 'BraTS':
         dataset = get_BraTS_dataset()
     else:
-        raise ValueError(f"Unknown dataset: {cfg.data}")
+        raise ValueError(f"Unknown dataset: {cfg.data.name}")
 
 
     train_loader = DataLoader(
