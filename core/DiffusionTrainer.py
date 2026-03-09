@@ -31,7 +31,7 @@ class DiffusionTrainer:
 
     def train(self, dataloader: DataLoader, epochs: int, lr: float):
         optimizer = Adam(self.model.parameters(), lr=lr)
-        samples = torch.stack([dataloader.dataset[i] for i in torch.randint(0, len(dataloader.dataset), (5,))])
+        samples = torch.stack([dataloader.dataset[i] for i in torch.randint(0, len(dataloader.dataset), (4,))])
 
         self.model.to(self.device)
         self.model.train()
@@ -68,7 +68,7 @@ class DiffusionTrainer:
         self.model.eval()
 
         samples = self.generate_image(batch_size=4)
-        grid = make_grid(samples, nrow=4)
+        grid = make_grid(samples[:, 0], nrow=4)
         self.writer.add_image(f"Visual_Check/samples", grid, epoch)
 
         self.model.train()
@@ -101,8 +101,8 @@ class DiffusionTrainer:
         self.model.train()
 
     def _log_one_step(self, epoch: int, t: int, x_0_recon: Tensor, x_t: Tensor):
-        comparison = torch.cat([to_vis(x_t[:4]), to_vis(x_0_recon[:4])], dim=0)
-        grid = make_grid(comparison, nrow=4)
+        comparison = torch.cat([to_vis(x_t), to_vis(x_0_recon)], dim=0)
+        grid = make_grid(comparison[:, 0], nrow=4)
         self.writer.add_image(f"Visual_Check/T_{t}", grid, epoch)
 
     @torch.no_grad()
