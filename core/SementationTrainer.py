@@ -111,10 +111,9 @@ class SegmentationTrainer:
         return iou, precision, recall, f1
 
     @torch.no_grad()
-    def log_samples(self, samples: torch.Tensor):
+    def log_samples(self, images: torch.Tensor):
         self.model.eval()
 
-        images, masks = samples
         out = self.model(images)
         out = torch.argmax(out, dim=1)
 
