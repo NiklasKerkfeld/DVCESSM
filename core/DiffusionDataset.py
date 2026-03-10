@@ -23,7 +23,7 @@ class MNISTDataset(Dataset):
 class BraTSDiffusionDataset(Dataset):
     def __init__(self):
         super().__init__()
-        self.path = "data/BraTS/Slices/training"
+        self.path = "data/BraTS/V2024/preprocessed"
         self.images = list(glob.glob(f"{self.path}/*/*.npz"))
 
     def __len__(self):

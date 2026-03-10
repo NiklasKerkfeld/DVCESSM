@@ -102,7 +102,7 @@ class DiffusionTrainer:
 
     def _log_one_step(self, epoch: int, t: int, x_0_recon: Tensor, x_t: Tensor):
         comparison = torch.cat([to_vis(x_t), to_vis(x_0_recon)], dim=0)
-        grid = make_grid(comparison[:, 0], nrow=4)
+        grid = make_grid(comparison[:, 0, None], nrow=4)
         self.writer.add_image(f"Visual_Check/T_{t}", grid, epoch)
 
     @torch.no_grad()
