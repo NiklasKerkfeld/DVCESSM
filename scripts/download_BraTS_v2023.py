@@ -9,15 +9,15 @@ def main():
     syn = synapseclient.Synapse()
     syn.login()
 
-    filepath = Path('./data/BraTS/syn60086071.zip')
+    filepath = Path('./data/BraTS/BraTS2024-BraTS-GLI-TrainingData.zip')
     if not filepath.is_file():
-        syn60086071 = syn.get(entity='syn60086071', downloadLocation='./data/BraTS/syn60086071.zip')
+        syn.get(entity='syn60086071', downloadLocation='./data/BraTS')
 
         print(f"Download complete!")
 
-    if not os.path.isdir('./data/BraTS/V2023'):
+    if not os.path.isdir('./data/BraTS/V2024'):
         with zipfile.ZipFile(filepath, 'r') as zip_ref:
-            zip_ref.extractall('./data/BraTS/V2023')
+            zip_ref.extractall('./data/BraTS/V2024')
 
         print("Extraction complete!")
 
