@@ -65,7 +65,7 @@ def preprocess():
         image = data['image']
         label = data['label']
 
-        num_slices = image.shape[1]
+        num_slices = image.shape[-1]
 
         for s in range(num_slices):
             slice_image = image[..., s]
