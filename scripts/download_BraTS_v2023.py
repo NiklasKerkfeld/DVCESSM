@@ -38,9 +38,9 @@ transforms = Compose([
 
     # scale intensities
     ClipIntensityPercentilesd(
-        keys=KEYS,
+        keys=["image"],
         lower=1, upper=99, channel_wise=True),
-    NormalizeIntensityd(keys=KEYS, nonzero=True, channel_wise=True),
+    NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
 
     # ensure right format
     CastToTyped(keys=["image", "label"], dtype=(torch.float32, torch.uint8))
@@ -87,7 +87,7 @@ def main():
     syn.login()
 
     filepath = Path('./data/BraTS/BraTS2024-BraTS-GLI-TrainingData.zip')
-    if not filepath.is_file():
+    if not filepath.is_file() and False:
         syn.get(entity='syn60086071', downloadLocation='./data/BraTS')
 
         print(f"Download complete!")
@@ -129,4 +129,5 @@ def visualize_npz_slice(npz_path):
     plt.show()
 
 if __name__ == '__main__':
-    main()
+    # main()
+    visualize_npz_slice("data/BraTS/V2024/preprocessed/BraTS-GLI-00005-100/slice102.npz")
