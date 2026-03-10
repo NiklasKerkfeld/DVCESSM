@@ -87,7 +87,7 @@ def main():
     syn.login()
 
     filepath = Path('./data/BraTS/BraTS2024-BraTS-GLI-TrainingData.zip')
-    if not filepath.is_file() and False:
+    if not filepath.is_file():
         syn.get(entity='syn60086071', downloadLocation='./data/BraTS')
 
         print(f"Download complete!")
