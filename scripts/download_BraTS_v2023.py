@@ -1,6 +1,7 @@
-import synapseclient
+from pathlib import Path
 import os
-
+import synapseclient
+import zipfile
 
 def main():
     print(f"current working directory: {os.getcwd()}")
@@ -8,13 +9,18 @@ def main():
     syn = synapseclient.Synapse()
     syn.login()
 
-    # Obtain a pointer and download the data
-    syn60086071 = syn.get(entity='syn60086071', downloadLocation='./data/BraTS/syn60086071.zip')
+    filepath = Path('./data/BraTS/syn60086071.zip')
+    if not filepath.is_file():
+        syn60086071 = syn.get(entity='syn60086071', downloadLocation='./data/BraTS/syn60086071.zip')
 
-    # Get the path to the local copy of the data file
-    filepath = syn60086071.path
-    print(filepath)
-    
-   
+        print(f"Download complete!")
+
+    if not os.path.isdir('./data/BraTS/V2023'):
+        with zipfile.ZipFile(filepath, 'r') as zip_ref:
+            zip_ref.extractall('./data/BraTS/V2023')
+
+        print("Extraction complete!")
+
+
 if __name__ == '__main__':
     main()
