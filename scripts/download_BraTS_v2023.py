@@ -129,5 +129,4 @@ def visualize_npz_slice(npz_path):
     plt.show()
 
 if __name__ == '__main__':
-    # main()
-    visualize_npz_slice("data/BraTS/V2024/preprocessed/BraTS-GLI-00005-100/slice102.npz")
+    main()
