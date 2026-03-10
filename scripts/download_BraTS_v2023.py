@@ -1,7 +1,10 @@
 import synapseclient
+import os
 
 
 def main():
+    print(f"current working directory: {os.getcwd()}")
+
     syn = synapseclient.Synapse()
     syn.login()
 
