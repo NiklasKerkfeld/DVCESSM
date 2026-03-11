@@ -68,7 +68,7 @@ class DiffusionTrainer:
         self.model.eval()
 
         samples = self.generate_image(batch_size=4)
-        grid = make_grid(samples[:, 0], nrow=4)
+        grid = make_grid(samples[:, 0, None], nrow=4)
         self.writer.add_image(f"Visual_Check/samples", grid, epoch)
 
         self.model.train()
