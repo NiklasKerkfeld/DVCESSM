@@ -58,10 +58,14 @@ class DiffusionTrainer:
             self.writer.add_scalar("loss", torch.mean(losses), epoch)
             self._visualize_one_step(samples, epoch)
             self._visualize_sampling(epoch)
+            self.writer.flush()
 
         # save model
         os.makedirs("./checkpoints", exist_ok=True)
         torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
+
+        self.writer.close()
+        print("Training complete and logs flushed.")
 
     @torch.no_grad()
     def _visualize_sampling(self, epoch: int):
