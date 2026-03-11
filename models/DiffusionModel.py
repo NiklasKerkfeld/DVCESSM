@@ -1,11 +1,12 @@
 import math
 
 import torch
+from prettytable import PrettyTable
 from torch import nn
 
 
 class ConvLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, stride:int=1, activation=nn.SiLU(), apply_norm:bool=True):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size=3, padding=1, stride:int=1, activation=nn.SiLU(), apply_norm:bool=True):
         super(ConvLayer, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
 
@@ -25,55 +26,79 @@ class ConvLayer(nn.Module):
 class DownBlock(nn.Module):
     def __init__(self, in_channels, out_channels, time_emb_dim):
         super().__init__()
+        self.pool = ConvLayer(in_channels, in_channels, kernel_size=2, padding=0, stride=2)
+
         self.conv1 = ConvLayer(in_channels, in_channels // 4, kernel_size=3, padding=1)
+        self.conv2 = ConvLayer(in_channels // 4, in_channels // 4, kernel_size=3, padding=1)
+        self.conv3 = ConvLayer(in_channels // 4, out_channels, kernel_size=3, padding=1)
+
+        self.conv4 = nn.Identity()
+        if in_channels != out_channels:
+            self.conv4 = ConvLayer(in_channels, out_channels, kernel_size=3, padding=1)
+
         self.time_mlp = nn.Linear(time_emb_dim, in_channels // 4)
-        self.conv2 = ConvLayer(in_channels // 4, out_channels, kernel_size=3, padding=1)
-        self.conv3 = ConvLayer(in_channels, out_channels, kernel_size=3, padding=1)
-        self.pool = ConvLayer(out_channels, out_channels, kernel_size=2, padding=0, stride=2)
+
 
     def forward(self, x, t_emb):
-        h = self.conv1(x)
         time_proj = self.time_mlp(t_emb)[:, :, None, None]
-        h = h + time_proj
-        h = self.conv2(torch.nn.functional.silu(h))
-        x = self.conv3(x)
 
-        return self.pool(x + h)
+        x = self.pool(x)
+
+        h = self.conv1(x)
+        h = h + time_proj
+
+        h = self.conv2(h)
+        h = self.conv3(h)
+
+        x = self.conv4(x)
+
+        return x + h
 
 
 class MiddleBlock(nn.Module):
     def __init__(self, in_channels, out_channels, time_emb_dim):
         super().__init__()
         self.conv1 = ConvLayer(in_channels, in_channels // 4, kernel_size=3, padding=1)
+        self.conv2 = ConvLayer(in_channels // 4, in_channels // 4, kernel_size=3, padding=1)
+        self.conv3 = ConvLayer(in_channels // 4, out_channels, kernel_size=3, padding=1)
+
         self.time_mlp = nn.Linear(time_emb_dim, in_channels // 4)
-        self.conv2 = ConvLayer(in_channels // 4, out_channels, kernel_size=3, padding=1)
-        self.conv3 = ConvLayer(in_channels, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x, t_emb):
-        h = self.conv1(x)
         time_proj = self.time_mlp(t_emb)[:, :, None, None]
+
+        h = self.conv1(x)
         h = h + time_proj
-        h = self.conv2(torch.nn.functional.silu(h))
-        x = self.conv3(x)
+        h = self.conv2(h)
+        h = self.conv3(h)
 
         return x + h
 
 
 class UpBlock(nn.Module):
-    def __init__(self, in_channels, skip_size, out_channels, time_emb_dim):
+    def __init__(self, in_channels, skip_size, out_channels, time_emb_dim, scale_factor:float=2):
         super().__init__()
-        self.up_transpose = nn.ConvTranspose2d(in_channels, in_channels, kernel_size=2, stride=2)
-        self.conv = nn.Conv2d(in_channels + skip_size, out_channels, kernel_size=3, padding=1)
-        self.time_mlp = nn.Linear(time_emb_dim, in_channels + skip_size)
+        self.scale_factor = scale_factor
+
+        self.conv = nn.Sequential(
+            ConvLayer(in_channels + skip_size, out_channels, kernel_size=3, padding=1),
+            ConvLayer(out_channels, out_channels, kernel_size=3, padding=1)
+        )
+
+        self.time_mlp = nn.Linear(time_emb_dim, out_channels)
+        self.upsample = nn.Upsample(scale_factor=scale_factor, mode='bilinear', align_corners=False)
+
 
     def forward(self, u, c, t_emb):
         t_proj = self.time_mlp(t_emb)[:, :, None, None]
         
-        u = self.up_transpose(u)
         d = torch.cat([u, c], dim=1)
-        d += t_proj
         u = self.conv(d)
-        
+        u += t_proj
+
+        if self.scale_factor != 1.0:
+            u = self.upsample(u)
+
         return u
 
 
@@ -126,29 +151,31 @@ class DiffusionModel(nn.Module):
             nn.Linear(self.time_dim , self.time_dim),
             nn.SiLU()
         )
-        
-        self.conv1 = ConvLayer(channels, 16, kernel_size=3, padding=1)    # size // 2
-        self.down1 = DownBlock(16, 32, self.time_dim)           # size // 4
-        self.down2 = DownBlock(32, 64, self.time_dim)           # size // 8
-        self.down3 = DownBlock(64, 128, self.time_dim)          # size // 16
-        self.down4 = DownBlock(128, 256, self.time_dim)         # # size // 32
 
-        self.middel = DownBlock(256, 512, self.time_dim)
-        self.middel_att = AttentionBlock(512, self.width // 32, self.height // 32)
+        self.nums_features = [64, 128, 256, 512, 1024]
 
-        self.up1 = UpBlock(512, 256,256, self.time_dim)
-        self.up1_att = AttentionBlock(256, self.width // 16, self.height // 16)
+        self.conv1 = ConvLayer(channels, self.nums_features[0], kernel_size=3, padding=1)           # size // 2
+        self.down1 = DownBlock(self.nums_features[0], self.nums_features[1], self.time_dim)         # size // 4
+        self.down2 = DownBlock(self.nums_features[1], self.nums_features[2], self.time_dim)         # size // 8
+        self.down3 = DownBlock(self.nums_features[2], self.nums_features[3], self.time_dim)         # size // 16
+        self.down4 = DownBlock(self.nums_features[3], self.nums_features[4], self.time_dim)         # # size // 32
 
-        self.up2 = UpBlock(256, 128, 128, self.time_dim)
-        self.up2_att = AttentionBlock(128, self.width // 8, self.height // 8)
+        self.middel = MiddleBlock(self.nums_features[4], self.nums_features[4], self.time_dim)
+        self.middel_att = AttentionBlock(self.nums_features[4], self.width // 16, self.height // 16)
 
-        self.up3 = UpBlock(128, 64, 64, self.time_dim)
-        self.up3_att = AttentionBlock(64, self.width // 4, self.height // 4)
+        self.up1 = UpBlock(self.nums_features[4], self.nums_features[4], self.nums_features[3], self.time_dim)
+        self.up1_att = AttentionBlock(self.nums_features[3], self.width // 8, self.height // 8)
 
-        self.up4 = UpBlock(64, 32, 32, self.time_dim)
-        self.up5 = UpBlock(32, 16, 16, self.time_dim)
+        self.up2 = UpBlock(self.nums_features[3], self.nums_features[3], self.nums_features[2], self.time_dim)
+        self.up2_att = AttentionBlock(self.nums_features[2], self.width // 4, self.height // 4)
 
-        self.final_conv = ConvLayer(16, channels, kernel_size=3, padding=1,
+        self.up3 = UpBlock(self.nums_features[2], self.nums_features[2], self.nums_features[1], self.time_dim)
+        self.up3_att = AttentionBlock(self.nums_features[1], self.width // 2, self.height // 2)
+
+        self.up4 = UpBlock(self.nums_features[1], self.nums_features[1], self.nums_features[0], self.time_dim)
+        self.up5 = UpBlock(self.nums_features[0], self.nums_features[0], self.nums_features[0], self.time_dim, scale_factor=1.0)
+
+        self.final_conv = ConvLayer(self.nums_features[0], channels, kernel_size=3, padding=1,
                                     activation=nn.Identity(), apply_norm=False)
 
     def get_timestep_embedding(self, timesteps: torch.Tensor):
@@ -161,34 +188,59 @@ class DiffusionModel(nn.Module):
         t_emb = self.time_mlp(t_emb)
 
         # first convolution
-        x = self.conv1(x)
+        h1 = self.conv1(x)              # (64, h, w)
 
         # encoder
-        h1 = self.down1(x, t_emb)
-        h2 = self.down2(h1, t_emb)
-        h3 = self.down3(h2, t_emb)
-        h4 = self.down4(h3, t_emb)
+        h2 = self.down1(h1, t_emb)      # (128, h//2, w//2)
+        h3 = self.down2(h2, t_emb)      # (256, h//4, w//4)
+        h4 = self.down3(h3, t_emb)      # (512, h//8, w//8)
+        h5 = self.down4(h4, t_emb)      # (1024, h//16, w//16)
         
-        u = self.middel(h4, t_emb)
+        u = self.middel(h5, t_emb)      # (1024, h//16, w//16)
         u = self.middel_att(u)
 
         # decoder
-        u = self.up1(u, h4, t_emb)
+        u = self.up1(u, h5, t_emb)      # (512, h//8, w//8)
         u = self.up1_att(u)
 
-        u = self.up2(u, h3, t_emb)
+        u = self.up2(u, h4, t_emb)      # (256, h//4, w//4)
         u = self.up2_att(u)
 
-        u = self.up3(u, h2, t_emb)
-        u = self.up4(u, h1, t_emb)
-        u = self.up5(u, x, t_emb)
-        
+        u = self.up3(u, h3, t_emb)      # (128, h//2, w//2)
+        u = self.up4(u, h2, t_emb)      # (64, h, w)
+        u = self.up5(u, h1, t_emb)      # (64, h, w)
+
         return self.final_conv(u)
 
-if __name__ == '__main__':
-    model = DiffusionModel(1, 32, 32,256)
 
-    image = torch.randn(4, 1, 32, 32)
-    timesteps = torch.randint(1, 1000, (4,))
+def count_parameters(model):
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        params = parameter.numel()
+        table.add_row([name, params])
+        total_params += params
+    print(table)
+    print(f"Total Trainable Params: {total_params}")
+    return total_params
+
+
+
+
+if __name__ == '__main__':
+    batch_size = 1
+    channels = 4
+    width = 128
+    height = 128
+    time_dim = 256
+
+    model = DiffusionModel(channels, width, height, time_dim)
+    print(model)
+    count_parameters(model)
+
+    image = torch.randn(batch_size, channels, width, height)
+    timesteps = torch.randint(1, 1000, (batch_size,))
     pred = model(image, timesteps)
     print(pred.shape)
