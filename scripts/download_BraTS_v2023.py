@@ -21,20 +21,19 @@ transforms = Compose([
     LoadImaged(keys=KEYS + SEGMENTATION, allow_missing_keys=True),
     EnsureChannelFirstd(keys=KEYS + SEGMENTATION, allow_missing_keys=True),
 
-    # crop center
-    SpatialPadd(keys=KEYS + SEGMENTATION, spatial_size=(128, 128, -1,),
-                allow_missing_keys=True),
-    CenterSpatialCropd(keys=KEYS + SEGMENTATION, roi_size=(128, 128, -1,),
-                       allow_missing_keys=True),
-
     ConcatItemsd(keys=KEYS, name="image"),
     CropForegroundd(
         keys=["image", "label"],
         source_key="image",
         select_fn=lambda x: x > 0,  # Or your specific threshold
-        channel_indices=1,
         margin=0
     ),
+
+    # crop center
+    SpatialPadd(keys=["image"] + SEGMENTATION, spatial_size=(128, 128, -1,),
+                allow_missing_keys=True),
+    CenterSpatialCropd(keys=["image"] + SEGMENTATION, roi_size=(128, 128, -1,),
+                       allow_missing_keys=True),
 
     # scale intensities
     ClipIntensityPercentilesd(
@@ -106,6 +105,9 @@ def visualize_npz_slice(npz_path):
     data = np.load(npz_path)
     image = data['image']  # Shape: [4, H, W]
     label = data['label']  # Shape: [1, H, W]
+
+    print(f"{image.shape=}")
+    print(f"{label.shape=}")
 
     num_channels = image.shape[0]
     fig, axes = plt.subplots(1, num_channels + 1, figsize=(15, 5))
