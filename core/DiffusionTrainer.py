@@ -60,9 +60,9 @@ class DiffusionTrainer:
             self._visualize_sampling(epoch)
             self.writer.flush()
 
-        # save model
-        os.makedirs("./checkpoints", exist_ok=True)
-        torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
+            # save model
+            os.makedirs("./checkpoints", exist_ok=True)
+            torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
 
         self.writer.close()
         print("Training complete and logs flushed.")
