@@ -27,7 +27,7 @@ class DiffusionTrainer:
         self.lr = lr
         self.device = device
 
-        self.epoch = 1
+        self.epoch = 0
 
         self.model.to(self.device)
 
@@ -59,21 +59,21 @@ class DiffusionTrainer:
         if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
-
     def save_model(self):
         # save model
         os.makedirs("./checkpoints", exist_ok=True)
         torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
 
     def train(self, dataloader: DataLoader, epochs: int):
-        samples = torch.stack([dataloader.dataset[i] for i in torch.randint(0, len(dataloader.dataset), (4,))])
+        samples = torch.stack(
+            [dataloader.dataset[i] for i in torch.randint(0, len(dataloader.dataset), (4,))])
 
         self.model.to(self.device)
         self.model.train()
 
         self.engine.to(self.device)
 
-        for self.epoch in range(self.epoch, epochs + 1):
+        for self.epoch in range(self.epoch + 1, epochs + 1):
             losses = torch.zeros((len(dataloader),))
             bar = tqdm(dataloader, total=len(dataloader), desc=f"Epoch {self.epoch}")
             for i, x in enumerate(bar):
