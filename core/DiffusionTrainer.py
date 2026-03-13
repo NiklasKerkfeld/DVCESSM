@@ -18,19 +18,52 @@ class DiffusionTrainer:
     def __init__(self,
                  model: DiffusionModel,
                  engine: DiffusionEngine,
+                 lr: float,
                  device: torch.device,
                  name='DiffusionModel',
                  ):
         self.model = model
         self.engine = engine
+        self.lr = lr
         self.device = device
 
+        self.epoch = 1
+
         self.loss_fn = nn.MSELoss()
+        self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
         self.writer = SummaryWriter(f'runs/Diffusion/{name}')
 
-    def train(self, dataloader: DataLoader, epochs: int, lr: float):
-        optimizer = Adam(self.model.parameters(), lr=lr)
+    def save_checkpoint(self):
+        os.makedirs("./checkpoints", exist_ok=True)
+        checkpoint = {
+            'epoch': self.epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'rng_state': torch.get_rng_state(),
+            'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
+        }
+        torch.save(checkpoint, 'diffusion_training_checkpoint.pt')
+
+    def load_checkpoint(self, checkpoint_path: str):
+        checkpoint = torch.load(checkpoint_path)
+
+        self.epoch = checkpoint["epoch"]
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        if 'rng_state' in checkpoint:
+            torch.set_rng_state(checkpoint['rng_state'].cpu())
+        if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
+            torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
+
+
+    def save_model(self):
+        # save model
+        os.makedirs("./checkpoints", exist_ok=True)
+        torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
+
+    def train(self, dataloader: DataLoader, epochs: int):
         samples = torch.stack([dataloader.dataset[i] for i in torch.randint(0, len(dataloader.dataset), (4,))])
 
         self.model.to(self.device)
@@ -38,47 +71,46 @@ class DiffusionTrainer:
 
         self.engine.to(self.device)
 
-        for epoch in range(1, epochs + 1):
+        for self.epoch in range(self.epoch, epochs + 1):
             losses = torch.zeros((len(dataloader),))
-            bar = tqdm(dataloader, total=len(dataloader), desc=f"Epoch {epoch}")
+            bar = tqdm(dataloader, total=len(dataloader), desc=f"Epoch {self.epoch}")
             for i, x in enumerate(bar):
                 x = x.to(self.device)
                 x_t, noise, t = self.engine.sample(x)
 
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 pred = self.model(x_t, t)
                 loss = self.loss_fn(pred, noise)
                 loss.backward()
-                optimizer.step()
+                self.optimizer.step()
 
                 bar.set_postfix({"loss": loss.detach().item()})
                 losses[i] = loss.detach().item()
 
             # visualization
-            self.writer.add_scalar("loss", torch.mean(losses), epoch)
-            self._visualize_one_step(samples, epoch)
-            self._visualize_sampling(epoch)
+            self.writer.add_scalar("loss", torch.mean(losses), self.epoch)
+            self._visualize_one_step(samples)
+            self._visualize_sampling()
             self.writer.flush()
 
-            # save model
-            os.makedirs("./checkpoints", exist_ok=True)
-            torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
+            self.save_checkpoint()
 
+        self.save_model()
         self.writer.close()
         print("Training complete and logs flushed.")
 
     @torch.no_grad()
-    def _visualize_sampling(self, epoch: int):
+    def _visualize_sampling(self):
         self.model.eval()
 
         samples = self.generate_image(batch_size=4)
         grid = make_grid(samples[:, 0, None], nrow=4)
-        self.writer.add_image(f"Visual_Check/samples", grid, epoch)
+        self.writer.add_image(f"Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
 
     @torch.no_grad()
-    def _visualize_one_step(self, images: torch.Tensor, epoch: int):
+    def _visualize_one_step(self, images: torch.Tensor):
         """
         fixed_images: A batch of clean images (x0) normalized to [-1, 1].
         """
@@ -100,7 +132,7 @@ class DiffusionTrainer:
 
             x_0_recon = self.engine.image_approximation(x_t, epsilon_pred, t_tensor)
 
-            self._log_one_step(epoch, t, x_0_recon, x_t)
+            self._log_one_step(self.epoch, t, x_0_recon, x_t)
 
         self.model.train()
 

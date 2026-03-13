@@ -5,9 +5,9 @@ defaults:
 
 training:
   epochs: 250
-  lr: 1e-4
-  batch_size: 128 # You can add this now
-  name_prefix: "DiffusionModel"
+  lr: 3e-4
+  name: null
+  checkpoint: "./checkpoints/diffusion_training_checkpoint.pt"
 
 inference:
   classifier_path: "./checkpoints/classifier.pth"
