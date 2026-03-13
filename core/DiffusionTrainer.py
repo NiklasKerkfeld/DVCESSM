@@ -29,6 +29,8 @@ class DiffusionTrainer:
 
         self.epoch = 1
 
+        self.model.to(self.device)
+
         self.loss_fn = nn.MSELoss()
         self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
