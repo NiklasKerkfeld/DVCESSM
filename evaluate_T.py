@@ -29,6 +29,7 @@ def evaluate_T(model, engine, images: torch.Tensor, device):
 
         epsilon_pred = model(noised, t_tensor)
         loss[t] = loss_fn(epsilon_pred, noise).detach().item()
+        print(f"{t}: {loss[t]}")
 
     plt.plot(loss)
     plt.xlabel("T")
