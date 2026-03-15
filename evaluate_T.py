@@ -12,7 +12,7 @@ torch.manual_seed(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
-
+@torch.no_grad()
 def evaluate_T(model, engine, images: torch.Tensor, device):
     loss_fn = nn.MSELoss()
     model.eval()
@@ -28,7 +28,7 @@ def evaluate_T(model, engine, images: torch.Tensor, device):
         noised, noise = engine.diffuse(images, t_tensor)
 
         epsilon_pred = model(noised, t_tensor)
-        loss[t] = loss_fn(epsilon_pred, noise)
+        loss[t] = loss_fn(epsilon_pred, noise).detach().item()
 
     plt.plot(loss)
     plt.xlabel("T")
