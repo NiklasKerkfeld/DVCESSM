@@ -49,7 +49,7 @@ def main(cfg: DictConfig):
     else:
         raise ValueError(f"Unknown dataset: {cfg.data.name}")
 
-    samples = torch.cat([dataset[i][None] for i in torch.randint(0, len(dataset), (64,))], dim=0)
+    samples = torch.cat([dataset[i][None] for i in torch.randint(0, len(dataset), (32,))], dim=0)
 
     model = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
                            cfg.model.time_dim)
