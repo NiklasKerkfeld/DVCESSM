@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - engine: cosine
+  - engine: linear
   - data: MNIST
 
 training:

@@ -62,10 +62,10 @@ def main(cfg: DictConfig):
         name=run_name
     )
 
-    filepath = Path(cfg.training.checkpoint)
-    if filepath.is_file():
-        trainer.load_checkpoint(cfg.training.checkpoint)
-        print(f"continue training form {cfg.training.checkpoint}...")
+    checkpoint = f"{cfg.training.checkpoint}_{run_name}"
+    if Path(checkpoint).is_file():
+        trainer.load_checkpoint(checkpoint)
+        print(f"continue training form {checkpoint}...")
 
     trainer.train(
         train_loader,

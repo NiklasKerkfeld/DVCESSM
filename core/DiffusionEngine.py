@@ -23,11 +23,16 @@ class DiffusionEngine(nn.Module):
         alphas_cumprod = torch.cumprod(alphas, dim=0)
 
         # precalculate values
+        self.register_buffer('alphas_cumprod', alphas_cumprod)
         self.register_buffer('sqrt_alphas_cumprod', torch.sqrt(alphas_cumprod))
         self.register_buffer('sqrt_one_minus_alphas_cumprod', torch.sqrt(1 - alphas_cumprod))
         self.register_buffer('coeff1', torch.sqrt(1.0 / alphas))
         self.register_buffer('coeff2', (1 - alphas) / torch.sqrt(1 - alphas_cumprod))
         self.register_buffer('sqrt_beta', torch.sqrt(beta))
+
+    def snr(self, t: torch.Tensor) -> torch.Tensor:
+        alphas_comprod = self._extract(self.alphas_cumprod, t, t.shape)
+        return alphas_comprod / (1 - alphas_comprod)
 
     @staticmethod
     def _extract(a: Tensor, t: Tensor, x_shape: torch.Size) -> Tensor:
@@ -72,3 +77,11 @@ class DiffusionEngine(nn.Module):
 
     def get_sigma(self, t: Tensor, shape: torch.Size):
         return self._extract(self.sqrt_beta, t, shape)
+
+
+if __name__ == '__main__':
+    engine = DiffusionEngine(T=1000, beta_min=0.1, beta_max=1.0, device=torch.device('cpu'))
+    t = torch.tensor([0, 1, 10, 50, 100, 250, 500, 800, 900, 990, 998, 999])
+    snr = engine.snr(t)
+    for i in range(len(t)):
+        print(f"{t[i]}: {snr[i]}")

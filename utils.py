@@ -1,5 +1,6 @@
 import torch
 
+
 def random_target(input_tensor, n):
     offset = torch.randint(1, n - 1, input_tensor.shape, device=input_tensor.device)
     target = ((input_tensor - 1 + offset) % (n - 1)) + 1
@@ -24,15 +25,15 @@ def get_one_of_each(dataset):
     return torch.cat([samples[i] for i in range(10)])[:, None]
 
 
-def cosine_beta_schedule(timesteps, s=0.008):
+def cosine_beta_schedule(T: int, s: float = 0.008):
     """
     Cosine schedule as proposed in https://arxiv.org/abs/2102.09672
     """
-    steps = timesteps + 1
-    x = torch.linspace(0, timesteps, steps)
+    steps = T + 1
+    t = torch.linspace(0, T, steps)
 
     # Calculate alpha_bar (cumprod)
-    alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * torch.pi * 0.5) ** 2
+    alphas_cumprod = torch.cos((((t / T) + s) / (1 + s)) * torch.pi * 0.5) ** 2
     alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
 
     # Derive betas from alphas_cumprod
@@ -44,3 +45,21 @@ def cosine_beta_schedule(timesteps, s=0.008):
 
 def to_vis(x):
     return torch.clamp((x + 1) / 2, 0.0, 1.0)
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+
+    beta = cosine_beta_schedule(1000)
+    alphas = 1.0 - beta
+    alphas_cumprod = torch.cumprod(alphas, dim=0)
+
+    for i in [1, 100, 250, 500, 800, 900, 990, 998, 999]:
+        print(f"{i}: {alphas_cumprod[i]}")
+
+
+    plt.plot(alphas, label="alpha")
+    plt.plot(beta, label="beta")
+    plt.plot(alphas_cumprod, label="alphas_cumprod")
+    plt.legend()
+    plt.show()

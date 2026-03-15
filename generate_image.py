@@ -16,11 +16,12 @@ def main(cfg: DictConfig):
     print(f"using device: {device}")
 
     model = DiffusionModel(cfg.model.dims, cfg.data.image_width, cfg.data.image_height, cfg.model.time_dim)
-    model.load_state_dict(torch.load(cfg.inference.diffusion_path, map_location=device))
+    checkpoint = torch.load(cfg.training.checkpoint, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
 
     engine = DiffusionEngine(**cfg.engine, device=device)
 
-    diffusion_model = DiffusionTrainer(model, engine, device)
+    diffusion_model = DiffusionTrainer(model, engine, 0.0, device)
 
     gen_image = diffusion_model.generate_image()[0, 0].cpu()
 
