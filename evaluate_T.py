@@ -19,6 +19,7 @@ def evaluate_T(model, engine, images: torch.Tensor, device):
 
     images = images.to(device)
     model.to(device)
+    engine.to(device)
 
     loss = torch.zeros((engine.T,))
 
