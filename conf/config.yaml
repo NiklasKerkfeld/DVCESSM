@@ -7,7 +7,7 @@ training:
   epochs: 250
   lr: 3e-4
   name: null
-  checkpoint: "./checkpoints/diffusion_training_checkpoint.pt"
+  checkpoint: "./checkpoints/diffusion"
 
 inference:
   classifier_path: "./checkpoints/classifier.pth"
