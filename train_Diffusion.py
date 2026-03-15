@@ -62,7 +62,7 @@ def main(cfg: DictConfig):
         name=run_name
     )
 
-    checkpoint = f"{cfg.training.checkpoint}_{run_name}.pt"
+    checkpoint = f'./checkpoints/diffusion_{run_name}.pt'
     if Path(checkpoint).is_file():
         trainer.load_checkpoint(checkpoint)
         print(f"continue training form {checkpoint}...")

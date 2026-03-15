@@ -26,6 +26,7 @@ class DiffusionTrainer:
         self.engine = engine
         self.lr = lr
         self.device = device
+        self.name = name
 
         self.epoch = 0
 
@@ -45,7 +46,7 @@ class DiffusionTrainer:
             'rng_state': torch.get_rng_state(),
             'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
         }
-        torch.save(checkpoint, './checkpoints/diffusion_training_checkpoint.pt')
+        torch.save(checkpoint, f'./checkpoints/diffusion_{self.name}.pt')
 
     def load_checkpoint(self, checkpoint_path: str):
         checkpoint = torch.load(checkpoint_path)
