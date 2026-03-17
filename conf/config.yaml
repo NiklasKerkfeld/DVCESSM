@@ -11,7 +11,7 @@ training:
 inference:
   classifier_path: "./checkpoints/classifier.pth"
   diffusion_path: "./checkpoints/diffusion_run_3.pt"
-  segmentation_path: "./checkpoints/SegmentationModel.pth"
+  segmentation_path: "./checkpoints/9_SegmentationModel.pth"
   output_dir: "./figures"
   start_fraction: 0.5 # noise level for CF generation
   weight_classifier: 0.1

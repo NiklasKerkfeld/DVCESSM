@@ -1,6 +1,7 @@
 import torch
 from torch import nn, Tensor
 from tqdm import tqdm
+import torch.nn.functional as F
 
 from core.DiffusionEngine import DiffusionEngine
 
@@ -60,11 +61,10 @@ class CounterfactualGenerator:
         x = x.detach().requires_grad_(True)
         approx_images = self.engine.image_approximation(x, epsilon_pred, t)
 
-        # classifier
+        # model
         logits = self.model(approx_images)
-        log_probs = torch.log_softmax(logits, dim=1)
-        target_log_prob = log_probs[torch.arange(x.shape[0], device=x.device), targets].sum()
-        grad_c = torch.autograd.grad(target_log_prob, x, retain_graph=True)[0]
+        loss_c = F.cross_entropy(logits, targets, reduction='sum')
+        grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
         # distance

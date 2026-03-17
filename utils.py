@@ -59,7 +59,10 @@ def visualize_seg(seg_map: torch.Tensor):
         [0, 0, 0],  # Class 0
         [1, 0, 0],  # Class 1
         [0, 1, 0],  # Class 2
-        [0, 0, 1]  # Class 3
+        [0, 0, 1],  # Class 3
+        [0, 1, 1],  # Class 4
+        [1, 0, 1],  # Class 5
+        [1, 1, 0]  # Class 6
     ], dtype=torch.float32)
 
     return palette[seg_map.squeeze(0)].permute(2, 0, 1)
