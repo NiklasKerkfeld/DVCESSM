@@ -6,6 +6,34 @@ import torch.nn.functional as F
 from core.DiffusionEngine import DiffusionEngine
 
 
+def masked_cross_entropy(logits, targets):
+    # Get current predictions: [B, H, W]
+    current_preds = logits.argmax(dim=1)
+
+    # Create a mask where predictions are WRONG (1 if wrong, 0 if correct)
+    mask = (current_preds != targets).float()
+
+    # Calculate per-pixel cross entropy
+    loss = F.cross_entropy(logits, targets, reduction='none')
+
+    # Only keep loss for wrong pixels
+    return (loss * mask).sum()
+
+
+def capped_cross_entropy(logits, targets, threshold=0.75):
+    # Calculate probabilities
+    probs = torch.softmax(logits, dim=1)
+    # Get probability of the target class at each pixel
+    target_probs = probs.gather(1, targets.unsqueeze(1)).squeeze(1)
+
+    # Mask pixels that are already 'confident enough'
+    # Loss is only calculated for pixels where target_prob < threshold
+    mask = (target_probs < threshold).float()
+
+    loss = F.cross_entropy(logits, targets, reduction='none')
+    return (loss * mask).sum()
+
+
 class CounterfactualGenerator:
     def __init__(self,
                  model: nn.Module,
@@ -63,7 +91,7 @@ class CounterfactualGenerator:
 
         # model
         logits = self.model(approx_images)
-        loss_c = F.cross_entropy(logits, targets, reduction='sum')
+        loss_c = masked_cross_entropy(logits, targets)
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
