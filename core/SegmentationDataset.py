@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 class SegmentationDataset(Dataset):
     def __init__(self):
         super().__init__()
-        self.path = "data/BraTS/Slices/training"
+        self.path = "data/BraTS/V2024/preprocessed"
         self.images = list(glob.glob(f"{self.path}/*/*.npz"))
 
     def __len__(self):
@@ -28,7 +28,8 @@ if __name__ == "__main__":
     channel_names = ['T1', 'T1ce', 'T2', 'FLAIR']
 
     dataset = SegmentationDataset()
-    image, mask = dataset[10]
+    print(len(dataset))
+    image, mask = dataset[85]
 
     print(image.shape)
     print(mask.shape)

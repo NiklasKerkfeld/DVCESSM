@@ -1,19 +1,20 @@
 import torch
 from torch import nn, Tensor
+from tqdm import tqdm
 
 from core.DiffusionEngine import DiffusionEngine
 
 
 class CounterfactualGenerator:
     def __init__(self,
-                 classifier: nn.Module,
+                 model: nn.Module,
                  diffusion_model: nn.Module,
                  engine: DiffusionEngine,
                  device: torch.device,
                  weight_classifier: float,
                  weight_distance: float):
         super().__init__()
-        self.classifier = classifier
+        self.model = model
         self.diffusion_model = diffusion_model
         self.engine = engine
         self.device = device
@@ -23,17 +24,17 @@ class CounterfactualGenerator:
     @torch.no_grad()
     def generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor, start_fraction: float):
         self.diffusion_model.eval()
-        self.classifier.eval()
+        self.model.eval()
 
         images = images.to(self.device)
-        self.classifier.to(self.device)
+        self.model.to(self.device)
         self.diffusion_model.to(self.device)
 
         start_t = int(self.engine.T * start_fraction)
         t_tensor = torch.full((images.shape[0],), start_t, device=self.device)
         x, _ = self.engine.diffuse(images, t_tensor)
 
-        for t in reversed(range(start_t)):
+        for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
             t_tensor = torch.full((images.shape[0],), t, device=self.device)
             epsilon_pred = self.diffusion_model(x, t_tensor)
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
@@ -60,7 +61,7 @@ class CounterfactualGenerator:
         approx_images = self.engine.image_approximation(x, epsilon_pred, t)
 
         # classifier
-        logits = self.classifier(approx_images)
+        logits = self.model(approx_images)
         log_probs = torch.log_softmax(logits, dim=1)
         target_log_prob = log_probs[torch.arange(x.shape[0], device=x.device), targets].sum()
         grad_c = torch.autograd.grad(target_log_prob, x, retain_graph=True)[0]

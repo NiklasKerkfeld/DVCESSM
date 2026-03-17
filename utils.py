@@ -47,19 +47,25 @@ def to_vis(x):
     return torch.clamp((x + 1) / 2, 0.0, 1.0)
 
 
+def visualize_mri(image: torch.Tensor):
+    img_min = torch.amin(image, (2, 3))[:, :, None, None]
+    img_max = torch.amax(image, (2, 3))[:, :, None, None]
+    image = (image - img_min) / (img_max - img_min)
+    return image[:, :, None].repeat(1, 1, 3, 1, 1)
+
+
+def visualize_seg(seg_map: torch.Tensor):
+    palette = torch.tensor([
+        [0, 0, 0],  # Class 0
+        [1, 0, 0],  # Class 1
+        [0, 1, 0],  # Class 2
+        [0, 0, 1]  # Class 3
+    ], dtype=torch.float32)
+
+    return palette[seg_map.squeeze(0)].permute(2, 0, 1)
+
+
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
-    beta = cosine_beta_schedule(1000)
-    alphas = 1.0 - beta
-    alphas_cumprod = torch.cumprod(alphas, dim=0)
-
-    for i in [1, 100, 250, 500, 800, 900, 990, 998, 999]:
-        print(f"{i}: {alphas_cumprod[i]}")
-
-
-    plt.plot(alphas, label="alpha")
-    plt.plot(beta, label="beta")
-    plt.plot(alphas_cumprod, label="alphas_cumprod")
-    plt.legend()
-    plt.show()
+    images = torch.randn(4, 4, 128, 128)
+    normalized = visualize_mri(images)
+    print(normalized.shape)

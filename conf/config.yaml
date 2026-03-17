@@ -10,10 +10,10 @@ training:
 
 inference:
   classifier_path: "./checkpoints/classifier.pth"
-  diffusion_path: "./checkpoints/DiffusionModel.pth"
+  diffusion_path: "./checkpoints/diffusion_run_3.pt"
   segmentation_path: "./checkpoints/SegmentationModel.pth"
-  start_fraction: 0.5 # noise level for CF generation
   output_dir: "./figures"
+  start_fraction: 0.5 # noise level for CF generation
   weight_classifier: 0.1
   weight_distance: 0.15
 
@@ -44,5 +44,5 @@ segmentation:
   image_height: ${data.image_height}
   num_classes: ${data.n_classes}
   lr: 0.001
-  epochs: 10
+  epochs: 25
   name_prefix: "SegmentationModel"
