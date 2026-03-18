@@ -33,7 +33,6 @@ class GANTrainer:
 
         self.epoch = 0
 
-        self.adpt_loss_fn = nn.L1Loss()
         self.dis_loss_fn = nn.CrossEntropyLoss()
         self.seg_loss_fn = nn.CrossEntropyLoss()
 
@@ -105,11 +104,11 @@ class GANTrainer:
     def train_generator(self, image: torch.Tensor, target: torch.Tensor,
                         optimizer: AdamW) -> torch.Tensor:
         adoption = self.generator(image, target)
-        adpt_loss = self.adpt_loss_fn(adoption, torch.zeros_like(adoption))
+        adpt_loss = torch.mean(torch.abs(adoption))
         counterfactual = image + adoption
 
         adv_pred = self.adversarial(counterfactual)
-        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0]))
+        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], device=self.device))
 
         seg_pred = self.segmentation(counterfactual)
         seg_loss = self.seg_loss_fn(seg_pred, target)
@@ -166,7 +165,7 @@ class GANTrainer:
             counterfactual = image + adoption
 
             adv_pred = self.discriminator(counterfactual)
-            adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(counterfactual.shape[0]))
+            adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(counterfactual.shape[0], device=self.device))
 
             seg_pred = self.segmentation(counterfactual)
             seg_loss = self.seg_loss_fn(seg_pred, target)
