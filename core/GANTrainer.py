@@ -108,7 +108,7 @@ class GANTrainer:
         counterfactual = image + adoption
 
         adv_pred = self.adversarial(counterfactual)
-        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], device=self.device))
+        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long, device=self.device))
 
         seg_pred = self.segmentation(counterfactual)
         seg_loss = self.seg_loss_fn(seg_pred, target)
@@ -129,10 +129,10 @@ class GANTrainer:
         self.adversarial.train()
 
         real_pred = self.adversarial(image)
-        d_loss_real = self.dis_loss_fn(real_pred, torch.zeros(image.size(0)).to(self.device))
+        d_loss_real = self.dis_loss_fn(real_pred, torch.zeros(image.size(0), dtype=torch.long, device=self.device))
 
         fake_pred = self.adversarial(counterfactual.detach())
-        d_loss_fake = self.dis_loss_fn(fake_pred, torch.ones(image.size(0)).to(self.device))
+        d_loss_fake = self.dis_loss_fn(fake_pred, torch.ones(image.size(0), dtype=torch.long, device=self.device))
 
         loss = d_loss_real + d_loss_fake
 
@@ -165,7 +165,7 @@ class GANTrainer:
             counterfactual = image + adoption
 
             adv_pred = self.discriminator(counterfactual)
-            adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(counterfactual.shape[0], device=self.device))
+            adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(counterfactual.shape[0], dtype=torch.long, device=self.device))
 
             seg_pred = self.segmentation(counterfactual)
             seg_loss = self.seg_loss_fn(seg_pred, target)
