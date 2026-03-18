@@ -221,9 +221,12 @@ class GANTrainer:
         final_grid = torch.cat(all_rows, dim=1)
         self.writer.add_image('val/visualization', final_grid, global_step=self.epoch)
 
-        target_map = visualize_seg(target_mask)
-        orig_map = visualize_seg(seg_org)
-        cf_map = visualize_seg(seg_cf)
+        print(f"{target_mask.shape=}")
+        print(f"{seg_org.shape=}")
+        print(f"{seg_cf.shape=}")
+        target_map = visualize_seg(target_mask[None])
+        orig_map = visualize_seg(seg_org[None])
+        cf_map = visualize_seg(seg_cf[None])
         self.writer.add_image('val/maps', make_grid([target_map, orig_map, cf_map], nrow=3, padding=2), global_step=self.epoch)
 
 
