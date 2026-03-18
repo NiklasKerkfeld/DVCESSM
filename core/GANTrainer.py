@@ -210,7 +210,7 @@ class GANTrainer:
         all_rows = []
         for i in range(4):
             residual_mod = adoption[i]
-            heatmap = torch.zeros((3, adoption.shape[1], adoption.shape[2]), device=self.device)
+            heatmap = torch.zeros((3, adoption.shape[1], adoption.shape[2]))
             heatmap[0] = torch.clamp(-residual_mod, min=0)
             heatmap[2] = torch.clamp(residual_mod, min=0)
             heatmap = heatmap / (heatmap.max() + 1e-5)
