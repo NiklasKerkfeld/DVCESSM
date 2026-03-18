@@ -10,7 +10,7 @@ from tqdm import tqdm
 class GANTrainer:
     def __init__(self,
                  generator: nn.Module,
-                 discriminator: nn.Module,
+                 adversarial: nn.Module,
                  segmentation: nn.Module,
                  device: torch.device,
                  name='GANModel',
@@ -21,7 +21,7 @@ class GANTrainer:
                  lambda_adpt: float = 10,
                  ):
         self.generator = generator
-        self.adversarial = discriminator
+        self.adversarial = adversarial
         self.segmentation = segmentation
         self.device = device
         self.name = name
@@ -146,7 +146,7 @@ class GANTrainer:
     @torch.no_grad()
     def evaluation(self, valid_dataloader: DataLoader):
         self.generator.eval()
-        self.discriminator.eval()  # Paper refers to D(x) and Da(x) [cite: 38]
+        self.adversarial.eval()  # Paper refers to D(x) and Da(x) [cite: 38]
         self.segmentation.eval()  # This is H(.) in the paper [cite: 43]
 
         val_losses = {
@@ -164,7 +164,7 @@ class GANTrainer:
 
             counterfactual = image + adoption
 
-            adv_pred = self.discriminator(counterfactual)
+            adv_pred = self.adversarial(counterfactual)
             adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(counterfactual.shape[0], dtype=torch.long, device=self.device))
 
             seg_pred = self.segmentation(counterfactual)
