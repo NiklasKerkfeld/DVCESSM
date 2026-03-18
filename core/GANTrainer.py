@@ -150,10 +150,10 @@ class GANTrainer:
         self.segmentation.eval()  # This is H(.) in the paper [cite: 43]
 
         val_losses = {
-            "total": [],
-            "perturbation": [],
-            "explanation": [],
-            "adversarial": []
+            "loss": [],
+            "adoption": [],
+            "adversarial": [],
+            "segmentation": []
         }
 
         for image, target in tqdm(valid_dataloader, desc='validation'):
@@ -173,34 +173,72 @@ class GANTrainer:
             total_loss = self.lambda_adpt * adpt_loss + self.lambda_adv * adv_loss + self.lambda_seg * seg_loss
 
             # Store results
-            val_losses["total"].append(total_loss.item())
-            val_losses["perturbation"].append(adpt_loss.item())
+            val_losses["loss"].append(total_loss.item())
+            val_losses["adoption"].append(adpt_loss.item())
             val_losses["adversarial"].append(adv_loss.item())
             val_losses["segmentation"].append(seg_loss.item())
 
         # Log averages to Tensorboard
-        avg_total = sum(val_losses["total"]) / len(val_losses["total"])
-        self.writer.add_scalar("val/total_loss", avg_total, global_step=self.epoch)
-        self.writer.add_scalar("val/perturbation",
-                               sum(val_losses["perturbation"]) / len(val_losses["perturbation"]),
+        avg_loss = sum(val_losses["loss"]) / len(val_losses["loss"])
+        self.writer.add_scalar("val/loss", avg_loss, global_step=self.epoch)
+        self.writer.add_scalar("val/adoption",
+                               sum(val_losses["adoption"]) / len(val_losses["adoption"]),
                                global_step=self.epoch)
-        self.writer.add_scalar("val/explanation",
-                               sum(val_losses["explanation"]) / len(val_losses["explanation"]),
+        self.writer.add_scalar("val/adversarial",
+                               sum(val_losses["adversarial"]) / len(val_losses["adversarial"]),
+                               global_step=self.epoch)
+        self.writer.add_scalar("val/segmentation",
+                               sum(val_losses["segmentation"]) / len(val_losses["segmentation"]),
                                global_step=self.epoch)
 
         self.save_visual_explanation(image[0], adoption[0], counterfactual[0], target[0])
 
-    def save_visual_explanation(self, img, res, cf, target):
+    @torch.no_grad()
+    def save_mri_visual_explanation(self, img, adoption, cf, target_mask):
         """
-        Implements the visualization style from Figure 1 & 3[cite: 46, 137].
-        Red markings = negative values (erased), Blue = positive (added)[cite: 158].
+        img, adoption, cf shape: (4, H, W) - [T1, T1c, T2, FLAIR]
+        target_mask shape: (1, H, W) or (C, H, W)
         """
-        # Simple logic to visualize residual as described in paper [cite: 158]
-        res_vis = torch.zeros_like(img)
-        res_vis[0] = torch.clamp(res, min=0)  # Blue channel (positive)
-        res_vis[2] = torch.abs(torch.clamp(res, max=0))  # Red channel (negative)
 
-        grid = make_grid([img, res_vis, cf])
-        self.writer.add_image('val/explanation_sample', grid, global_step=self.epoch)
+        # 1. Normalize channels for visualization (0 to 1 range)
+        def normalize_chan(t):
+            t_min, t_max = t.min(), t.max()
+            return (t - t_min) / (t_max - t_min + 1e-5)
+
+        # 2. Create a row for each modality
+        # Column 1: Original Modality | Column 2: Residual (Heatmap) | Column 3: Counterfactual
+        all_rows = []
+
+        for i in range(4):
+            # Extract specific modality
+            orig_mod = normalize_chan(img[i]).unsqueeze(0)  # (1, H, W)
+            cf_mod = normalize_chan(cf[i]).unsqueeze(0)  # (1, H, W)
+
+            # Create Heatmap for the Residual G(x, yc)
+            # Red = Subtracted from original, Blue = Added to original [cite: 158]
+            residual_mod = adoption[i]
+            heatmap = torch.zeros((3, adoption.shape[1], adoption.shape[2]), device=self.device)
+            heatmap[0] = torch.clamp(-residual_mod, min=0)  # Red: Negative values (Deletions)
+            heatmap[2] = torch.clamp(residual_mod, min=0)  # Blue: Positive values (Additions)
+            # Normalize heatmap intensity for visibility
+            heatmap = heatmap / (heatmap.max() + 1e-5)
+
+            # Convert grayscale modalities to RGB for concatenation
+            orig_rgb = orig_mod.repeat(3, 1, 1)
+            cf_rgb = cf_mod.repeat(3, 1, 1)
+
+            # Row: [Original, Residual Heatmap, Counterfactual]
+            row = torch.stack([orig_rgb, heatmap, cf_rgb])  # (3, 3, H, W)
+            all_rows.append(make_grid(row, nrow=3, padding=2))
+
+        # Combine all modalities into one large vertical grid
+        final_grid = torch.cat(all_rows, dim=1)  # Stack vertically
+
+        self.writer.add_image('val/mri_explanation_layers', final_grid, global_step=self.epoch)
+
+        # 3. Add the Target Segmentation Mask as a separate reference
+        if target_mask.max() > 0:
+            norm_mask = normalize_chan(target_mask.float()).repeat(3, 1, 1)
+            self.writer.add_image('val/target_mask_goal', norm_mask, global_step=self.epoch)
 
 
