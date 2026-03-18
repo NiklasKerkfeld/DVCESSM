@@ -204,22 +204,18 @@ class GANTrainer:
         """
         img = visualize_mri(img[None])[0]
         cf = visualize_mri(cf[None])[0]
-        print(f"{img.shape=}")
-        print(f"{cf.shape=}")
+        print(f"{img.shape=}") # img.shape=torch.Size([4, 3, 128, 128])
+        print(f"{cf.shape=}") # cf.shape=torch.Size([4, 3, 128, 128])
 
         all_rows = []
         for i in range(4):
             residual_mod = adoption[i]
             heatmap = torch.zeros((3, adoption.shape[1], adoption.shape[2]), device=self.device)
-            heatmap[0] = torch.clamp(-residual_mod, min=0)  # Red: Negative values (Deletions)
-            heatmap[2] = torch.clamp(residual_mod, min=0)  # Blue: Positive values (Additions)
-            # Normalize heatmap intensity for visibility
+            heatmap[0] = torch.clamp(-residual_mod, min=0)
+            heatmap[2] = torch.clamp(residual_mod, min=0)
             heatmap = heatmap / (heatmap.max() + 1e-5)
 
-            orig_rgb = img[i].repeat(3, 1, 1)
-            cf_rgb = cf[i].repeat(3, 1, 1)
-
-            row = torch.stack([orig_rgb, heatmap, cf_rgb])
+            row = torch.stack([img[i], heatmap, cf[i]])
             all_rows.append(make_grid(row, nrow=3, padding=2))
 
         final_grid = torch.cat(all_rows, dim=1)
