@@ -34,7 +34,7 @@ def main(cfg: DictConfig):
     print(f"using device: {device}")
 
     full_dataset = SegmentationDataset()
-    train_dataset, test_dataset, _ = torch.utils.data.random_split(full_dataset, [0.8, 0.2])
+    train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [0.8, 0.2])
 
     train_loader = DataLoader(
         train_dataset,
