@@ -91,7 +91,7 @@ class GANTrainer:
                                global_step=self.epoch)
         self.writer.add_scalar("generation losses/discriminator",
                                torch.mean(
-                                   torch.tensor(self.losses["generation loss"]["discriminator"])),
+                                   torch.tensor(self.losses["generation loss"]["adversarial"])),
                                global_step=self.epoch)
         self.writer.add_scalar("generation losses/segmentation",
                                torch.mean(
