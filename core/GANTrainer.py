@@ -1,3 +1,5 @@
+import os
+
 import torch
 from torch import nn
 from torch.optim import AdamW
@@ -61,6 +63,11 @@ class GANTrainer:
         for self.epoch in range(1, epochs + 1):
             self.train_epoch(train_dataloader, generator_optimizer, adversarial_optimizer)
             self.evaluation(valid_dataloader)
+
+            # save model
+            os.makedirs("./checkpoints", exist_ok=True)
+            torch.save(self.generator.state_dict(), f"checkpoints/{self.name}_generator.pth")
+            torch.save(self.adversarial.state_dict(), f"checkpoints/{self.name}_adversarial.pth")
 
     def train_epoch(self, train_dataloader: DataLoader, generator_optimizer,
                     adversarial_optimizer):
@@ -196,7 +203,7 @@ class GANTrainer:
         seg_org = self.segmentation(image)
         print(f"{seg_org.shape=}")
         print(f"{seg_pred.shape=}")
-        self.save_visual_explanation(image[1].cpu(), adoption[1].cpu(), counterfactual[1].cpu(), target[1].cpu(), seg_pred[1].argmax(0).cpu(), seg_org[1].argmax(0).cpu())
+        self.save_visual_explanation(image[-1].cpu(), adoption[-1].cpu(), counterfactual[-1].cpu(), target[-1].cpu(), seg_pred[-1].argmax(0).cpu(), seg_org[-1].argmax(0).cpu())
 
     @torch.no_grad()
     def save_visual_explanation(self, img, adoption, cf, target_mask, seg_org, seg_cf):
