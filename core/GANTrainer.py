@@ -194,7 +194,7 @@ class GANTrainer:
         self.save_visual_explanation(image[0], adoption[0], counterfactual[0], target[0])
 
     @torch.no_grad()
-    def save_mri_visual_explanation(self, img, adoption, cf, target_mask):
+    def save_visual_explanation(self, img, adoption, cf, target_mask):
         """
         img, adoption, cf shape: (4, H, W) - [T1, T1c, T2, FLAIR]
         target_mask shape: (1, H, W) or (C, H, W)
