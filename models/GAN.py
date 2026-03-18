@@ -65,13 +65,13 @@ class UpBlock(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, channels, num_classes: int = 10, feature_maps: Sequence[int] = [64, 128, 256, 512]):
+    def __init__(self, channels: int, num_classes: int = 10, feature_maps: Sequence[int] = [64, 128, 256, 512]):
         super(Generator, self).__init__()
         self.channels = channels
         self.num_classes = num_classes
         self.feature_maps = feature_maps
 
-        self.down1 = ResidualBlock(channels + num_classes, self.feature_maps[0])
+        self.down1 = ResidualBlock(self.channels + self.num_classes, self.feature_maps[0])
         self.down2 = ResidualBlock(self.feature_maps[0], self.feature_maps[1])
         self.down3 = ResidualBlock(self.feature_maps[1], self.feature_maps[2])
         self.down4 = ResidualBlock(self.feature_maps[2], self.feature_maps[3])
@@ -83,7 +83,7 @@ class Generator(nn.Module):
         self.up3 = UpBlock(self.feature_maps[2], self.feature_maps[1], self.feature_maps[1])
         self.up4 = UpBlock(self.feature_maps[1], self.feature_maps[0], self.feature_maps[0])
 
-        self.final = nn.Conv2d(self.feature_maps[0] + self.channels + self.num_classes, self.num_classes, kernel_size=3, padding=1)
+        self.final = nn.Conv2d(self.feature_maps[0] + self.channels + self.num_classes, self.channels, kernel_size=3, padding=1)
 
     def forward(self, image: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         y = F.one_hot(y, num_classes=self.num_classes).permute(0, 3, 1, 2)
