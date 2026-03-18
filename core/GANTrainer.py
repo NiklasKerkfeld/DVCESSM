@@ -196,7 +196,7 @@ class GANTrainer:
         seg_org = self.segmentation(image)
         print(f"{seg_org.shape=}")
         print(f"{seg_pred.shape=}")
-        self.save_visual_explanation(image[0].cpu(), adoption[0].cpu(), counterfactual[0].cpu(), target[0].cpu(), seg_pred[0].argmax(0).cpu(), seg_org[0].argmax(0).cpu())
+        self.save_visual_explanation(image[1].cpu(), adoption[1].cpu(), counterfactual[1].cpu(), target[1].cpu(), seg_pred[1].argmax(0).cpu(), seg_org[1].argmax(0).cpu())
 
     @torch.no_grad()
     def save_visual_explanation(self, img, adoption, cf, target_mask, seg_org, seg_cf):
