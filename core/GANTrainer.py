@@ -97,8 +97,8 @@ class GANTrainer:
                                torch.mean(
                                    torch.tensor(self.losses["generation loss"]["segmentation"])),
                                global_step=self.epoch)
-        self.writer.add_scalar("discriminator losses/loss",
-                               torch.mean(torch.tensor(self.losses["discriminator loss"])),
+        self.writer.add_scalar("adversarial losses/loss",
+                               torch.mean(torch.tensor(self.losses["adversarial loss"])),
                                global_step=self.epoch)
 
     def train_generator(self, image: torch.Tensor, target: torch.Tensor,
