@@ -6,6 +6,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
+from utils import visualize_mri, visualize_seg
+
 
 class GANTrainer:
     def __init__(self,
@@ -191,31 +193,20 @@ class GANTrainer:
                                sum(val_losses["segmentation"]) / len(val_losses["segmentation"]),
                                global_step=self.epoch)
 
-        self.save_visual_explanation(image[0], adoption[0], counterfactual[0], target[0])
+        seg_org = self.segmentation(image)
+        self.save_visual_explanation(image[0], adoption[0], counterfactual[0], target[0], seg_pred[0].argmax(1), seg_org[0].argmax(1))
 
     @torch.no_grad()
-    def save_visual_explanation(self, img, adoption, cf, target_mask):
+    def save_visual_explanation(self, img, adoption, cf, target_mask, seg_org, seg_cf):
         """
         img, adoption, cf shape: (4, H, W) - [T1, T1c, T2, FLAIR]
         target_mask shape: (1, H, W) or (C, H, W)
         """
+        img = visualize_mri(img[None])[0]
+        cf = visualize_mri(cf[None])[0]
 
-        # 1. Normalize channels for visualization (0 to 1 range)
-        def normalize_chan(t):
-            t_min, t_max = t.min(), t.max()
-            return (t - t_min) / (t_max - t_min + 1e-5)
-
-        # 2. Create a row for each modality
-        # Column 1: Original Modality | Column 2: Residual (Heatmap) | Column 3: Counterfactual
         all_rows = []
-
         for i in range(4):
-            # Extract specific modality
-            orig_mod = normalize_chan(img[i]).unsqueeze(0)  # (1, H, W)
-            cf_mod = normalize_chan(cf[i]).unsqueeze(0)  # (1, H, W)
-
-            # Create Heatmap for the Residual G(x, yc)
-            # Red = Subtracted from original, Blue = Added to original [cite: 158]
             residual_mod = adoption[i]
             heatmap = torch.zeros((3, adoption.shape[1], adoption.shape[2]), device=self.device)
             heatmap[0] = torch.clamp(-residual_mod, min=0)  # Red: Negative values (Deletions)
@@ -223,22 +214,18 @@ class GANTrainer:
             # Normalize heatmap intensity for visibility
             heatmap = heatmap / (heatmap.max() + 1e-5)
 
-            # Convert grayscale modalities to RGB for concatenation
-            orig_rgb = orig_mod.repeat(3, 1, 1)
-            cf_rgb = cf_mod.repeat(3, 1, 1)
+            orig_rgb = img[0].repeat(3, 1, 1)
+            cf_rgb = cf[0].repeat(3, 1, 1)
 
-            # Row: [Original, Residual Heatmap, Counterfactual]
-            row = torch.stack([orig_rgb, heatmap, cf_rgb])  # (3, 3, H, W)
+            row = torch.stack([orig_rgb, heatmap, cf_rgb])
             all_rows.append(make_grid(row, nrow=3, padding=2))
 
-        # Combine all modalities into one large vertical grid
-        final_grid = torch.cat(all_rows, dim=1)  # Stack vertically
+        final_grid = torch.cat(all_rows, dim=1)
+        self.writer.add_image('val/visualization', final_grid, global_step=self.epoch)
 
-        self.writer.add_image('val/mri_explanation_layers', final_grid, global_step=self.epoch)
-
-        # 3. Add the Target Segmentation Mask as a separate reference
-        if target_mask.max() > 0:
-            norm_mask = normalize_chan(target_mask.float()).repeat(3, 1, 1)
-            self.writer.add_image('val/target_mask_goal', norm_mask, global_step=self.epoch)
+        target_map = visualize_seg(target_mask)
+        orig_map = visualize_seg(seg_org)
+        cf_map = visualize_seg(seg_cf)
+        self.writer.add_image('val/maps', make_grid([target_map, orig_map, cf_map], nrow=3, padding=2), global_step=self.epoch)
 
 
