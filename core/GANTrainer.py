@@ -204,6 +204,8 @@ class GANTrainer:
         """
         img = visualize_mri(img[None])[0]
         cf = visualize_mri(cf[None])[0]
+        print(f"{img.shape=}")
+        print(f"{cf.shape=}")
 
         all_rows = []
         for i in range(4):
@@ -214,8 +216,8 @@ class GANTrainer:
             # Normalize heatmap intensity for visibility
             heatmap = heatmap / (heatmap.max() + 1e-5)
 
-            orig_rgb = img[0].repeat(3, 1, 1)
-            cf_rgb = cf[0].repeat(3, 1, 1)
+            orig_rgb = img[i].repeat(3, 1, 1)
+            cf_rgb = cf[i].repeat(3, 1, 1)
 
             row = torch.stack([orig_rgb, heatmap, cf_rgb])
             all_rows.append(make_grid(row, nrow=3, padding=2))
