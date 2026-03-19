@@ -264,6 +264,10 @@ class GANTrainer:
         cf = visualize_mri(cf)
         reconstruction = visualize_mri(reconstruction)
 
+        print(f"{img.shape=}")
+        print(f"{cf.shape=}")
+        print(f"{reconstruction.shape=}")
+
         for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
             self.writer.add_image(f'image/{seq}',
                                   make_grid([img[:, i], cf[:, i], reconstruction[:, i]], nrow=3, padding=2),
