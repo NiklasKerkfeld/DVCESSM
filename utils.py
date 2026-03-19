@@ -65,7 +65,7 @@ def visualize_seg(seg_map: torch.Tensor):
         [1, 1, 0]  # Class 6
     ], dtype=torch.float32)
 
-    return palette[seg_map].permute(2, 0, 1)
+    return palette[seg_map]
 
 
 if __name__ == '__main__':
