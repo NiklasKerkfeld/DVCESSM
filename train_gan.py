@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 
 from core.GANTrainer import GANTrainer
 from core.SegmentationDataset import SegmentationDataset
-from models.Classifier import Classifier
 from models.GAN import Generator, Adversarial
 from models.Segmentation import SegmentationUNet
 
