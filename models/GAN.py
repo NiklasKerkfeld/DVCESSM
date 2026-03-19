@@ -108,6 +108,7 @@ class Generator(nn.Module):
 
     def forward(self, image: torch.Tensor, target: torch.Tensor, prediction: torch.Tensor) -> torch.Tensor:
         target = F.one_hot(target, num_classes=self.num_classes).permute(0, 3, 1, 2)
+        prediction = F.one_hot(prediction, num_classes=self.num_classes).permute(0, 3, 1, 2)
 
         print(f"{image.shape=}")
         print(f"{target.shape=}")
