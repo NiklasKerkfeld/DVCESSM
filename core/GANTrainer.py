@@ -142,7 +142,7 @@ class GANTrainer:
         loss = (self.lambda_adpt * rec_loss +
                 self.lambda_adv * adv_loss +
                 self.lambda_seg * seg_loss +
-                self.lambda_per * per_loss)  # Small weight for sparsity
+                self.lambda_per * per_loss)
         loss.backward()
         optimizer.step()
 
@@ -183,6 +183,7 @@ class GANTrainer:
         val_losses = {
             "loss": [],
             "adoption": [],
+            "reconstruction": [],
             "adversarial": [],
             "segmentation": []
         }
@@ -190,10 +191,16 @@ class GANTrainer:
         for image, target in tqdm(valid_dataloader, desc='validation'):
             image, target = image.to(self.device), target.to(self.device)
 
-            adoption = self.generator(image, target)
-            adpt_loss = torch.mean(torch.abs(adoption))
+            with torch.no_grad():
+                prediction = self.segmentation(image).argmax(1).long()
 
-            counterfactual = image + adoption
+            adoption_cf = self.generator(image, target, prediction)
+            counterfactual = image + adoption_cf
+            adoption_rec = self.generator(counterfactual, prediction, target)
+            reconstruction = counterfactual + adoption_rec
+            rec_loss = self.rec_loss_fn(reconstruction, image)
+
+            per_loss = torch.mean(torch.abs(adoption_cf)) + torch.mean(torch.abs(adoption_rec))
 
             adv_pred = self.adversarial(counterfactual)
             adv_loss = self.dis_loss_fn(adv_pred,
@@ -203,11 +210,15 @@ class GANTrainer:
             seg_pred = self.segmentation(counterfactual)
             seg_loss = self.seg_loss_fn(seg_pred, target)
 
-            total_loss = self.lambda_adpt * adpt_loss + self.lambda_adv * adv_loss + self.lambda_seg * seg_loss
+            loss = (self.lambda_adpt * rec_loss +
+                    self.lambda_adv * adv_loss +
+                    self.lambda_seg * seg_loss +
+                    self.lambda_per * per_loss)
 
             # Store results
-            val_losses["loss"].append(total_loss.item())
-            val_losses["adoption"].append(adpt_loss.item())
+            val_losses["loss"].append(loss.item())
+            val_losses["adoption"].append(per_loss.item())
+            val_losses["reconstruction"].append(rec_loss.item())
             val_losses["adversarial"].append(adv_loss.item())
             val_losses["segmentation"].append(seg_loss.item())
 
@@ -216,6 +227,9 @@ class GANTrainer:
         self.writer.add_scalar("val/loss", avg_loss, global_step=self.epoch)
         self.writer.add_scalar("val/adoption",
                                sum(val_losses["adoption"]) / len(val_losses["adoption"]),
+                               global_step=self.epoch)
+        self.writer.add_scalar("val/reconstruction",
+                               sum(val_losses["reconstruction"]) / len(val_losses["reconstruction"]),
                                global_step=self.epoch)
         self.writer.add_scalar("val/adversarial",
                                sum(val_losses["adversarial"]) / len(val_losses["adversarial"]),
@@ -227,12 +241,15 @@ class GANTrainer:
         seg_org = self.segmentation(image)
         print(f"{seg_org.shape=}")
         print(f"{seg_pred.shape=}")
-        self.save_visual_explanation(image[8].cpu(), adoption[8].cpu(), counterfactual[8].cpu(),
-                                     target[8].cpu(), seg_pred[8].argmax(0).cpu(),
+        self.save_visual_explanation(image[8].cpu(),
+                                     counterfactual[8].cpu(),
+                                     reconstruction[8].cpu(),
+                                     target[8].cpu(),
+                                     seg_pred[8].argmax(0).cpu(),
                                      seg_org[8].argmax(0).cpu())
 
     @torch.no_grad()
-    def save_visual_explanation(self, img, adoption, cf, target_mask, seg_org, seg_cf):
+    def save_visual_explanation(self, img, cf, reconstruction, target_mask, seg_org, seg_cf):
         """
         img, adoption, cf shape: (4, H, W) - [T1, T1c, T2, FLAIR]
         target_mask shape: (1, H, W) or (C, H, W)
@@ -242,19 +259,10 @@ class GANTrainer:
         print(f"{img.shape=}")  # img.shape=torch.Size([4, 3, 128, 128])
         print(f"{cf.shape=}")  # cf.shape=torch.Size([4, 3, 128, 128])
 
-        all_rows = []
-        for i in range(4):
-            residual_mod = adoption[i]
-            heatmap = torch.zeros((3, adoption.shape[1], adoption.shape[2]))
-            heatmap[0] = torch.clamp(-residual_mod, min=0)
-            heatmap[2] = torch.clamp(residual_mod, min=0)
-            heatmap = heatmap / (heatmap.max() + 1e-5)
-
-            row = torch.stack([img[i], heatmap, cf[i]])
-            all_rows.append(make_grid(row, nrow=3, padding=2))
-
-        final_grid = torch.cat(all_rows, dim=1)
-        self.writer.add_image('val/visualization', final_grid, global_step=self.epoch)
+        for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
+            self.writer.add_image(f'image/{seq}',
+                                  make_grid([img[i], cf[i], reconstruction[i]], nrow=3, padding=2),
+                                  global_step=self.epoch)
 
         print(f"{target_mask.shape=}")
         print(f"{seg_org.shape=}")
@@ -262,6 +270,6 @@ class GANTrainer:
         target_map = visualize_seg(target_mask[None])
         orig_map = visualize_seg(seg_org[None])
         cf_map = visualize_seg(seg_cf[None])
-        self.writer.add_image('val/maps',
+        self.writer.add_image('image/maps',
                               make_grid([target_map, orig_map, cf_map], nrow=3, padding=2),
                               global_step=self.epoch)
