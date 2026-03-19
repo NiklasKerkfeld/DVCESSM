@@ -247,12 +247,12 @@ class GANTrainer:
         seg_org = self.segmentation(image)
         print(f"{seg_org.shape=}")
         print(f"{seg_pred.shape=}")
-        self.save_visual_explanation(image[8].cpu(),
-                                     counterfactual[8].cpu(),
-                                     reconstruction[8].cpu(),
-                                     target[8].cpu(),
-                                     seg_pred[8].argmax(0).cpu(),
-                                     seg_org[8].argmax(0).cpu())
+        self.save_visual_explanation(image.cpu(),
+                                     counterfactual.cpu(),
+                                     reconstruction.cpu(),
+                                     target.cpu(),
+                                     seg_pred.argmax(0).cpu(),
+                                     seg_org.argmax(0).cpu())
 
     @torch.no_grad()
     def save_visual_explanation(self, img, cf, reconstruction, target_mask, seg_org, seg_cf):
@@ -260,18 +260,18 @@ class GANTrainer:
         img, adoption, cf shape: (4, H, W) - [T1, T1c, T2, FLAIR]
         target_mask shape: (1, H, W) or (C, H, W)
         """
-        img = visualize_mri(img[None])[0]
-        cf = visualize_mri(cf[None])[0]
-        reconstruction = visualize_mri(reconstruction[None])[0]
+        img = visualize_mri(img)
+        cf = visualize_mri(cf)
+        reconstruction = visualize_mri(reconstruction)
 
         for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
             self.writer.add_image(f'image/{seq}',
-                                  make_grid([img[i], cf[i], reconstruction[i]], nrow=3, padding=2),
+                                  make_grid([img[:, i], cf[:, i], reconstruction[:, i]], nrow=3, padding=2),
                                   global_step=self.epoch)
 
-        target_map = visualize_seg(target_mask[None])
-        orig_map = visualize_seg(seg_org[None])
-        cf_map = visualize_seg(seg_cf[None])
+        target_map = visualize_seg(target_mask)
+        orig_map = visualize_seg(seg_org)
+        cf_map = visualize_seg(seg_cf)
         self.writer.add_image('image/maps',
                               make_grid([target_map, orig_map, cf_map], nrow=3, padding=2),
                               global_step=self.epoch)
