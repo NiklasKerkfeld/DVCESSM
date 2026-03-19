@@ -256,8 +256,10 @@ class GANTrainer:
         """
         img = visualize_mri(img[None])[0]
         cf = visualize_mri(cf[None])[0]
+        reconstruction = visualize_mri(reconstruction[None])[0]
         print(f"{img.shape=}")  # img.shape=torch.Size([4, 3, 128, 128])
         print(f"{cf.shape=}")  # cf.shape=torch.Size([4, 3, 128, 128])
+        print(f"{reconstruction.shape=}")  # cf.shape=torch.Size([4, 3, 128, 128])
 
         for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
             self.writer.add_image(f'image/{seq}',
