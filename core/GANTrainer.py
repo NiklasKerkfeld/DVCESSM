@@ -202,7 +202,7 @@ class GANTrainer:
 
             per_loss = torch.mean(torch.abs(adoption_cf)) + torch.mean(torch.abs(adoption_rec))
 
-            adv_pred = self.adversarial(counterfactual)
+            adv_pred = self.adversarial(counterfactual, target)
             adv_loss = self.dis_loss_fn(adv_pred,
                                         torch.zeros(counterfactual.shape[0], dtype=torch.long,
                                                     device=self.device))
