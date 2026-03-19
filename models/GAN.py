@@ -104,15 +104,12 @@ class Generator(nn.Module):
         self.up3 = UpBlock(self.feature_maps[2], self.feature_maps[1], self.feature_maps[1])
         self.up4 = UpBlock(self.feature_maps[1], self.feature_maps[0], self.feature_maps[0])
 
-        self.final = nn.Conv2d(self.feature_maps[0] + self.channels + self.num_classes, self.channels, kernel_size=3, padding=1)
+        self.final = nn.Conv2d(self.feature_maps[0] + 2 * self.num_classes, self.channels, kernel_size=3, padding=1)
 
     def forward(self, image: torch.Tensor, target: torch.Tensor, prediction: torch.Tensor) -> torch.Tensor:
         target = F.one_hot(target, num_classes=self.num_classes).permute(0, 3, 1, 2)
         prediction = F.one_hot(prediction, num_classes=self.num_classes).permute(0, 3, 1, 2)
 
-        print(f"{image.shape=}")
-        print(f"{target.shape=}")
-        print(f"{prediction.shape=}")
         x = torch.cat((image, target, prediction), dim=1)
 
         h1 = self.down1(x)
