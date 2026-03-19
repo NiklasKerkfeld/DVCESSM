@@ -42,6 +42,24 @@ class ResidualBlock(nn.Module):
         return x
 
 
+class LinearLayer(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, activation=nn.ReLU()):
+        super(LinearLayer, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        self.linear = nn.Linear(in_channels, out_channels, bias=False)
+        self.bn = nn.BatchNorm1d(out_channels)
+        self.activation = activation
+
+
+    def forward(self, x):
+        x = self.linear(x)
+        x = self.bn(x)
+        x = self.activation(x)
+        return x
+
+
 class UpBlock(nn.Module):
     def __init__(self, in_channels, skip_size, out_channels, scale_factor: float = 2):
         super(UpBlock, self).__init__()
@@ -71,7 +89,7 @@ class Generator(nn.Module):
         self.num_classes = num_classes
         self.feature_maps = feature_maps
 
-        self.down1 = ResidualBlock(self.channels + self.num_classes, self.feature_maps[0])
+        self.down1 = ResidualBlock(self.channels + 2 * self.num_classes, self.feature_maps[0])
         self.down2 = ResidualBlock(self.feature_maps[0], self.feature_maps[1])
         self.down3 = ResidualBlock(self.feature_maps[1], self.feature_maps[2])
         self.down4 = ResidualBlock(self.feature_maps[2], self.feature_maps[3])
@@ -85,10 +103,10 @@ class Generator(nn.Module):
 
         self.final = nn.Conv2d(self.feature_maps[0] + self.channels + self.num_classes, self.channels, kernel_size=3, padding=1)
 
-    def forward(self, image: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        y = F.one_hot(y, num_classes=self.num_classes).permute(0, 3, 1, 2)
+    def forward(self, image: torch.Tensor, target: torch.Tensor, prediction: torch.Tensor) -> torch.Tensor:
+        target = F.one_hot(target, num_classes=self.num_classes).permute(0, 3, 1, 2)
 
-        x = torch.cat((image, y), dim=1)
+        x = torch.cat((image, target, prediction), dim=1)
 
         h1 = self.down1(x)
         h2 = self.down2(h1)
@@ -105,6 +123,41 @@ class Generator(nn.Module):
 
         return self.final(x)
 
+
+class Adversarial(nn.Module):
+    def __init__(self, in_channels: int, num_classes: int, img_width: int, img_height: int, feature_maps: Sequence[int] = [64, 128, 256]):
+        super(Adversarial, self).__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+
+        # Convolutional Layers
+        self.conv1 = ResidualBlock(self.in_channels + self.num_classes, feature_maps[0])
+        self.conv2 = ResidualBlock(feature_maps[0], feature_maps[1])
+        self.conv3 = ResidualBlock(feature_maps[1], feature_maps[2])
+        self.conv3 = ResidualBlock(feature_maps[2], feature_maps[3])
+
+        # Classification head
+        self.fc1 = LinearLayer(feature_maps[3] * (img_width // 8) * (img_height // 8), feature_maps[3])
+        self.fc2 = LinearLayer(feature_maps[3], feature_maps[3])
+        self.fc3 = LinearLayer(feature_maps[3], num_classes, activation=nn.Identity())
+
+    def forward(self, image: torch.Tensor, condition: torch.Tensor) -> torch.Tensor:
+        condition = F.one_hot(condition, num_classes=self.num_classes).permute(0, 3, 1, 2)
+
+        x = torch.cat((image, condition), dim=1)
+
+        # Convolutional Layers
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+
+        # Flatten
+        x = torch.flatten(x, 1)
+
+        # Fully connected head
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
 
 
 

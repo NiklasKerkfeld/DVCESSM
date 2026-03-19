@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from core.GANTrainer import GANTrainer
 from core.SegmentationDataset import SegmentationDataset
 from models.Classifier import Classifier
-from models.GAN import Generator
+from models.GAN import Generator, Adversarial
 from models.Segmentation import SegmentationUNet
 
 torch.manual_seed(42)
@@ -54,7 +54,7 @@ def main(cfg: DictConfig):
     )
 
     generator = Generator(cfg.data.image_channels, cfg.data.n_classes)
-    adversarial = Classifier(cfg.data.image_channels, cfg.data.n_classes, cfg.data.image_width, cfg.data.image_height)
+    adversarial = Adversarial(cfg.data.image_channels, cfg.data.n_classes, cfg.data.image_width, cfg.data.image_height)
     segmentation = SegmentationUNet(
         in_channels=cfg.data.image_channels,
         out_channels=cfg.data.n_classes,
@@ -73,7 +73,8 @@ def main(cfg: DictConfig):
         lr_adversarial=cfg.gan.lr_adversarial,
         lambda_adv=cfg.gan.lambda_adv,
         lambda_seg=cfg.gan.lambda_seg,
-        lambda_adpt=cfg.gan.lambda_adpt
+        lambda_adpt=cfg.gan.lambda_adpt,
+        lambda_per=cfg.gan.lambda_per
     )
 
     trainer.train(

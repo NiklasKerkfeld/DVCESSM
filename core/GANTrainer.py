@@ -8,21 +8,23 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
+from models.GAN import Generator, Adversarial
 from utils import visualize_mri, visualize_seg
 
 
 class GANTrainer:
     def __init__(self,
-                 generator: nn.Module,
-                 adversarial: nn.Module,
+                 generator: Generator,
+                 adversarial: Adversarial,
                  segmentation: nn.Module,
                  device: torch.device,
                  name='GANModel',
                  lr_generator: float = 0.001,
                  lr_adversarial: float = 0.001,
-                 lambda_adv: float = 1,
-                 lambda_seg: float = 10,
-                 lambda_adpt: float = 10,
+                 lambda_adv: float = 1.0,
+                 lambda_seg: float = 1.0,
+                 lambda_adpt: float = 1.0,
+                 lambda_per: float = 1.0
                  ):
         self.generator = generator
         self.adversarial = adversarial
@@ -34,11 +36,13 @@ class GANTrainer:
         self.lambda_adv = lambda_adv
         self.lambda_seg = lambda_seg
         self.lambda_adpt = lambda_adpt
+        self.lambda_per = lambda_per
 
         self.epoch = 0
 
         self.dis_loss_fn = nn.CrossEntropyLoss()
         self.seg_loss_fn = nn.CrossEntropyLoss()
+        self.rec_loss_fn = nn.MSELoss()
 
         self.losses = {
             "generation loss": {
@@ -78,7 +82,7 @@ class GANTrainer:
         self.losses = {
             "generation loss": {
                 "loss": [],
-                "adoption": [],
+                "reconstruction": [],
                 "adversarial": [],
                 "segmentation": []
             },
@@ -87,16 +91,19 @@ class GANTrainer:
         for image, target in tqdm(train_dataloader, total=len(train_dataloader),
                                   desc='train generator'):
             image, target = image.to(self.device), target.to(self.device)
+            with torch.no_grad():
+                prediction = self.segmentation(image).argmax(1).long()
 
             # train generator
-            counterfactual = self.train_generator(image, target, generator_optimizer)
-            self.train_discriminator(image, counterfactual, adversarial_optimizer)
+            counterfactual = self.train_generator(image, target, prediction, generator_optimizer)
+            self.train_adversarial(image, target, counterfactual, adversarial_optimizer)
 
         self.writer.add_scalar("generation losses/loss",
                                torch.mean(torch.tensor(self.losses["generation loss"]["loss"])),
                                global_step=self.epoch)
-        self.writer.add_scalar("generation losses/adoption",
-                               torch.mean(torch.tensor(self.losses["generation loss"]["adoption"])),
+        self.writer.add_scalar("generation losses/reconstruction",
+                               torch.mean(
+                                   torch.tensor(self.losses["generation loss"]["reconstruction"])),
                                global_step=self.epoch)
         self.writer.add_scalar("generation losses/discriminator",
                                torch.mean(
@@ -110,38 +117,53 @@ class GANTrainer:
                                torch.mean(torch.tensor(self.losses["adversarial loss"])),
                                global_step=self.epoch)
 
-    def train_generator(self, image: torch.Tensor, target: torch.Tensor,
+    def train_generator(self,
+                        image: torch.Tensor,
+                        target: torch.Tensor,
+                        prediction: torch.Tensor,
                         optimizer: AdamW) -> torch.Tensor:
-        adoption = self.generator(image, target)
-        adpt_loss = torch.mean(torch.abs(adoption))
-        counterfactual = image + adoption
+        self.generator.zero_grad()
 
-        adv_pred = self.adversarial(counterfactual)
-        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long, device=self.device))
+        adoption_cf = self.generator(image, target, prediction)
+        counterfactual = image + adoption_cf
+        adoption_rec = self.generator(counterfactual, prediction, target)
+        reconstruction = counterfactual + adoption_rec
+        rec_loss = self.rec_loss_fn(reconstruction, image)
+
+        per_loss = torch.mean(torch.abs(adoption_cf)) + torch.mean(torch.abs(adoption_rec))
+
+        adv_pred = self.adversarial(counterfactual, target)
+        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long,
+                                                          device=self.device))
 
         seg_pred = self.segmentation(counterfactual)
         seg_loss = self.seg_loss_fn(seg_pred, target)
 
-        loss = self.lambda_adpt * adpt_loss + self.lambda_adv * adv_loss + self.lambda_seg * seg_loss
+        loss = (self.lambda_adpt * rec_loss +
+                self.lambda_adv * adv_loss +
+                self.lambda_seg * seg_loss +
+                self.lambda_per * per_loss)  # Small weight for sparsity
         loss.backward()
         optimizer.step()
-        self.generator.zero_grad()
 
         self.losses["generation loss"]["loss"].append(loss.detach().cpu().item())
-        self.losses["generation loss"]["adoption"].append(adpt_loss.detach().cpu().item())
+        self.losses["generation loss"]["reconstruction"].append(rec_loss.detach().cpu().item())
         self.losses["generation loss"]["adversarial"].append(adv_loss.detach().cpu().item())
         self.losses["generation loss"]["segmentation"].append(seg_loss.detach().cpu().item())
 
         return counterfactual
 
-    def train_discriminator(self, image: torch.Tensor, counterfactual: torch.Tensor, optimizer):
+    def train_adversarial(self, image: torch.Tensor, target: torch.Tensor,
+                          counterfactual: torch.Tensor, optimizer):
         self.adversarial.train()
 
-        real_pred = self.adversarial(image)
-        d_loss_real = self.dis_loss_fn(real_pred, torch.zeros(image.size(0), dtype=torch.long, device=self.device))
+        real_pred = self.adversarial(image, target)
+        d_loss_real = self.dis_loss_fn(real_pred, torch.zeros(image.size(0), dtype=torch.long,
+                                                              device=self.device))
 
-        fake_pred = self.adversarial(counterfactual.detach())
-        d_loss_fake = self.dis_loss_fn(fake_pred, torch.ones(image.size(0), dtype=torch.long, device=self.device))
+        fake_pred = self.adversarial(counterfactual.detach(), target)
+        d_loss_fake = self.dis_loss_fn(fake_pred, torch.ones(image.size(0), dtype=torch.long,
+                                                             device=self.device))
 
         loss = d_loss_real + d_loss_fake
 
@@ -155,8 +177,8 @@ class GANTrainer:
     @torch.no_grad()
     def evaluation(self, valid_dataloader: DataLoader):
         self.generator.eval()
-        self.adversarial.eval()  # Paper refers to D(x) and Da(x) [cite: 38]
-        self.segmentation.eval()  # This is H(.) in the paper [cite: 43]
+        self.adversarial.eval()
+        self.segmentation.eval()
 
         val_losses = {
             "loss": [],
@@ -174,7 +196,9 @@ class GANTrainer:
             counterfactual = image + adoption
 
             adv_pred = self.adversarial(counterfactual)
-            adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(counterfactual.shape[0], dtype=torch.long, device=self.device))
+            adv_loss = self.dis_loss_fn(adv_pred,
+                                        torch.zeros(counterfactual.shape[0], dtype=torch.long,
+                                                    device=self.device))
 
             seg_pred = self.segmentation(counterfactual)
             seg_loss = self.seg_loss_fn(seg_pred, target)
@@ -203,7 +227,9 @@ class GANTrainer:
         seg_org = self.segmentation(image)
         print(f"{seg_org.shape=}")
         print(f"{seg_pred.shape=}")
-        self.save_visual_explanation(image[-1].cpu(), adoption[-1].cpu(), counterfactual[-1].cpu(), target[-1].cpu(), seg_pred[-1].argmax(0).cpu(), seg_org[-1].argmax(0).cpu())
+        self.save_visual_explanation(image[8].cpu(), adoption[8].cpu(), counterfactual[8].cpu(),
+                                     target[8].cpu(), seg_pred[8].argmax(0).cpu(),
+                                     seg_org[8].argmax(0).cpu())
 
     @torch.no_grad()
     def save_visual_explanation(self, img, adoption, cf, target_mask, seg_org, seg_cf):
@@ -213,8 +239,8 @@ class GANTrainer:
         """
         img = visualize_mri(img[None])[0]
         cf = visualize_mri(cf[None])[0]
-        print(f"{img.shape=}") # img.shape=torch.Size([4, 3, 128, 128])
-        print(f"{cf.shape=}") # cf.shape=torch.Size([4, 3, 128, 128])
+        print(f"{img.shape=}")  # img.shape=torch.Size([4, 3, 128, 128])
+        print(f"{cf.shape=}")  # cf.shape=torch.Size([4, 3, 128, 128])
 
         all_rows = []
         for i in range(4):
@@ -236,6 +262,6 @@ class GANTrainer:
         target_map = visualize_seg(target_mask[None])
         orig_map = visualize_seg(seg_org[None])
         cf_map = visualize_seg(seg_cf[None])
-        self.writer.add_image('val/maps', make_grid([target_map, orig_map, cf_map], nrow=3, padding=2), global_step=self.epoch)
-
-
+        self.writer.add_image('val/maps',
+                              make_grid([target_map, orig_map, cf_map], nrow=3, padding=2),
+                              global_step=self.epoch)
