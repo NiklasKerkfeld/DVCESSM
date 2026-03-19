@@ -86,11 +86,15 @@ class UpBlock(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, channels: int, num_classes: int = 10, feature_maps: Sequence[int] = [64, 128, 256, 512]):
+    def __init__(self, channels: int,
+                 num_classes: int = 10,
+                 feature_maps: Sequence[int] = [64, 128, 256, 512],
+                 scale: float= 1.0):
         super(Generator, self).__init__()
         self.channels = channels
         self.num_classes = num_classes
         self.feature_maps = feature_maps
+        self.scale = scale
 
         self.down1 = ResidualBlock(self.channels + 2 * self.num_classes, self.feature_maps[0])
         self.down2 = ResidualBlock(self.feature_maps[0], self.feature_maps[1])
@@ -125,7 +129,9 @@ class Generator(nn.Module):
 
         x = torch.cat([u, x], dim=1)
 
-        return self.final(x)
+        x = self.final(x)
+
+        return torch.tanh(x) * self.scale
 
 
 class Adversarial(nn.Module):

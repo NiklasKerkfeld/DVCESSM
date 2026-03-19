@@ -48,9 +48,10 @@ segmentation:
   name_prefix: "SegmentationModel"
 
 gan:
-  lr_generator: 0.003
-  lr_adversarial: 0.001
+  lr_generator: 0.0001
+  lr_adversarial: 0.0001
   lambda_adv: 1.0
   lambda_seg: 1.0
   lambda_adpt: 1.0
   lambda_per: 0.1
+  scale: 2.0
