@@ -273,6 +273,7 @@ class GANTrainer:
         target_map = visualize_seg(target_mask).permute(3, 0, 1, 2)
         orig_map = visualize_seg(seg_org).permute(3, 0, 1, 2)
         cf_map = visualize_seg(seg_cf).permute(3, 0, 1, 2)
+        visual = torch.stack([orig_map, cf_map, target_map], dim=1).flatten(0, 1)
         self.writer.add_image('image/maps',
-                              make_grid([target_map, orig_map, cf_map], nrow=3, padding=2),
+                              make_grid(visual, nrow=3, padding=2),
                               global_step=self.epoch)
