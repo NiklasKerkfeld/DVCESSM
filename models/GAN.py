@@ -4,6 +4,9 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from models.DiffusionModel import AttentionBlock
+
+
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, pool: bool = True):
         super(ResidualBlock, self).__init__()
@@ -125,7 +128,7 @@ class Generator(nn.Module):
 
 
 class Adversarial(nn.Module):
-    def __init__(self, in_channels: int, num_classes: int, img_width: int, img_height: int, feature_maps: Sequence[int] = [64, 128, 256]):
+    def __init__(self, in_channels: int, num_classes: int, img_width: int, img_height: int, feature_maps: Sequence[int] = [64, 128, 256, 512]):
         super(Adversarial, self).__init__()
         self.in_channels = in_channels
         self.num_classes = num_classes
@@ -134,12 +137,16 @@ class Adversarial(nn.Module):
         self.conv1 = ResidualBlock(self.in_channels + self.num_classes, feature_maps[0])
         self.conv2 = ResidualBlock(feature_maps[0], feature_maps[1])
         self.conv3 = ResidualBlock(feature_maps[1], feature_maps[2])
-        self.conv3 = ResidualBlock(feature_maps[2], feature_maps[3])
+        self.attention3 = AttentionBlock(feature_maps[2], img_width // 8, img_height // 8)
+        self.conv4 = ResidualBlock(feature_maps[2], feature_maps[3])
+        self.attention4 = AttentionBlock(feature_maps[3], img_width // 16, img_height // 16)
+
+        self.pool = nn.AdaptiveMaxPool2d((1, 1))
 
         # Classification head
-        self.fc1 = LinearLayer(feature_maps[3] * (img_width // 8) * (img_height // 8), feature_maps[3])
-        self.fc2 = LinearLayer(feature_maps[3], feature_maps[3])
-        self.fc3 = LinearLayer(feature_maps[3], num_classes, activation=nn.Identity())
+        self.fc1 = LinearLayer(feature_maps[3], feature_maps[2])
+        self.fc2 = LinearLayer(feature_maps[2], feature_maps[2])
+        self.fc3 = LinearLayer(feature_maps[2], num_classes)
 
     def forward(self, image: torch.Tensor, condition: torch.Tensor) -> torch.Tensor:
         condition = F.one_hot(condition, num_classes=self.num_classes).permute(0, 3, 1, 2)
@@ -150,23 +157,29 @@ class Adversarial(nn.Module):
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
+        x = self.attention3(x)
+        x = self.conv4(x)
+        x = self.attention4(x)
 
         # Flatten
-        x = torch.flatten(x, 1)
+        x = torch.flatten(self.pool(x), 1)
 
         # Fully connected head
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = self.fc3(x)
+
+        return x
 
 
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = Generator(4, num_classes=10).to(device)
+    model = Adversarial(4, 2, 128, 128).to(device)
 
-    image = torch.randn(2, 4, 128, 128).to(device)
-    target = torch.randint(1, 5, (2, 128, 128)).to(device)
+    image = torch.randn(4, 4, 128, 128).to(device)
+    target = torch.randint(0, 2, (4, 128, 128)).to(device)
+    print(target.max(), target.min())
 
     pred = model(image, target)
     print(pred.shape)

@@ -54,7 +54,7 @@ def main(cfg: DictConfig):
     )
 
     generator = Generator(cfg.data.image_channels, cfg.data.n_classes)
-    adversarial = Adversarial(cfg.data.image_channels, cfg.data.n_classes, cfg.data.image_width, cfg.data.image_height)
+    adversarial = Adversarial(cfg.data.image_channels, 2, cfg.data.image_width, cfg.data.image_height)
     segmentation = SegmentationUNet(
         in_channels=cfg.data.image_channels,
         out_channels=cfg.data.n_classes,
