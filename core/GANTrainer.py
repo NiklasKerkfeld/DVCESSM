@@ -82,6 +82,7 @@ class GANTrainer:
         self.losses = {
             "generation loss": {
                 "loss": [],
+                "adoption": [],
                 "reconstruction": [],
                 "adversarial": [],
                 "segmentation": []
@@ -98,22 +99,26 @@ class GANTrainer:
             counterfactual = self.train_generator(image, target, prediction, generator_optimizer)
             self.train_adversarial(image, target, counterfactual, adversarial_optimizer)
 
-        self.writer.add_scalar("generation losses/loss",
+        self.writer.add_scalar("generation/loss",
                                torch.mean(torch.tensor(self.losses["generation loss"]["loss"])),
                                global_step=self.epoch)
-        self.writer.add_scalar("generation losses/reconstruction",
+        self.writer.add_scalar("generation/adoption",
+                               torch.mean(
+                                   torch.tensor(self.losses["generation loss"]["adoption"])),
+                               global_step=self.epoch)
+        self.writer.add_scalar("generation/reconstruction",
                                torch.mean(
                                    torch.tensor(self.losses["generation loss"]["reconstruction"])),
                                global_step=self.epoch)
-        self.writer.add_scalar("generation losses/discriminator",
+        self.writer.add_scalar("generation/adversarial",
                                torch.mean(
                                    torch.tensor(self.losses["generation loss"]["adversarial"])),
                                global_step=self.epoch)
-        self.writer.add_scalar("generation losses/segmentation",
+        self.writer.add_scalar("generation/segmentation",
                                torch.mean(
                                    torch.tensor(self.losses["generation loss"]["segmentation"])),
                                global_step=self.epoch)
-        self.writer.add_scalar("adversarial losses/loss",
+        self.writer.add_scalar("adversarial/loss",
                                torch.mean(torch.tensor(self.losses["adversarial loss"])),
                                global_step=self.epoch)
 
@@ -147,6 +152,7 @@ class GANTrainer:
         optimizer.step()
 
         self.losses["generation loss"]["loss"].append(loss.detach().cpu().item())
+        self.losses["generation loss"]["adoption"].append(per_loss.detach().cpu().item())
         self.losses["generation loss"]["reconstruction"].append(rec_loss.detach().cpu().item())
         self.losses["generation loss"]["adversarial"].append(adv_loss.detach().cpu().item())
         self.losses["generation loss"]["segmentation"].append(seg_loss.detach().cpu().item())
@@ -257,18 +263,12 @@ class GANTrainer:
         img = visualize_mri(img[None])[0]
         cf = visualize_mri(cf[None])[0]
         reconstruction = visualize_mri(reconstruction[None])[0]
-        print(f"{img.shape=}")  # img.shape=torch.Size([4, 3, 128, 128])
-        print(f"{cf.shape=}")  # cf.shape=torch.Size([4, 3, 128, 128])
-        print(f"{reconstruction.shape=}")  # cf.shape=torch.Size([4, 3, 128, 128])
 
         for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
             self.writer.add_image(f'image/{seq}',
                                   make_grid([img[i], cf[i], reconstruction[i]], nrow=3, padding=2),
                                   global_step=self.epoch)
 
-        print(f"{target_mask.shape=}")
-        print(f"{seg_org.shape=}")
-        print(f"{seg_cf.shape=}")
         target_map = visualize_seg(target_mask[None])
         orig_map = visualize_seg(seg_org[None])
         cf_map = visualize_seg(seg_cf[None])
