@@ -61,6 +61,9 @@ class GANTrainer:
         self.adversarial.to(self.device)
         self.segmentation.to(self.device)
 
+        for param in self.segmentation.parameters():
+            param.requires_grad = False
+
         generator_optimizer = AdamW(self.generator.parameters(), lr=self.lr_generator)
         adversarial_optimizer = AdamW(self.adversarial.parameters(), lr=self.lr_adversarial)
 
@@ -76,7 +79,7 @@ class GANTrainer:
     def train_epoch(self, train_dataloader: DataLoader, generator_optimizer,
                     adversarial_optimizer):
         self.generator.train()
-        self.adversarial.train()
+        self.adversarial.eval()
         self.segmentation.eval()
 
         self.losses = {
@@ -126,6 +129,9 @@ class GANTrainer:
         with torch.no_grad():
             prediction_org = self.segmentation(image).argmax(1).long()
 
+        self.generator.train()
+        self.adversarial.eval()
+        self.segmentation.eval()
         self.generator.zero_grad()
 
         adoption_cf = self.generator(image, target, prediction_org)
@@ -160,7 +166,10 @@ class GANTrainer:
 
     def train_adversarial(self, image: torch.Tensor, target: torch.Tensor,
                           counterfactual: torch.Tensor, optimizer):
+        self.generator.eval()
         self.adversarial.train()
+        self.segmentation.eval()
+        self.adversarial.zero_grad()
 
         real_pred = self.adversarial(image, target)
         d_loss_real = self.dis_loss_fn(real_pred, torch.zeros(image.size(0), dtype=torch.long,
@@ -174,8 +183,6 @@ class GANTrainer:
 
         loss.backward()
         optimizer.step()
-
-        self.adversarial.zero_grad()
 
         self.losses["adversarial loss"].append(loss.detach().cpu().item())
 
