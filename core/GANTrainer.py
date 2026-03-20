@@ -92,11 +92,8 @@ class GANTrainer:
         for image, target in tqdm(train_dataloader, total=len(train_dataloader),
                                   desc='train generator'):
             image, target = image.to(self.device), target.to(self.device)
-            with torch.no_grad():
-                prediction = self.segmentation(image).argmax(1).long()
-
             # train generator
-            counterfactual = self.train_generator(image, target, prediction, generator_optimizer)
+            counterfactual = self.train_generator(image, target, generator_optimizer)
             self.train_adversarial(image, target, counterfactual, adversarial_optimizer)
 
         self.writer.add_scalar("generation/loss",
@@ -125,13 +122,15 @@ class GANTrainer:
     def train_generator(self,
                         image: torch.Tensor,
                         target: torch.Tensor,
-                        prediction: torch.Tensor,
                         optimizer: AdamW) -> torch.Tensor:
+        with torch.no_grad():
+            prediction_org = self.segmentation(image).argmax(1).long()
+
         self.generator.zero_grad()
 
-        adoption_cf = self.generator(image, target, prediction)
+        adoption_cf = self.generator(image, target, prediction_org)
         counterfactual = image + adoption_cf
-        adoption_rec = self.generator(counterfactual, prediction, target)
+        adoption_rec = self.generator(counterfactual, prediction_org, target)
         reconstruction = counterfactual + adoption_rec
         rec_loss = self.rec_loss_fn(reconstruction, image)
 
@@ -141,8 +140,8 @@ class GANTrainer:
         adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long,
                                                           device=self.device))
 
-        seg_pred = self.segmentation(counterfactual)
-        seg_loss = self.seg_loss_fn(seg_pred, target)
+        prediction_cf = self.segmentation(counterfactual)
+        seg_loss = self.seg_loss_fn(prediction_cf, target)
 
         loss = (self.lambda_adpt * rec_loss +
                 self.lambda_adv * adv_loss +
@@ -213,8 +212,8 @@ class GANTrainer:
                                         torch.zeros(counterfactual.shape[0], dtype=torch.long,
                                                     device=self.device))
 
-            seg_pred = self.segmentation(counterfactual)
-            seg_loss = self.seg_loss_fn(seg_pred, target)
+            prediction_cf = self.segmentation(counterfactual)
+            seg_loss = self.seg_loss_fn(prediction_cf, target)
 
             loss = (self.lambda_adpt * rec_loss +
                     self.lambda_adv * adv_loss +
@@ -244,15 +243,14 @@ class GANTrainer:
                                sum(val_losses["segmentation"]) / len(val_losses["segmentation"]),
                                global_step=self.epoch)
 
-        seg_org = self.segmentation(image)
-        print(f"{seg_org.shape=}")
-        print(f"{seg_pred.shape=}")
+        print(f"{prediction.shape=}")
+        print(f"{prediction_cf.shape=}")
         self.save_visual_explanation(image.cpu(),
                                      counterfactual.cpu(),
                                      reconstruction.cpu(),
                                      target.cpu(),
-                                     seg_pred.argmax(1).cpu(),
-                                     seg_org.argmax(1).cpu())
+                                     prediction_cf.argmax(1).cpu(),
+                                     prediction.cpu())
 
     @torch.no_grad()
     def save_visual_explanation(self, img, cf, reconstruction, target_mask, seg_org, seg_cf):
@@ -270,9 +268,9 @@ class GANTrainer:
                                   make_grid(visual, nrow=3, padding=2),
                                   global_step=self.epoch)
 
-        target_map = visualize_seg(target_mask).permute(0, 3, 1, 2)
         orig_map = visualize_seg(seg_org).permute(0, 3, 1, 2)
         cf_map = visualize_seg(seg_cf).permute(0, 3, 1, 2)
+        target_map = visualize_seg(target_mask).permute(0, 3, 1, 2)
         visual = torch.stack([orig_map, cf_map, target_map], dim=1).flatten(0, 1)
         self.writer.add_image('image/maps',
                               make_grid(visual, nrow=3, padding=2),
