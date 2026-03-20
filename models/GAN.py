@@ -108,7 +108,8 @@ class Generator(nn.Module):
         self.up3 = UpBlock(self.feature_maps[2], self.feature_maps[1], self.feature_maps[1])
         self.up4 = UpBlock(self.feature_maps[1], self.feature_maps[0], self.feature_maps[0])
 
-        self.final = nn.Conv2d(self.feature_maps[0] + self.channels + 2 * self.num_classes, self.channels, kernel_size=3, padding=1)
+        self.final1 = nn.Conv2d(self.feature_maps[0] + self.channels + 2 * self.num_classes, self.feature_maps[0], kernel_size=3, padding=1)
+        self.final2 = nn.Conv2d(self.feature_maps[0], self.channels, kernel_size=3, padding=1)
 
     def forward(self, image: torch.Tensor, target: torch.Tensor, prediction: torch.Tensor) -> torch.Tensor:
         target = F.one_hot(target, num_classes=self.num_classes).permute(0, 3, 1, 2)
@@ -129,9 +130,10 @@ class Generator(nn.Module):
 
         x = torch.cat([u, x], dim=1)
 
-        x = self.final(x)
+        x = self.final1(x)
+        x = self.final2(x)
 
-        return torch.tanh(x) * self.scale
+        return x
 
 
 class Adversarial(nn.Module):

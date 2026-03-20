@@ -256,8 +256,8 @@ class GANTrainer:
                                      counterfactual.cpu(),
                                      reconstruction.cpu(),
                                      target.cpu(),
-                                     prediction_cf.argmax(1).cpu(),
-                                     prediction.cpu())
+                                     prediction.cpu(),
+                                     prediction_cf.argmax(1).cpu())
 
     @torch.no_grad()
     def save_visual_explanation(self, img, cf, reconstruction, target_mask, seg_org, seg_cf):
