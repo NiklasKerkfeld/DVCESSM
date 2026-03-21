@@ -123,9 +123,7 @@ def visualize_adaption(adaption: torch.Tensor):
     b = torch.relu(-adaption)
 
     palate = torch.stack([r, g, b], dim=-1)
-    print(palate.shape)
-    plt.imshow(palate)
-    plt.show()
+    return palate
 
 
 if __name__ == '__main__':
