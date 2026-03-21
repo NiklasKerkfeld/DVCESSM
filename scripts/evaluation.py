@@ -58,7 +58,6 @@ def main(cfg: DictConfig):
     classes = ['Background', 'ET', 'SNFH', 'NETC', 'RC']
 
     for i, (image, target) in tqdm(enumerate(test_loader)):
-        os.makedirs(f"./figures/evaluation/image_{i}/", exist_ok=True)
         image.to(device)
         target.to(device)
 
@@ -67,6 +66,8 @@ def main(cfg: DictConfig):
 
             cls_iou_org, mean_iou_org = calculate_iou(prediction_org, target, num_classes=cfg.data.n_classes)
             if mean_iou_org < 0.7:
+                os.makedirs(f"./figures/evaluation/image_{i}/", exist_ok=True)
+
                 adaption = generator(image, target, prediction_org)
                 counterfactual = image + adaption
                 prediction_cf = segmentation(counterfactual).argmax(1).long()
