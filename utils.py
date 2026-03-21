@@ -1,4 +1,5 @@
 import torch
+from matplotlib import pyplot as plt
 
 
 def random_target(input_tensor, n):
@@ -116,8 +117,18 @@ def visualize_seg(seg_map: torch.Tensor):
 
     return palette[seg_map]
 
+def visualize_adaption(adaption: torch.Tensor):
+    r = torch.relu(adaption)
+    g = torch.zeros_like(adaption)
+    b = torch.relu(-adaption)
+
+    palate = torch.stack([r, g, b], dim=-1)
+    print(palate.shape)
+    plt.imshow(palate)
+    plt.show()
+
 
 if __name__ == '__main__':
-    images = torch.randn(4, 4, 128, 128)
-    normalized = visualize_mri(images)
-    print(normalized.shape)
+    images = torch.linspace(-1, 1, 1000).reshape(1000, 1) @ torch.linspace(-1, 1, 1000).reshape(1, 1000)
+    print(images.shape)
+    visualize_adaption(images[None])

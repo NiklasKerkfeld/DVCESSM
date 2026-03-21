@@ -10,7 +10,7 @@ from tqdm import tqdm
 from core.SegmentationDataset import SegmentationDataset
 from models.GAN import Generator, Adversarial
 from models.Segmentation import SegmentationUNet
-from utils import calculate_iou, visualize_seg
+from utils import calculate_iou, visualize_seg, visualize_mri, visualize_adaption
 
 torch.manual_seed(42)
 if torch.cuda.is_available():
@@ -75,14 +75,26 @@ def main(cfg: DictConfig):
                 cls_iou_cf, mean_iou_cf = calculate_iou(prediction_cf, target,
                                                   num_classes=cfg.data.n_classes)
 
-                print(f"{visualize_seg(prediction_org).shape=}")
+                image = visualize_mri(image)
+                counterfactual = visualize_mri(counterfactual)
+                adaption = visualize_adaption(adaption)
+                prediction_org = visualize_seg(prediction_org)
+                prediction_cf = visualize_mri(prediction_cf)
+                target = visualize_seg(target)
+
+                print(f"{image.shape=}")
+                print(f"{counterfactual.shape=}")
+                print(f"{adaption.shape=}")
+                print(f"{prediction_org.shape=}")
+                print(f"{prediction_cf.shape=}")
+                print(f"{target.shape=}")
 
                 save_image(image, f"./figures/evaluation/image_{i}/image.png")
-                save_image(visualize_seg(prediction_org).permute(3, 0, 1, 2), f"./figures/evaluation/image_{i}/prediction_org.png")
-                save_image(adaption, f"./figures/evaluation/image_{i}/adaption.png")
-                save_image(counterfactual, f"./figures/evaluation/image_{i}/counterfactual.png")
-                save_image(visualize_seg(prediction_cf).permute(3, 0, 1, 2), f"./figures/evaluation/image_{i}/prediction_cf.png")
-                save_image(visualize_seg(target).permute(3, 0, 1, 2), f"./figures/evaluation/image_{i}/target.png")
+                save_image(prediction_org.permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/prediction_org.png")
+                save_image(adaption.permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/adaption.png")
+                save_image(counterfactual.permute(1, 0, 2, 3), f"./figures/evaluation/image_{i}/counterfactual.png")
+                save_image(prediction_cf.permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/prediction_cf.png")
+                save_image(target.permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/target.png")
 
                 with open(f"./figures/evaluation/image_{i}/results.txt", "w") as f:
                     # Writing individual class IoUs
