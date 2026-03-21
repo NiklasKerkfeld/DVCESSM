@@ -74,12 +74,14 @@ def main(cfg: DictConfig):
                 cls_iou_cf, mean_iou_cf = calculate_iou(prediction_cf, target,
                                                   num_classes=cfg.data.n_classes)
 
+                print(f"{visualize_seg(prediction_org).shape=}")
+
                 save_image(image, f"./figures/evaluation/image_{i}/image.png")
-                save_image(visualize_seg(prediction_org).permute(2, 0, 1), f"./figures/evaluation/image_{i}/prediction_org.png")
+                save_image(visualize_seg(prediction_org).permute(3, 0, 1, 2), f"./figures/evaluation/image_{i}/prediction_org.png")
                 save_image(adaption, f"./figures/evaluation/image_{i}/adaption.png")
                 save_image(counterfactual, f"./figures/evaluation/image_{i}/counterfactual.png")
-                save_image(visualize_seg(prediction_cf).permute(2, 0, 1), f"./figures/evaluation/image_{i}/prediction_cf.png")
-                save_image(visualize_seg(target).permute(2, 0, 1), f"./figures/evaluation/image_{i}/target.png")
+                save_image(visualize_seg(prediction_cf).permute(3, 0, 1, 2), f"./figures/evaluation/image_{i}/prediction_cf.png")
+                save_image(visualize_seg(target).permute(3, 0, 1, 2), f"./figures/evaluation/image_{i}/target.png")
 
                 with open(f"./figures/evaluation/image_{i}/results.txt", "w") as f:
                     # Writing individual class IoUs
