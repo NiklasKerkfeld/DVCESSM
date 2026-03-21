@@ -52,7 +52,7 @@ def calculate_iou(preds, labels, num_classes, ignore_index=None):
     # Filter out NaNs and calculate mean
     ious = torch.tensor(iou_list)
     valid_ious = ious[~torch.isnan(ious)]
-    miou = valid_ious.mean().item() if len(valid_ious) > 0 else 0.0
+    miou = valid_ious.mean().item() if len(valid_ious) > 0 else 1.0
 
     return ious, miou
 
