@@ -90,11 +90,11 @@ def main(cfg: DictConfig):
                 print(f"{target.shape=}")
 
                 save_image(image[0], f"./figures/evaluation/image_{i}/image.png")
-                save_image(prediction_org[0].permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/prediction_org.png")
+                save_image(prediction_org[0].permute(2, 0, 1), f"./figures/evaluation/image_{i}/prediction_org.png")
                 save_image(adaption[0].permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/adaption.png")
                 save_image(counterfactual[0].permute(1, 0, 2, 3), f"./figures/evaluation/image_{i}/counterfactual.png")
-                save_image(prediction_cf[0].permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/prediction_cf.png")
-                save_image(target[0].permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/target.png")
+                save_image(prediction_cf[0].permute(2, 0, 1), f"./figures/evaluation/image_{i}/prediction_cf.png")
+                save_image(target[0].permute(2, 0, 1), f"./figures/evaluation/image_{i}/target.png")
 
                 with open(f"./figures/evaluation/image_{i}/results.txt", "w") as f:
                     # Writing individual class IoUs
