@@ -7,6 +7,55 @@ def random_target(input_tensor, n):
     return target
 
 
+def calculate_iou(preds, labels, num_classes, ignore_index=None):
+    """
+    Calculates the Mean Intersection over Union (mIoU) for multi-class segmentation.
+
+    Args:
+        preds (Tensor): Predicted mask of shape (H, W) or (N, H, W).
+        labels (Tensor): Ground truth mask of same shape as preds.
+        num_classes (int): Number of segmentation classes.
+        ignore_index (int, optional): Index to ignore (e.g., background or void).
+
+    Returns:
+        torch.Tensor: A tensor containing the IoU for each class.
+        float: The mean IoU across all valid classes.
+    """
+    iou_list = []
+
+    # Flatten tensors to simplify calculation
+    preds = preds.view(-1)
+    labels = labels.view(-1)
+
+    for cls in range(num_classes):
+        if cls == ignore_index:
+            continue
+
+        # Create binary masks for the current class
+        pred_inds = (preds == cls)
+        target_inds = (labels == cls)
+
+        # Intersection: pixels that are 'cls' in both maps
+        intersection = (pred_inds & target_inds).long().sum().item()
+
+        # Union: pixels that are 'cls' in either map
+        union = (pred_inds | target_inds).long().sum().item()
+
+        if union == 0:
+            # If there is no ground truth or prediction for this class,
+            # we usually skip it to avoid NaN.
+            iou_list.append(float('nan'))
+        else:
+            iou_list.append(intersection / union)
+
+    # Filter out NaNs and calculate mean
+    ious = torch.tensor(iou_list)
+    valid_ious = ious[~torch.isnan(ious)]
+    miou = valid_ious.mean().item() if len(valid_ious) > 0 else 0.0
+
+    return ious, miou
+
+
 def get_one_of_each(dataset):
     samples = {}
 

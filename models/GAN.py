@@ -131,6 +131,7 @@ class Generator(nn.Module):
         x = torch.cat([u, x], dim=1)
 
         x = self.final1(x)
+        x = torch.relu(x)
         x = self.final2(x)
 
         return x
