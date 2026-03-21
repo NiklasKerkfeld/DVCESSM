@@ -1,4 +1,3 @@
-import glob
 import os
 
 import torch
@@ -76,11 +75,11 @@ def main(cfg: DictConfig):
                                                   num_classes=cfg.data.n_classes)
 
                 save_image(image, f"./figures/evaluation/image_{i}/image.png")
-                save_image(visualize_seg(prediction_org), f"./figures/evaluation/image_{i}/prediction_org.png")
+                save_image(visualize_seg(prediction_org).permute(2, 0, 1), f"./figures/evaluation/image_{i}/prediction_org.png")
                 save_image(adaption, f"./figures/evaluation/image_{i}/adaption.png")
                 save_image(counterfactual, f"./figures/evaluation/image_{i}/counterfactual.png")
-                save_image(visualize_seg(prediction_cf), f"./figures/evaluation/image_{i}/prediction_cf.png")
-                save_image(visualize_seg(target), f"./figures/evaluation/image_{i}/target.png")
+                save_image(visualize_seg(prediction_cf).permute(2, 0, 1), f"./figures/evaluation/image_{i}/prediction_cf.png")
+                save_image(visualize_seg(target).permute(2, 0, 1), f"./figures/evaluation/image_{i}/target.png")
 
                 with open(f"./figures/evaluation/image_{i}/results.txt", "w") as f:
                     # Writing individual class IoUs
