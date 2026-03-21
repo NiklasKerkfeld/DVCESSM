@@ -57,7 +57,7 @@ def main(cfg: DictConfig):
     segmentation.load_state_dict(torch.load(cfg.inference.segmentation_path, map_location=device))
     segmentation.eval()
 
-    classes = ['Background', 'ET', 'SNFH', 'NETC', 'RC']
+    classes = ['ET', 'SNFH', 'NETC', 'RC']
 
     bar = tqdm(test_loader, total=len(test_loader))
     count = 0
@@ -69,8 +69,9 @@ def main(cfg: DictConfig):
             prediction_org = segmentation(image).argmax(1).long()
 
             cls_iou_org, mean_iou_org = calculate_iou(prediction_org, target,
-                                                      num_classes=cfg.data.n_classes)
-            if mean_iou_org < 0.5:
+                                                      num_classes=cfg.data.n_classes,
+                                                      ignore_index=0)
+            if mean_iou_org < 0.4:
                 os.makedirs(f"./figures/evaluation/image_{i}/", exist_ok=True)
                 count += 1
 
