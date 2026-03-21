@@ -79,7 +79,7 @@ def main(cfg: DictConfig):
                 counterfactual = visualize_mri(counterfactual)
                 adaption = visualize_adaption(adaption)
                 prediction_org = visualize_seg(prediction_org)
-                prediction_cf = visualize_mri(prediction_cf)
+                prediction_cf = visualize_seg(prediction_cf)
                 target = visualize_seg(target)
 
                 print(f"{image.shape=}")
