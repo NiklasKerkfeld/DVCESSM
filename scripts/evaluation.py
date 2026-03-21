@@ -19,7 +19,7 @@ if torch.cuda.is_available():
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(cfg: DictConfig, name:str):
+def main(cfg: DictConfig):
     # print the resolved config to your terminal for sanity
     print(OmegaConf.to_yaml(cfg))
 
@@ -40,11 +40,11 @@ def main(cfg: DictConfig, name:str):
     )
 
     generator = Generator(cfg.data.image_channels, cfg.data.n_classes, scale=cfg.gan.scale)
-    generator.load_state_dict(torch.load(f"checkpoints/{name}_generator.pth", map_location=device))
+    generator.load_state_dict(torch.load(f"checkpoints/run5_generator.pth", map_location=device))
     generator.eval()
 
     adversarial = Adversarial(cfg.data.image_channels, cfg.data.n_classes, cfg.data.image_width, cfg.data.image_height)
-    adversarial.load_state_dict(torch.load(f"checkpoints/{name}_adversarial.pth", map_location=device))
+    adversarial.load_state_dict(torch.load(f"checkpoints/run5_adversarial.pth", map_location=device))
     adversarial.eval()
 
     segmentation = SegmentationUNet(
@@ -96,4 +96,4 @@ def main(cfg: DictConfig, name:str):
 
 
 if __name__ == '__main__':
-    main("run5")
+    main()
