@@ -57,7 +57,7 @@ def main(cfg: DictConfig):
 
     classes = ['Background', 'ET', 'SNFH', 'NETC', 'RC']
 
-    for i, (image, target) in tqdm(enumerate(test_loader)):
+    for i, (image, target) in enumerate(tqdm(test_loader, total=len(test_loader))):
         image.to(device)
         target.to(device)
 
@@ -65,7 +65,7 @@ def main(cfg: DictConfig):
             prediction_org = segmentation(image).argmax(1).long()
 
             cls_iou_org, mean_iou_org = calculate_iou(prediction_org, target, num_classes=cfg.data.n_classes)
-            if mean_iou_org < 0.7:
+            if mean_iou_org < 0.6:
                 os.makedirs(f"./figures/evaluation/image_{i}/", exist_ok=True)
 
                 adaption = generator(image, target, prediction_org)
@@ -92,7 +92,7 @@ def main(cfg: DictConfig):
                 save_image(image[0], f"./figures/evaluation/image_{i}/image.png")
                 save_image(prediction_org[0].permute(2, 0, 1), f"./figures/evaluation/image_{i}/prediction_org.png")
                 save_image(adaption[0].permute(0, 3, 1, 2), f"./figures/evaluation/image_{i}/adaption.png")
-                save_image(counterfactual[0].permute(1, 0, 2, 3), f"./figures/evaluation/image_{i}/counterfactual.png")
+                save_image(counterfactual[0], f"./figures/evaluation/image_{i}/counterfactual.png")
                 save_image(prediction_cf[0].permute(2, 0, 1), f"./figures/evaluation/image_{i}/prediction_cf.png")
                 save_image(target[0].permute(2, 0, 1), f"./figures/evaluation/image_{i}/target.png")
 
