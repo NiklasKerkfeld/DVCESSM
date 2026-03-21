@@ -111,7 +111,7 @@ def main(cfg: DictConfig):
                         f.write(f"\tClass {classes[i]}: {iou_val:.4f}\n")
                     f.write(f"\tMean IoU: {mean_iou_cf:.4f}\n")
 
-                bar.set_postfix(f"{count} samples")
+                bar.set_description(f"{count} samples")
 
 
 if __name__ == '__main__':
