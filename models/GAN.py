@@ -33,7 +33,7 @@ class UpBlock(nn.Module):
 class Generator(nn.Module):
     def __init__(self, channels: int,
                  num_classes: int = 10,
-                 feature_maps: List[int, int, int, int] = [64, 128, 256, 512]):
+                 feature_maps: List[int] = [64, 128, 256, 512]):
         super(Generator, self).__init__()
         self.channels = channels
         self.num_classes = num_classes

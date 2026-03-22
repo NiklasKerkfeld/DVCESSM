@@ -1,4 +1,5 @@
 import math
+from typing import List
 
 import torch
 from prettytable import PrettyTable
@@ -105,12 +106,19 @@ class UpBlock(nn.Module):
     
 
 class DiffusionModel(nn.Module):
-    def __init__(self, channels: int, width: int, height: int, time_dim: int):
+    def __init__(self,
+                 channels: int,
+                 width: int,
+                 height: int,
+                 time_dim: int,
+                 nums_features: List[int] = [64, 128, 256, 512, 1024]):
         super().__init__()
         self.channels = channels
         self.time_dim = time_dim
         self.width = width
         self.height = height
+
+        self.nums_features = nums_features
 
         half_dim = self.time_dim // 2
         emb = math.log(10_000) / (half_dim - 1)
@@ -123,8 +131,6 @@ class DiffusionModel(nn.Module):
             nn.Linear(self.time_dim , self.time_dim),
             nn.SiLU()
         )
-
-        self.nums_features = [64, 128, 256, 512, 1024]
 
         self.conv1 = ConvLayer(channels, self.nums_features[0], kernel_size=3, padding=1)           # size // 2
         self.down1 = DownBlock(self.nums_features[0], self.nums_features[1], self.time_dim)         # size // 4
