@@ -9,6 +9,7 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from core.Trainer import SuperTrainer
+from models.Losses import FocalLoss
 
 
 class Trainer(SuperTrainer):
@@ -24,7 +25,7 @@ class Trainer(SuperTrainer):
         self.lr = lr
         self.num_classes = model.out_channels
 
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.loss_fn = FocalLoss()
 
         self.model.to(self.device)
 
