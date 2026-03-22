@@ -32,7 +32,7 @@ class DiffusionDataset(SuperDataset):
         return torch.from_numpy(data["image"]).float()
 
 
-class SegmentationDataset(Dataset):
+class SegmentationDataset(SuperDataset):
     def __init__(self, samples: List[str]):
         super().__init__(samples)
 
@@ -49,7 +49,6 @@ def get_datasets(task: Literal['Diffusion', 'Segmentation'], test_size:float=0.0
 
     files = glob.glob(f"data/BraTS/V2024/preprocessed/*")
     train_samples, test_samples = train_test_split(files, test_size=test_size, random_state=random_state)
-
 
     return dataset(train_samples), dataset(test_samples)
 
