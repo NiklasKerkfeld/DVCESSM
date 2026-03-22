@@ -1,140 +1,66 @@
-import hydra
-import numpy as np
-import torch
-import torchvision
-from matplotlib import pyplot as plt
-from omegaconf import DictConfig
-from torch import Tensor
-from torchvision.datasets import MNIST
-from torchvision.transforms import transforms
-from tqdm import trange
+import os
 
-from core.CounterfactualGenerator import CounterfactualGenerator
-from core.DiffusionEngine import DiffusionEngine
-from models.Classifier import Classifier
+import hydra
+import torch
+
+from omegaconf import DictConfig
+import torchvision
+
+from core.Diffusion.Generator import CounterfactualGenerator
+from core.Datasets import get_datasets
+from core.Diffusion.Engine import Engine
 from models.DiffusionModel import DiffusionModel
-from utils import get_one_of_each, to_vis
+from models.Segmentation import SegmentationUNet
+from utils import visualize_mri, visualize_seg
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(cfg: DictConfig):
+def main(cfg: DictConfig, n :int = 585):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    # 2. Data Loading (Using config for paths)
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Pad(2, 0.0),
-        transforms.Normalize(0.5, 0.5)
-    ])
-    train_dataset = MNIST(root=cfg.data.root, train=True, download=True, transform=transform)
-    samples = get_one_of_each(train_dataset).to(device)
+    _, dataset = get_datasets('Segmentation')
+    print(f"dataset size: {len(dataset)}")
 
-    classifier = Classifier(
-        cfg.classifier.dims,
-        cfg.classifier.num_classes,
-        cfg.classifier.image_width,
-        cfg.classifier.image_height
+    image = torch.stack([dataset[n][0]], dim=0)
+    target = torch.stack([dataset[n][1]], dim=0)
+
+    segmentation = SegmentationUNet(
+        in_channels=cfg.data.image_channels,
+        out_channels=cfg.data.n_classes,
+        img_width=cfg.data.image_width,
+        img_height=cfg.data.image_height,
     )
-    classifier.load_state_dict(torch.load(cfg.inference.classifier_path, map_location=device))
-
-    model = DiffusionModel(cfg.model.dims, cfg.data.image_width, cfg.data.image_height, cfg.model.time_dim)
-    checkpoint = torch.load(cfg.inference.diffusion_path, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
-
-    engine = DiffusionEngine(**cfg.engine, device=device)
-
-    cfd = CounterfactualGenerator(classifier, model, engine, device,
-                                  weight_classifier=cfg.inference.weight_classifier,
-                                  weight_distance=cfg.inference.weight_distance)
-
-    counterfactuals = torch.zeros(
-        len(samples),
-        cfg.data.n_classes,
-        cfg.data.image_width,
-        cfg.data.image_height
-    )
-    predictions = torch.zeros(
-        len(samples),
-        cfg.data.n_classes,
-        dtype=torch.long)  # New tensor
+    diffusion = DiffusionModel(cfg.model.dims, cfg.data.image_width, cfg.data.image_height,
+                               cfg.model.time_dim)
 
 
-    for i in trange(cfg.data.n_classes):
-        targets = torch.full((len(samples), 1), i, dtype=torch.long)
-        cf = cfd.generate_counterfactual(
-            samples,
-            targets=targets,
-            start_fraction=cfg.inference.start_fraction
-        ).detach().cpu()
-        pred = classifier(cf).argmax(dim=1)
-        predictions[:, i] = pred.cpu()
-        counterfactuals[:, i] = cf.squeeze(1)
+    engine = Engine(**cfg.diffusion.engine, device=device)
 
-    plot_results(counterfactuals, samples, predictions)
+    generator = CounterfactualGenerator(segmentation, diffusion, engine, device,
+                                        weight_classifier=cfg.inference.weight_classifier,
+                                        weight_distance=cfg.inference.weight_distance)
 
+    generator.load_checkpoint(f"{cfg.diffusion.checkpoint_path}/{cfg.diffusion.name}.pt", f"{cfg.inference.checkpoint_path}/{cfg.inference.name}.pt")
 
-def plot_results(counterfactuals: Tensor, samples: Tensor, predictions: Tensor):
-    num_samples = counterfactuals.shape[0]
-    num_targets = counterfactuals.shape[1]
+    counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target, cfg.inference.start_fraction)
 
-    counterfactuals = to_vis(counterfactuals)
-    counterfactuals[torch.arange(num_samples), torch.arange(num_targets)] = 0.0
-    cf_flat = counterfactuals.reshape(-1, 1, samples.shape[-2], samples.shape[-1])
-    cf_grid = torchvision.utils.make_grid(cf_flat, nrow=num_samples, padding=2)
+    target = visualize_seg(target)
+    pred_original = visualize_seg(prediction_org)
+    pred_counterfactual = visualize_seg(prediction_cf)
 
-    orig_grid = torchvision.utils.make_grid(to_vis(samples), nrow=1, padding=2)
+    image = visualize_mri(image)
+    counterfactual = visualize_mri(counterfactual)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 12),
-                                   gridspec_kw={'width_ratios': [1, 10]})
+    os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
 
-    # --- Samples ---
-    ax1.imshow(orig_grid.permute(1, 2, 0), cmap="gray")
-    ax1.set_title("Original", fontsize=16, pad=20)
-    ax1.set_xticks([])
-    ax1.set_yticks(np.arange(10) * 34 + 18)
-    ax1.set_yticklabels(np.arange(num_samples))
+    torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/example_{n}/target.png")
+    torchvision.utils.save_image(pred_original, f"{cfg.system.figures_dir}/example_{n}/prediction_original.png")
+    torchvision.utils.save_image(pred_counterfactual, f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
 
-    # --- Main Plot (Swapped Axes) ---
-    ax2.imshow(cf_grid.permute(1, 2, 0), cmap="gray")
-    ax2.set_title("Counterfactual Generations", fontsize=16, pad=20)
-
-    # X-axis
-    ax2.set_xlabel('Target Class', fontsize=12)
-    ax2.set_xticks(np.arange(num_targets) * 34 + 18)
-    ax2.set_xticklabels(np.arange(num_targets))
-
-    # Y-axis
-    ax2.set_ylabel('Original Class', fontsize=12)
-    ax2.set_yticks(np.arange(num_samples) * 34 + 18)
-    ax2.set_yticklabels(np.arange(num_samples))
-
-    # Cell size in pixels (Padding=2, MNIST=32 after padding in your transform)
-    cell_size = 32 + 2
-    offset = 4  # Small offset from the top-left corner
-
-    for row in range(num_samples):
-        for col in range(num_targets):
-            if row == col:
-                continue
-
-            pred_val = predictions[row, col].item()
-            target_val = col
-
-            # Color: Green if successful CF, Red if failed
-            color = "lime" if pred_val == target_val else "red"
-
-            # Calculate pixel position
-            x_pos = col * cell_size + offset
-            y_pos = row * cell_size + offset + 8  # +8 to adjust for text baseline
-
-            ax2.text(x_pos, y_pos, str(pred_val), color=color,
-                     fontsize=10, fontweight='bold',
-                     bbox=dict(facecolor='black', alpha=0.5, pad=1))
-
-    plt.tight_layout()
-    plt.savefig("./figures/counterfactuals.png")
-    plt.close()
+    for i, channel in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
+        torchvision.utils.save_image(image[0, i], f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
+        torchvision.utils.save_image(counterfactual[0, i], f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
 
 
 if __name__ == '__main__':

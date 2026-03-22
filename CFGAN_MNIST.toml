@@ -1,8 +1,0 @@
-[tool.pytest.ini_options]
-pythonpath = [
-  "."
-]
-filterwarnings = [
-    "ignore:.*RegisterOperatorsD1Ev.*:UserWarning",
-    "ignore:.*image functionality from torchvision.io.*:UserWarning"
-]

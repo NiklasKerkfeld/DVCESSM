@@ -5,8 +5,8 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
-from core.GANTrainer import GANTrainer
-from core.SegmentationDataset import SegmentationDataset
+from core.Datasets import get_datasets
+from core.GAN.Trainer import Trainer
 from models.GAN import Generator, Adversarial
 from models.Segmentation import SegmentationUNet
 
@@ -17,23 +17,21 @@ if torch.cuda.is_available():
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
-    # Setup Logging & Run Number
-    if cfg.training.name is not None:
-        run_name = cfg.training.name
-    else:
-        # If no run_id, it's a NEW experiment. Generate a fresh ID.
-        nr = len(glob.glob('runs/Diffusion/*'))
-        run_name = f"{nr}_DiffusionTraining"
-
-    # print the resolved config to your terminal for sanity
     print(OmegaConf.to_yaml(cfg))
+
+    # Setup Logging & Run Number
+    log_dir = f'{cfg.system.log_dir}/GAN'
+    if cfg.gan.name is not None:
+        run_name = cfg.gan.name
+    else:
+        nr = len(glob.glob(log_dir))
+        run_name = f"{nr}_GANTraining"
 
     # check for gpu available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    full_dataset = SegmentationDataset()
-    train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [0.8, 0.2])
+    train_dataset, test_dataset = get_datasets('Segmentation')
 
     train_loader = DataLoader(
         train_dataset,
@@ -52,7 +50,7 @@ def main(cfg: DictConfig):
         drop_last=True
     )
 
-    generator = Generator(cfg.data.image_channels, cfg.data.n_classes, scale=cfg.gan.scale)
+    generator = Generator(cfg.data.image_channels, cfg.data.n_classes)
     adversarial = Adversarial(cfg.data.image_channels, cfg.data.n_classes, cfg.data.image_width, cfg.data.image_height)
     segmentation = SegmentationUNet(
         in_channels=cfg.data.image_channels,
@@ -60,20 +58,22 @@ def main(cfg: DictConfig):
         img_width=cfg.data.image_width,
         img_height=cfg.data.image_height,
     )
-    segmentation.load_state_dict(torch.load(cfg.inference.segmentation_path, map_location=device))
+    segmentation.load_state_dict(torch.load(f"{cfg.segmentation.checkpoint_path}/{cfg.segmentation.name}.pt", map_location=device))
 
-    trainer = GANTrainer(
+    trainer = Trainer(
         generator,
         adversarial,
         segmentation,
-        device=device,
-        name=run_name,
         lr_generator=cfg.gan.lr_generator,
         lr_adversarial=cfg.gan.lr_adversarial,
         lambda_adv=cfg.gan.lambda_adv,
         lambda_seg=cfg.gan.lambda_seg,
         lambda_adpt=cfg.gan.lambda_adpt,
-        lambda_per=cfg.gan.lambda_per
+        lambda_per=cfg.gan.lambda_per,
+        device=device,
+        name=run_name,
+        log_dir=log_dir,
+        checkpoint=cfg.gan.checkpoint
     )
 
     trainer.train(

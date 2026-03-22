@@ -2,12 +2,12 @@ import os
 import hydra
 import torch
 from omegaconf import DictConfig
-from matplotlib import pyplot as plt
+from torchvision.utils import make_grid, save_image
 
-from core.DiffusionEngine import DiffusionEngine
-from core.DiffusionTrainer import DiffusionTrainer
+from core.Diffusion.Engine import Engine
+from core.Diffusion.Trainer import Trainer
 from models.DiffusionModel import DiffusionModel
-from utils import to_vis
+from utils import visualize_mri
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -15,24 +15,22 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    model = DiffusionModel(cfg.model.dims, cfg.data.image_width, cfg.data.image_height, cfg.model.time_dim)
-    checkpoint = torch.load(cfg.inference.diffusion_path, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    diffusion = DiffusionModel(cfg.model.dims, cfg.data.image_width, cfg.data.image_height,
+                               cfg.model.time_dim)
+    checkpoint = torch.load(f"{cfg.diffusion.checkpoint_path}/{cfg.diffusion.name}.pth", map_location=device)
+    diffusion.load_state_dict(checkpoint['model_state_dict'])
 
-    engine = DiffusionEngine(**cfg.engine, device=device)
+    engine = Engine(**cfg.diffusion.engine, device=device)
 
-    diffusion_model = DiffusionTrainer(model, engine, 0.0, device)
+    diffusion_model = Trainer(diffusion, engine, 0.0, device)
 
-    gen_image = diffusion_model.generate_image()[0, 0].cpu()
+    gen_image = diffusion_model.generate_image()
+    gen_image = visualize_mri(gen_image)[0].cpu() # (B, S, 3, H, W)
 
-    plt.imshow(to_vis(gen_image).numpy(), cmap="gray")
-    plt.axis('off')
-    plt.tight_layout()
-    plt.title("Generated Image")
+    gen_image = make_grid(gen_image, nrow=4)
 
-    os.makedirs("./figures", exist_ok=True)
-    plt.savefig(f"./figures/generated_image.png")
-    plt.close()
+    os.makedirs(f"{cfg.system.figures_dir}", exist_ok=True)
+    save_image(gen_image, f"{cfg.system.figures_dir}/generated_image.png")
 
 
 if __name__ == '__main__':

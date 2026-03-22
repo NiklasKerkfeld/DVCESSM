@@ -1,57 +1,48 @@
 defaults:
   - _self_
-  - engine: linear
-  - data: MNIST
 
-training:
+
+data:
+  name: BraTS
+  root: data/BraTS
+  image_channels: 4
+  n_classes: 5
+  image_width: 128
+  image_height: 128
+  batch_size: 64
+  num_workers: 8  # Number of CPU cores for data loading
+
+
+diffusion:
+  checkpoint_path: "./checkpoints/Diffusion"
+  name: null
   epochs: 250
   lr: 3e-4
-  name: null
-
-inference:
-  classifier_path: "./checkpoints/classifier.pth"
-  diffusion_path: "./checkpoints/diffusion_run_3.pt"
-  segmentation_path: "./checkpoints/9_SegmentationModel.pth"
-  output_dir: "./figures"
+  time_dim: 256
   start_fraction: 0.5 # noise level for CF generation
   weight_classifier: 0.1
   weight_distance: 0.15
+  engine: linear
 
-
-model:
-  dims: ${data.image_channels}
-  time_dim: 256
-  image_width: ${data.image_width}
-  image_height: ${data.image_height}
-
-classifier:
-  dims: ${data.image_channels}
-  image_width: ${data.image_width}
-  image_height: ${data.image_height}
-  num_classes: ${data.n_classes}
-  lr: 0.001
-  epochs: 10
-  augmentation:
-    std: 0.01
-    p: 0.1
-    p_block: 0.2
-    max_block_width: 4
-    max_block_height: 4
 
 segmentation:
-  dims: ${data.image_channels}
-  image_width: ${data.image_width}
-  image_height: ${data.image_height}
-  num_classes: ${data.n_classes}
-  lr: 0.001
+  checkpoint_path: "./checkpoints/Segmentation"
+  name: null
   epochs: 25
-  name_prefix: "SegmentationModel"
+  lr: 0.001
 
 gan:
+  checkpoint_path: "./checkpoints/GAN"
+  name: null
+  epochs: 60
   lr_generator: 0.0001
   lr_adversarial: 0.0001
   lambda_adv: 1.0
   lambda_seg: 1.0
   lambda_adpt: 1.0
   lambda_per: 0.1
-  scale: 2.0
+
+system:
+  log_dir: "./runs"
+  figures_dir: "./figures"
+  evaluation_dir: "./evaluation"

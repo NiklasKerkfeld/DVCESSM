@@ -8,51 +8,66 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
+from core.Trainer import SuperTrainer
 
-class SegmentationTrainer:
+
+class Trainer(SuperTrainer):
     def __init__(self,
                  model: nn.Module,
+                 lr: float,
                  device: torch.device,
                  name='SegmentationModel',
-                 ):
+                 log_dir: str = './runs/Segmentation',
+                 checkpoint: str = './checkpoints/Segmentation'):
+        super().__init__(device, name, log_dir, checkpoint)
         self.model = model
-        self.device = device
-        self.name = name
-        self.epoch = 0
+        self.lr = lr
         self.num_classes = model.out_channels
 
         self.loss_fn = nn.CrossEntropyLoss()
 
-        self.writer = SummaryWriter(f'runs/Segmentation/{name}')
+        self.model.to(self.device)
 
-    def train(self, train_dataloader: DataLoader, valid_dataloader: DataLoader, epochs: int, lr: float):
-        optimizer = AdamW(self.model.parameters(), lr=lr)
+        self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
+
+    def save_checkpoint(self):
+        os.makedirs(self.checkpoint, exist_ok=True)
+        checkpoint = {
+            'epoch': self.epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'rng_state': torch.get_rng_state(),
+            'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
+        }
+        torch.save(checkpoint, f'{self.checkpoint}/{self.name}.pt')
+
+    def load_checkpoint(self, checkpoint_path: str):
+        checkpoint = torch.load(checkpoint_path)
+
+        self.epoch = checkpoint["epoch"]
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        if 'rng_state' in checkpoint:
+            torch.set_rng_state(checkpoint['rng_state'].cpu())
+        if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
+            torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
+
+    def train(self, train_dataloader: DataLoader, valid_dataloader: DataLoader, epochs: int):
         images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
         targets = torch.stack([valid_dataloader.dataset[i][1] for i in range(5)])
         self.writer.add_image('images', make_grid(images, nrow=5, normalize=True))
-        self.writer.add_image('targets', make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True))
+        self.writer.add_image('targets',
+                              make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True))
 
-        self.model.to(self.device)
         self.model.train()
 
         for self.epoch in range(1, epochs + 1):
-            loss = self.train_one_epoch(train_dataloader, optimizer)
-            self.writer.add_scalar('loss', loss, global_step=self.epoch)
+            self.train_one_epoch(train_dataloader, self.optimizer)
+            self.evaluate(valid_dataloader, self.device)
 
-            # evaluation
-            iou, precision, recall, f1 = self.evaluate(valid_dataloader, self.device)
-            for i in range(self.num_classes):
-                self.writer.add_scalar(f'class_{i}/iou', iou[i], global_step=self.epoch)
-                self.writer.add_scalar(f'class_{i}/precision', precision[i], global_step=self.epoch)
-                self.writer.add_scalar(f'class_{i}/recall', recall[i], global_step=self.epoch)
-                self.writer.add_scalar(f'class_{i}/f1', f1[i], global_step=self.epoch)
-
-            # sample logging
             self.log_samples(images)
-
-        # save model
-        os.makedirs("./checkpoints", exist_ok=True)
-        torch.save(self.model.state_dict(), f"checkpoints/{self.name}.pth")
+            self.save_checkpoint()
 
     def train_one_epoch(self, dataloader: DataLoader, optimizer):
         self.model.train()
@@ -72,8 +87,7 @@ class SegmentationTrainer:
             running_loss += loss.detach().item()
             bar.set_postfix(loss=loss.detach().item())
 
-        return (running_loss / len(dataloader))
-
+        self.writer.add_scalar('loss', (running_loss / len(dataloader)), global_step=self.epoch)
 
     @torch.no_grad()
     def evaluate(self, dataloader, device):
@@ -108,7 +122,11 @@ class SegmentationTrainer:
         f1 = 2 * (precision * recall) / (precision + recall + 1e-6)
         iou = tp / (tp + fp + fn + 1e-6)
 
-        return iou, precision, recall, f1
+        for i in range(self.num_classes):
+            self.writer.add_scalar(f'class_{i}/iou', iou[i], global_step=self.epoch)
+            self.writer.add_scalar(f'class_{i}/precision', precision[i], global_step=self.epoch)
+            self.writer.add_scalar(f'class_{i}/recall', recall[i], global_step=self.epoch)
+            self.writer.add_scalar(f'class_{i}/f1', f1[i], global_step=self.epoch)
 
     @torch.no_grad()
     def log_samples(self, images: torch.Tensor):

@@ -1,62 +1,62 @@
 import torch
 from torch import nn, Tensor
 from tqdm import tqdm
-import torch.nn.functional as F
 
-from core.DiffusionEngine import DiffusionEngine
-
-
-def masked_cross_entropy(logits, targets):
-    # Get current predictions: [B, H, W]
-    current_preds = logits.argmax(dim=1)
-
-    # Create a mask where predictions are WRONG (1 if wrong, 0 if correct)
-    mask = (current_preds != targets).float()
-
-    # Calculate per-pixel cross entropy
-    loss = F.cross_entropy(logits, targets, reduction='none')
-
-    # Only keep loss for wrong pixels
-    return (loss * mask).sum()
-
-
-def capped_cross_entropy(logits, targets, threshold=0.75):
-    # Calculate probabilities
-    probs = torch.softmax(logits, dim=1)
-    # Get probability of the target class at each pixel
-    target_probs = probs.gather(1, targets.unsqueeze(1)).squeeze(1)
-
-    # Mask pixels that are already 'confident enough'
-    # Loss is only calculated for pixels where target_prob < threshold
-    mask = (target_probs < threshold).float()
-
-    loss = F.cross_entropy(logits, targets, reduction='none')
-    return (loss * mask).sum()
+from core.Diffusion.Engine import Engine
+from models.Losses import masked_cross_entropy
 
 
 class CounterfactualGenerator:
     def __init__(self,
-                 model: nn.Module,
+                 segmentation: nn.Module,
                  diffusion_model: nn.Module,
-                 engine: DiffusionEngine,
+                 engine: Engine,
                  device: torch.device,
+                 diffusion_checkpoint: str,
+                 segmentation_checkpoint: str,
                  weight_classifier: float,
                  weight_distance: float):
         super().__init__()
-        self.model = model
+        self.segmentation = segmentation
         self.diffusion_model = diffusion_model
         self.engine = engine
         self.device = device
+        self.diffusion_checkpoint = diffusion_checkpoint
+        self.segmentation_checkpoint = segmentation_checkpoint
         self.weight_classifier = weight_classifier
         self.weight_distance = weight_distance
 
-    @torch.no_grad()
-    def generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor, start_fraction: float):
+        self.load_checkpoint(self.diffusion_checkpoint, self.segmentation_checkpoint)
+
+        self.segmentation.eval()
         self.diffusion_model.eval()
-        self.model.eval()
+
+    def load_checkpoint(self, diffusion_checkpoint: str, segmentation_checkpoint: str):
+        checkpoint = torch.load(diffusion_checkpoint, map_location=self.device)
+        self.diffusion_model.load_state_dict(checkpoint['model_state_dict'])
+
+        checkpoint = torch.load(segmentation_checkpoint, map_location=self.device)
+        self.diffusion_model.load_state_dict(checkpoint['model_state_dict'])
+
+    @torch.no_grad()
+    def generate(self, images: Tensor, targets: Tensor, start_fraction: float):
+        prediction_org = self.segmentation(images).detach().cpu().argmax(dim=1)
+
+        counterfactuals = self._generate_counterfactual(images, targets, start_fraction)
+        adaptions = counterfactuals - images
+
+        prediction_cf = self.segmentation(counterfactuals).detach().cpu().argmax(dim=1)
+
+        return counterfactuals, adaptions, prediction_org, prediction_cf
+
+    @torch.no_grad()
+    def _generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor,
+                                 start_fraction: float):
+        self.diffusion_model.eval()
+        self.segmentation.eval()
 
         images = images.to(self.device)
-        self.model.to(self.device)
+        self.segmentation.to(self.device)
         self.diffusion_model.to(self.device)
 
         start_t = int(self.engine.T * start_fraction)
@@ -69,7 +69,7 @@ class CounterfactualGenerator:
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
 
             with torch.enable_grad():
-                g_update = self.calc_g_update(x, images, targets, epsilon_pred, t_tensor)
+                g_update = self._calc_g_update(x, images, targets, epsilon_pred, t_tensor)
 
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
 
@@ -84,13 +84,13 @@ class CounterfactualGenerator:
 
         return x.detach()
 
-    def calc_g_update(self, x: Tensor, images: Tensor, targets: Tensor, epsilon_pred: Tensor,
-                      t: Tensor) -> Tensor:
+    def _calc_g_update(self, x: Tensor, images: Tensor, targets: Tensor, epsilon_pred: Tensor,
+                       t: Tensor) -> Tensor:
         x = x.detach().requires_grad_(True)
         approx_images = self.engine.image_approximation(x, epsilon_pred, t)
 
         # model
-        logits = self.model(approx_images)
+        logits = self.segmentation(approx_images)
         loss_c = masked_cross_entropy(logits, targets)
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
@@ -102,4 +102,3 @@ class CounterfactualGenerator:
                                                                                  1) + 1e-8)
         # g_update
         return self.weight_classifier * grad_c - self.weight_distance * grad_d
-

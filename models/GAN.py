@@ -1,66 +1,11 @@
-from typing import Sequence
+from typing import Sequence, List
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 
 from models.DiffusionModel import AttentionBlock
-
-
-class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, pool: bool = True):
-        super(ResidualBlock, self).__init__()
-        self.pool = pool
-
-        self.layer1 = nn.Conv2d(in_channels, out_channels // 4, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(out_channels // 4)
-        self.relu1 = nn.ReLU(inplace=True)
-
-        self.layer2 = nn.Conv2d(out_channels // 4, out_channels, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.relu2 = nn.ReLU(inplace=True)
-
-        self.layer3 = nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
-        self.bn3 = nn.BatchNorm2d(out_channels)
-        self.relu3 = nn.ReLU(inplace=True)
-
-        self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
-
-    def forward(self, x):
-        h = self.layer1(x)
-        h = self.bn1(h)
-        h = self.relu1(h)
-
-        h = self.layer2(h)
-        h = self.bn2(h)
-        h = self.relu2(h)
-
-        x = h + self.layer3(x)
-        x = self.bn3(x)
-        x = self.relu3(x)
-
-        if self.pool:
-            x = self.max_pool(x)
-
-        return x
-
-
-class LinearLayer(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, activation=nn.ReLU()):
-        super(LinearLayer, self).__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-
-        self.linear = nn.Linear(in_channels, out_channels, bias=False)
-        self.bn = nn.BatchNorm1d(out_channels)
-        self.activation = activation
-
-
-    def forward(self, x):
-        x = self.linear(x)
-        x = self.bn(x)
-        x = self.activation(x)
-        return x
+from models.Layer import ResidualBlock, LinearLayer
 
 
 class UpBlock(nn.Module):
@@ -88,13 +33,11 @@ class UpBlock(nn.Module):
 class Generator(nn.Module):
     def __init__(self, channels: int,
                  num_classes: int = 10,
-                 feature_maps: Sequence[int] = [64, 128, 256, 512],
-                 scale: float= 1.0):
+                 feature_maps: List[int, int, int, int] = [64, 128, 256, 512]):
         super(Generator, self).__init__()
         self.channels = channels
         self.num_classes = num_classes
         self.feature_maps = feature_maps
-        self.scale = scale
 
         self.down1 = ResidualBlock(self.channels + 2 * self.num_classes, self.feature_maps[0])
         self.down2 = ResidualBlock(self.feature_maps[0], self.feature_maps[1])

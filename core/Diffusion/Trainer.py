@@ -5,40 +5,38 @@ import torch
 from torch import nn, Tensor
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-from core.DiffusionEngine import DiffusionEngine
+from core.Diffusion.Engine import Engine
+from core.Trainer import SuperTrainer
 from models.DiffusionModel import DiffusionModel
 from utils import to_vis
 
 
-class DiffusionTrainer:
+class Trainer(SuperTrainer):
     def __init__(self,
                  model: DiffusionModel,
-                 engine: DiffusionEngine,
+                 engine: Engine,
                  lr: float,
-                 device: torch.device,
-                 name='DiffusionModel',
+                 device: torch.device = torch.device('cpu'),
+                 name: str = 'DiffusionModel',
+                 log_dir: str = 'runs/Diffusion',
+                 checkpoint: str = "./checkpoints/GAN"
                  ):
+        super().__init__(device, name, log_dir, checkpoint)
         self.model = model
         self.engine = engine
         self.lr = lr
-        self.device = device
-        self.name = name
-
-        self.epoch = 0
 
         self.model.to(self.device)
+        self.engine.to(self.device)
 
         self.loss_fn = nn.MSELoss()
         self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
-        self.writer = SummaryWriter(f'runs/Diffusion/{name}')
-
     def save_checkpoint(self):
-        os.makedirs("./checkpoints", exist_ok=True)
+        os.makedirs(self.checkpoint, exist_ok=True)
         checkpoint = {
             'epoch': self.epoch,
             'model_state_dict': self.model.state_dict(),
@@ -46,7 +44,7 @@ class DiffusionTrainer:
             'rng_state': torch.get_rng_state(),
             'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
         }
-        torch.save(checkpoint, f'./checkpoints/diffusion_{self.name}.pt')
+        torch.save(checkpoint, f'{self.checkpoint}/{self.name}.pt')
 
     def load_checkpoint(self, checkpoint_path: str):
         checkpoint = torch.load(checkpoint_path)
@@ -60,19 +58,11 @@ class DiffusionTrainer:
         if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
-    def save_model(self):
-        # save model
-        os.makedirs("./checkpoints", exist_ok=True)
-        torch.save(self.model.state_dict(), "checkpoints/DiffusionModel.pth")
-
     def train(self, dataloader: DataLoader, epochs: int):
         samples = torch.stack(
             [dataloader.dataset[i] for i in torch.randint(0, len(dataloader.dataset), (4,))])
 
-        self.model.to(self.device)
         self.model.train()
-
-        self.engine.to(self.device)
 
         for self.epoch in range(self.epoch + 1, epochs + 1):
             losses = torch.zeros((len(dataloader),))
@@ -98,7 +88,6 @@ class DiffusionTrainer:
 
             self.save_checkpoint()
 
-        self.save_model()
         self.writer.close()
         print("Training complete and logs flushed.")
 

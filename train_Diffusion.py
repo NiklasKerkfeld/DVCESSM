@@ -6,10 +6,10 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
-from core.DiffusionDataset import get_MNIST_dataset, get_BraTS_dataset
+from core.Datasets import get_datasets
 from models.DiffusionModel import DiffusionModel
-from core.DiffusionEngine import DiffusionEngine
-from core.DiffusionTrainer import DiffusionTrainer
+from core.Diffusion.Engine import Engine
+from core.Diffusion.Trainer import Trainer
 
 
 torch.manual_seed(42)
@@ -19,28 +19,22 @@ if torch.cuda.is_available():
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
+
     # Setup Logging & Run Number
-    if cfg.training.name is not None:
-        run_name = cfg.training.name
+    log_dir = f'{cfg.system.log_dir}/Diffusion/*'
+    if cfg.diffusion.name is not None:
+        run_name = cfg.diffusion.name
     else:
         # If no run_id, it's a NEW experiment. Generate a fresh ID.
-        nr = len(glob.glob('runs/Diffusion/*'))
+        nr = len(glob.glob(log_dir))
         run_name = f"{nr}_DiffusionTraining"
-
-    # print the resolved config to your terminal for sanity
-    print(OmegaConf.to_yaml(cfg))
 
     # check for gpu available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    if cfg.data.name == 'MNIST':
-        dataset = get_MNIST_dataset()
-    elif cfg.data.name == 'BraTS':
-        dataset = get_BraTS_dataset()
-    else:
-        raise ValueError(f"Unknown dataset: {cfg.data.name}")
-
+    dataset, _ = get_datasets('Diffusion')
 
     train_loader = DataLoader(
         dataset,
@@ -52,24 +46,26 @@ def main(cfg: DictConfig):
     )
 
     model = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height, cfg.model.time_dim)
-    engine = DiffusionEngine(**cfg.engine, device=device)
+    engine = Engine(**cfg.diffusion.engine, device=device)
 
-    trainer = DiffusionTrainer(
+    trainer = Trainer(
         model,
         engine,
-        cfg.training.lr,
+        cfg.diffusion.lr,
         device,
-        name=run_name
+        name=run_name,
+        log_dir=log_dir,
+        checkpoint=cfg.diffusion.checkpoint,
     )
 
-    checkpoint = f'./checkpoints/diffusion_{run_name}.pt'
+    checkpoint = f'{cfg.diffusion.checkpoint_path}/{run_name}.pt'
     if Path(checkpoint).is_file():
         trainer.load_checkpoint(checkpoint)
         print(f"continue training form {checkpoint}...")
 
     trainer.train(
         train_loader,
-        epochs=cfg.training.epochs,
+        epochs=cfg.diffusion.epochs,
     )
 
 

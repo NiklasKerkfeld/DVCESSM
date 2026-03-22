@@ -6,7 +6,7 @@ from torch import Tensor, nn
 from utils import cosine_beta_schedule
 
 
-class DiffusionEngine(nn.Module):
+class Engine(nn.Module):
     def __init__(self,
                  T: int,
                  beta_min: float,
@@ -80,7 +80,7 @@ class DiffusionEngine(nn.Module):
 
 
 if __name__ == '__main__':
-    engine = DiffusionEngine(T=1000, beta_min=0.1, beta_max=1.0, device=torch.device('cpu'))
+    engine = Engine(T=1000, beta_min=0.1, beta_max=1.0, device=torch.device('cpu'))
     t = torch.tensor([0, 1, 10, 50, 100, 250, 500, 800, 900, 990, 998, 999])
     snr = engine.snr(t)
     for i in range(len(t)):

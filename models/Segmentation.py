@@ -1,27 +1,7 @@
 import torch
 from torch import nn
 
-
-class ConvLayer(nn.Module):
-    def __init__(self, in_channels, out_channels,
-                 kernel_size=3,
-                 padding=1,
-                 stride: int = 1,
-                 activation=nn.ReLU()):
-        super(ConvLayer, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding,
-                              stride=stride)
-
-        self.norm = nn.BatchNorm2d(out_channels)
-
-        self.activation = activation
-
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.norm(x)
-        x = self.activation(x)
-
-        return x
+from models.Layer import ConvLayer
 
 
 class DownBlock(nn.Module):
@@ -70,34 +50,7 @@ class UpBlock(nn.Module):
         return u
 
 
-class AttentionBlock(nn.Module):
-    def __init__(self, channels: int, width: int, height: int, num_heads: int = 8):
-        super().__init__()
-        self.channels = channels
-        self.num_heads = num_heads
 
-        self.norm = nn.GroupNorm(num_groups=32, num_channels=channels)
-
-        self.pos_embedding = nn.Parameter(torch.randn(1, width * height, channels))
-
-        self.mha = nn.MultiheadAttention(
-            embed_dim=channels,
-            num_heads=num_heads,
-            batch_first=True
-        )
-
-    def forward(self, x):
-        b, c, h, w = x.shape
-
-        h_norm = self.norm(x)
-        h_flat = h_norm.view(b, c, h * w).transpose(1, 2)
-        h_flat = h_flat + self.pos_embedding
-
-        attn_output, _ = self.mha(h_flat, h_flat, h_flat)
-
-        attn_output = attn_output.transpose(1, 2).view(b, c, h, w)
-
-        return x + attn_output
 
 
 class SegmentationUNet(nn.Module):

@@ -1,5 +1,4 @@
 import torch
-from matplotlib import pyplot as plt
 
 
 def random_target(input_tensor, n):
@@ -98,6 +97,11 @@ def to_vis(x):
 
 
 def visualize_mri(image: torch.Tensor):
+    """
+    Converts mri images into rgb images
+    :param image: image tensor of shape (B, S, H, W)
+    :return: image tensor of shape (B, S, 3, H, W)
+    """
     img_min = torch.amin(image, (2, 3))[:, :, None, None]
     img_max = torch.amax(image, (2, 3))[:, :, None, None]
     image = (image - img_min) / (img_max - img_min)

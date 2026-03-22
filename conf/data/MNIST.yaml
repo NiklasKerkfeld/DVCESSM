@@ -1,8 +1,0 @@
-name: MNIST
-root: data/MNIST
-n_classes: 10
-image_channels: 1
-image_width: 32
-image_height: 32
-batch_size: 128
-num_workers: 4  # Number of CPU cores for data loading

@@ -1,13 +1,13 @@
 import torch
 import pytest
-from core.DiffusionEngine import DiffusionEngine
+from core.Diffusion.Engine import Engine
 
 
 @pytest.fixture
 def engine():
     """This 'fixture' creates an engine instance for all tests to use."""
     device = torch.device("cpu")
-    return DiffusionEngine(T=200, beta_min=1e-4, beta_max=2e-2, device=device, beta_schedule='linear')
+    return Engine(T=200, beta_min=1e-4, beta_max=2e-2, device=device, beta_schedule='linear')
 
 
 def test_diffusion_forward_shapes(engine):

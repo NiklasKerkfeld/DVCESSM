@@ -5,26 +5,32 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
-from core.SegmentationDataset import SegmentationDataset
-from core.SementationTrainer import SegmentationTrainer
+from core.Datasets import get_datasets
+from core.SementationTrainer import Trainer
 from models.Segmentation import SegmentationUNet
 
 torch.manual_seed(42)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(42)
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
-    # Setup Logging & Run Number
-    nr = len(glob.glob('runs/Segmentation/*'))
-    print(f"Start {nr}. Segmentation training ...")
-
-    # print the resolved config to your terminal for sanity
     print(OmegaConf.to_yaml(cfg))
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Setup Logging & Run Number
+    log_dir = f'{cfg.system.log_dir}/Segmentation'
+    if cfg.gan.name is not None:
+        run_name = cfg.gan.name
+    else:
+        nr = len(glob.glob(log_dir))
+        run_name = f"{nr}_SegmentationTraining"
 
-    full_dataset = SegmentationDataset()
-    train_dataset, test_dataset = torch.utils.data.random_split(full_dataset, [0.8, 0.2])
+    # check for gpu available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"using device: {device}")
+
+    train_dataset, test_dataset = get_datasets('Segmentation')
 
     train_loader = DataLoader(
         train_dataset,
@@ -46,13 +52,15 @@ def main(cfg: DictConfig):
         img_height=cfg.data.image_height,
     ).to(device)
 
-    trainer = SegmentationTrainer(
+    trainer = Trainer(
         model=model,
+        lr=cfg.segmentation.lr,
         device=device,
-        name=f"{nr}_{cfg.segmentation.name_prefix}"
+        name=run_name,
+        log_dir=log_dir,
     )
 
-    trainer.train(train_loader, test_loader, epochs=cfg.segmentation.epochs, lr=cfg.segmentation.lr)
+    trainer.train(train_loader, test_loader, epochs=cfg.segmentation.epochs)
 
 
 if __name__ == '__main__':

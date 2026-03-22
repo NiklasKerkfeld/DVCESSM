@@ -1,8 +1,0 @@
-name: BraTS
-root: data/BraTS
-image_channels: 4
-n_classes: 5
-image_width: 128
-image_height: 128
-batch_size: 64
-num_workers: 8  # Number of CPU cores for data loading

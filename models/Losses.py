@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 
 class DiscriminatorLoss(nn.Module):
@@ -13,31 +14,29 @@ class DiscriminatorLoss(nn.Module):
             target = 0.9 * target + 0.1 * (1 - target)
         return self.loss_fn(prediction, target.float())
 
+def masked_cross_entropy(logits, targets):
+    # Get current predictions: [B, H, W]
+    current_preds = logits.argmax(dim=1)
 
-class ChangeRegularizationLossExperimental(nn.Module):
-    def __init__(self, eps=1e-2):
-        super(ChangeRegularizationLossExperimental, self).__init__()
-        self.eps = eps
+    # Create a mask where predictions are WRONG (1 if wrong, 0 if correct)
+    mask = (current_preds != targets).float()
 
-    def _func(self, x: torch.Tensor):
-        eps = torch.FloatTensor([self.eps]).to(x.device)
-        return torch.log(torch.abs(x) + eps) - torch.log(eps)
-        # return torch.abs(x)
+    # Calculate per-pixel cross entropy
+    loss = F.cross_entropy(logits, targets, reduction='none')
 
-    def forward(self, changes):
-        regularization = torch.mean(self._func(changes))
-
-        return regularization
+    # Only keep loss for wrong pixels
+    return (loss * mask).sum()
 
 
-class ChangeRegularizationLoss(nn.Module):
-    def __init__(self, alpha: float = 1.0, beta: float = 1.0):
-        super(ChangeRegularizationLoss, self).__init__()
-        self.alpha = alpha
-        self.beta = beta
+def capped_cross_entropy(logits, targets, threshold=0.75):
+    # Calculate probabilities
+    probs = torch.softmax(logits, dim=1)
+    # Get probability of the target class at each pixel
+    target_probs = probs.gather(1, targets.unsqueeze(1)).squeeze(1)
 
-    def forward(self, changes):
-        l1_reg = torch.mean(torch.abs(changes))
-        l2_reg = torch.mean(changes ** 2)
+    # Mask pixels that are already 'confident enough'
+    # Loss is only calculated for pixels where target_prob < threshold
+    mask = (target_probs < threshold).float()
 
-        return self.alpha * l1_reg + self.beta * l2_reg
+    loss = F.cross_entropy(logits, targets, reduction='none')
+    return (loss * mask).sum()

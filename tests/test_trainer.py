@@ -1,7 +1,7 @@
 import pytest
 import torch
-from core.DiffusionEngine import DiffusionEngine
-from core.DiffusionTrainer import DiffusionTrainer
+from core.Diffusion.Engine import Engine
+from core.Diffusion.Trainer import Trainer
 from models.DiffusionModel import DiffusionModel  # Assuming your model class name
 
 
@@ -9,9 +9,9 @@ from models.DiffusionModel import DiffusionModel  # Assuming your model class na
 def trainer_setup():
     device = torch.device("cpu")  # GitHub Actions friendly
     model = DiffusionModel(1, 32, 32, 128)
-    engine = DiffusionEngine(T=10, beta_min=1e-4, beta_max=2e-2, device=device, beta_schedule='linear')
+    engine = Engine(T=10, beta_min=1e-4, beta_max=2e-2, device=device, beta_schedule='linear')
 
-    trainer = DiffusionTrainer(
+    trainer = Trainer(
         model=model,
         engine=engine,
         device=device,
