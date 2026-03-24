@@ -24,7 +24,7 @@ class Trainer(SuperTrainer):
         self.lr = lr
         self.num_classes = model.out_channels
 
-        self.loss_fn = nn.CrossEntropyLoss() # DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
+        self.loss_fn = DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
 
         self.model.to(self.device)
 
@@ -77,7 +77,7 @@ class Trainer(SuperTrainer):
             images, mask = images.to(self.device), mask.to(self.device)
 
             outputs = self.model(images)
-            loss = self.loss_fn(outputs, mask) # .unsqueeze(1)
+            loss = self.loss_fn(outputs, mask.unsqueeze(1))
 
             optimizer.zero_grad()
             loss.backward()

@@ -1,4 +1,5 @@
 import glob
+from pathlib import Path
 
 import hydra
 import torch
@@ -20,8 +21,8 @@ def main(cfg: DictConfig):
 
     # Setup Logging & Run Number
     log_dir = f'{cfg.system.log_dir}/Segmentation'
-    if cfg.gan.name is not None:
-        run_name = cfg.gan.name
+    if cfg.segmentation.name is not None:
+        run_name = cfg.segmentation.name
     else:
         nr = len(glob.glob(f"{log_dir}/*"))
         run_name = f"{nr}_SegmentationTraining"
@@ -59,6 +60,11 @@ def main(cfg: DictConfig):
         name=run_name,
         log_dir=log_dir,
     )
+
+    checkpoint = f'{cfg.segmentation.checkpoint_path}/{run_name}.pt'
+    if Path(checkpoint).is_file():
+        trainer.load_checkpoint(checkpoint)
+        print(f"continue training form {checkpoint}...")
 
     trainer.train(train_loader, test_loader, epochs=cfg.segmentation.epochs)
 
