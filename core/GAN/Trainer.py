@@ -68,7 +68,7 @@ class Trainer(SuperTrainer):
                 "segmentation": []
             },
             "adversarial loss": [],
-            "val losses": {
+            "val loss": {
                 "loss": [],
                 "adoption": [],
                 "reconstruction": [],
