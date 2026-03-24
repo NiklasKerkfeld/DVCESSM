@@ -1,5 +1,4 @@
 import glob
-from pathlib import Path
 
 import torch
 import hydra
@@ -60,7 +59,7 @@ def main(cfg: DictConfig):
         img_height=cfg.data.image_height,
     )
 
-    checkpoint = torch.load(f'{cfg.segmentation.checkpoint_path}/{cfg.segmentation.name}.pt', map_location=device)
+    checkpoint = torch.load(f'{cfg.segmentation.checkpoint_path}/{cfg.gan.segmentation_model}.pt', map_location=device)
     segmentation.load_state_dict(checkpoint['model_state_dict'])
 
     trainer = Trainer(
@@ -76,7 +75,7 @@ def main(cfg: DictConfig):
         device=device,
         name=run_name,
         log_dir=log_dir,
-        checkpoint=cfg.gan.checkpoint
+        checkpoint=cfg.gan.checkpoint_path
     )
 
     trainer.train(
