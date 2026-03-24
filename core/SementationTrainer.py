@@ -78,6 +78,7 @@ class Trainer(SuperTrainer):
             images, mask = images.to(self.device), mask.to(self.device)
 
             outputs = self.model(images)
+            print(f"{outputs.shape=}, {mask.shape=}")
             loss = self.loss_fn(outputs, mask)
 
             optimizer.zero_grad()
