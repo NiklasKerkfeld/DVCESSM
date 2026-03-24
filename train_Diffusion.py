@@ -26,8 +26,7 @@ def main(cfg: DictConfig):
     if cfg.diffusion.name is not None:
         run_name = cfg.diffusion.name
     else:
-        # If no run_id, it's a NEW experiment. Generate a fresh ID.
-        nr = len(glob.glob(log_dir))
+        nr = len(glob.glob(f"{log_dir}/*"))
         run_name = f"{nr}_DiffusionTraining"
 
     # check for gpu available

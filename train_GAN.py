@@ -24,7 +24,7 @@ def main(cfg: DictConfig):
     if cfg.gan.name is not None:
         run_name = cfg.gan.name
     else:
-        nr = len(glob.glob(log_dir))
+        nr = len(glob.glob(f"{log_dir}/*"))
         run_name = f"{nr}_GANTraining"
 
     # check for gpu available
