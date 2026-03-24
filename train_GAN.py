@@ -1,4 +1,5 @@
 import glob
+from pathlib import Path
 
 import torch
 import hydra
@@ -58,7 +59,9 @@ def main(cfg: DictConfig):
         img_width=cfg.data.image_width,
         img_height=cfg.data.image_height,
     )
-    segmentation.load_state_dict(torch.load(f"{cfg.segmentation.checkpoint_path}/{cfg.segmentation.name}.pt", map_location=device))
+
+    checkpoint = torch.load(f'{cfg.diffusion.checkpoint_path}/{run_name}.pt', map_location=device)
+    segmentation.load_state_dict(checkpoint['model_state_dict'])
 
     trainer = Trainer(
         generator,
