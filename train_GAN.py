@@ -60,7 +60,7 @@ def main(cfg: DictConfig):
         img_height=cfg.data.image_height,
     )
 
-    checkpoint = torch.load(f'{cfg.diffusion.checkpoint_path}/{run_name}.pt', map_location=device)
+    checkpoint = torch.load(f'{cfg.segmentation.checkpoint_path}/{run_name}.pt', map_location=device)
     segmentation.load_state_dict(checkpoint['model_state_dict'])
 
     trainer = Trainer(
