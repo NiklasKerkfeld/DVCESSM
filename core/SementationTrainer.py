@@ -1,15 +1,14 @@
 import os
 
 import torch
+from monai.losses import DiceLoss
 from torch import nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from core.Trainer import SuperTrainer
-from models.Losses import FocalLoss
 
 
 class Trainer(SuperTrainer):
@@ -25,7 +24,7 @@ class Trainer(SuperTrainer):
         self.lr = lr
         self.num_classes = model.out_channels
 
-        self.loss_fn = FocalLoss()
+        self.loss_fn = DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
 
         self.model.to(self.device)
 

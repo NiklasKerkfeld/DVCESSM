@@ -58,19 +58,18 @@ class SegmentationUNet(nn.Module):
         x = self.conv1(x)
         h1 = self.down1(x)
         h2 = self.down2(h1)
-
         h3 = self.down3(h2)
-        h3 = self.h3_att(h3)
-
         h4 = self.down4(h3)
-        h4 = self.h4_att(h4)
-
         u = self.down5(h4)
-        u = self.u_att(u)
 
         # decoder
+        u = self.u_att(u)
+        h4 = self.h4_att(h4)
         u = self.up1(u, h4)
+
+        h3 = self.h3_att(h3)
         u = self.up2(u, h3)
+
         u = self.up3(u, h2)
         u = self.up4(u, h1)
         u = self.up5(u, x)
