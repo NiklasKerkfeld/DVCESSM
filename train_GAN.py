@@ -81,7 +81,7 @@ def main(cfg: DictConfig):
     trainer.train(
         train_loader,
         test_loader,
-        epochs=cfg.training.epochs,
+        epochs=cfg.gan.epochs,
     )
 
 
