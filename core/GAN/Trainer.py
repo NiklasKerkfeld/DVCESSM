@@ -245,10 +245,6 @@ class Trainer(SuperTrainer):
 
     @torch.no_grad()
     def save_visual_explanation(self, img, adoption, cf, reconstruction, target_mask, seg_org, seg_cf):
-        """
-        img, adoption, cf shape: (4, H, W) - [T1, T1c, T2, FLAIR]
-        target_mask shape: (1, H, W) or (C, H, W)
-        """
         img = visualize_mri(img)
         cf = visualize_mri(cf)
         reconstruction = visualize_mri(reconstruction)
