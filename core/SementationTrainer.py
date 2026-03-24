@@ -56,7 +56,7 @@ class Trainer(SuperTrainer):
     def train(self, train_dataloader: DataLoader, valid_dataloader: DataLoader, epochs: int):
         images = torch.stack([valid_dataloader.dataset[i][0] for i in [100, 200, 300, 400, 500]])
         targets = torch.stack([valid_dataloader.dataset[i][1] for i in [100, 200, 300, 400, 500]])
-        self.writer.add_image('images', make_grid(images.flatten(0, 1), nrow=4, normalize=True))
+        self.writer.add_image('images', make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True))
         self.writer.add_image('targets', make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True))
 
         self.model.train()
