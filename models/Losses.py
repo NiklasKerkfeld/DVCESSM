@@ -3,6 +3,24 @@ from torch import nn
 import torch.nn.functional as F
 
 
+class MultiTaskLoss(nn.Module):
+    def __init__(self, n_losses: int):
+        super().__init__()
+        # Initialize with zeros so exp(-s) starts at 1.0
+        self.log_vars = nn.Parameter(torch.zeros(n_losses))
+
+    def forward(self, losses: torch.Tensor):
+        """
+        losses: a tensor of shape (n_losses,)
+        """
+        # precision = 1 / (2 * sigma^2)
+        precision = torch.exp(-self.log_vars)
+
+        # Weighted loss + complexity penalty (log_var)
+        weighted_losses = precision * losses + self.log_vars
+        return weighted_losses.sum()
+
+
 class DiscriminatorLoss(nn.Module):
     def __init__(self, label_smoothing: bool = False):
         super(DiscriminatorLoss, self).__init__()

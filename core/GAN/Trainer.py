@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from core.Trainer import SuperTrainer
 from models.GAN import Generator, Adversarial
+from models.Losses import MultiTaskLoss
 from utils import visualize_mri, visualize_seg, visualize_adaption
 
 
@@ -35,14 +36,11 @@ class Trainer(SuperTrainer):
 
         self.lr_generator = lr_generator
         self.lr_adversarial = lr_adversarial
-        self.lambda_adv = lambda_adv
-        self.lambda_seg = lambda_seg
-        self.lambda_adpt = lambda_adpt
-        self.lambda_per = lambda_per
 
         self.dis_loss_fn = nn.CrossEntropyLoss()
         self.seg_loss_fn = nn.CrossEntropyLoss()
         self.rec_loss_fn = nn.MSELoss()
+        self.loss_fn = MultiTaskLoss(4)
 
         self.generator.to(self.device)
         self.adversarial.to(self.device)
@@ -155,10 +153,7 @@ class Trainer(SuperTrainer):
         prediction_cf = self.segmentation(counterfactual)
         seg_loss = self.seg_loss_fn(prediction_cf, target)
 
-        loss = (self.lambda_adpt * rec_loss +
-                self.lambda_adv * adv_loss +
-                self.lambda_seg * seg_loss +
-                self.lambda_per * per_loss)
+        loss = self.loss_fn(torch.tensor([rec_loss, per_loss, adv_loss, seg_loss]))
         loss.backward()
         self.generator_optimizer.step()
 
@@ -243,6 +238,9 @@ class Trainer(SuperTrainer):
                                      prediction.cpu(),
                                      prediction_cf.argmax(1).cpu())
 
+        # log loss weights
+        self.log_loss_weights()
+
     @torch.no_grad()
     def save_visual_explanation(self, img, adoption, cf, reconstruction, target_mask, seg_org, seg_cf):
         img = visualize_mri(img)
@@ -304,3 +302,9 @@ class Trainer(SuperTrainer):
         self.writer.add_scalar("val/segmentation",
                                sum(self.losses["val loss"]["segmentation"]) / len(self.losses["val loss"]["segmentation"]),
                                global_step=self.epoch)
+
+    def log_loss_weights(self):
+        self.writer.add_scalar("MultiTaskLoss/weight_0", self.loss_fn.log_vars[0], global_step=self.epoch)
+        self.writer.add_scalar("MultiTaskLoss/weight_1", self.loss_fn.log_vars[1], global_step=self.epoch)
+        self.writer.add_scalar("MultiTaskLoss/weight_2", self.loss_fn.log_vars[2], global_step=self.epoch)
+        self.writer.add_scalar("MultiTaskLoss/weight_3", self.loss_fn.log_vars[3], global_step=self.epoch)
