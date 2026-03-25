@@ -39,7 +39,7 @@ gan:
   lr_generator: 0.0001
   lr_adversarial: 0.0001
   lambda_adv: 1.0
-  lambda_seg: 1.0
+  lambda_seg: 10.0
   lambda_adpt: 1.0
   lambda_per: 0.01
 
