@@ -217,10 +217,7 @@ class Trainer(SuperTrainer):
             prediction_cf = self.segmentation(counterfactual)
             seg_loss = self.seg_loss_fn(prediction_cf, target)
 
-            loss = (self.lambda_adpt * rec_loss +
-                    self.lambda_adv * adv_loss +
-                    self.lambda_seg * seg_loss +
-                    self.lambda_per * per_loss)
+            loss = self.loss_fn(torch.tensor([rec_loss, per_loss, adv_loss, seg_loss]))
 
             # Store results
             self.losses["val loss"]["loss"].append(loss.item())
