@@ -41,6 +41,9 @@ class Trainer(SuperTrainer):
         self.seg_loss_fn = nn.CrossEntropyLoss()
         self.rec_loss_fn = nn.MSELoss()
         self.loss_fn = MultiTaskLoss(4)
+        with torch.no_grad():
+            self.multi_loss.log_vars[0].fill_(-2.0)  # Reconstruction weight ~7.3
+            self.multi_loss.log_vars[3].fill_(-2.0)  # Segmentation weight ~7.3
 
         self.generator.to(self.device)
         self.adversarial.to(self.device)
