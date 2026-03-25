@@ -41,7 +41,7 @@ gan:
   lambda_adv: 1.0
   lambda_seg: 1.0
   lambda_adpt: 1.0
-  lambda_per: 0.1
+  lambda_per: 0.01
 
 system:
   log_dir: "./runs"
