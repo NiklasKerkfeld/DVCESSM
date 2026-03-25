@@ -49,7 +49,10 @@ class Trainer(SuperTrainer):
         for param in self.segmentation.parameters():
             param.requires_grad = False
 
-        self.generator_optimizer = AdamW(self.generator.parameters(), lr=self.lr_generator)
+        self.generator_optimizer = AdamW([
+            {'params': self.generator.parameters()},
+            {'params': self.loss_fn.parameters(), 'lr': self.lr_generator}
+        ], lr=self.lr_generator)
         self.adversarial_optimizer = AdamW(self.adversarial.parameters(), lr=self.lr_adversarial)
 
         self.losses = {}
