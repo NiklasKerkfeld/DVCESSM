@@ -51,7 +51,7 @@ def main(cfg: DictConfig):
             img_width=cfg.data.image_width,
             img_height=cfg.data.image_height,
         ),
-        checkpoint=f"{cfg.gan.checkpoint}/{run_name}.pth",
+        checkpoint=f"{cfg.gan.checkpoint_path}/{run_name}.pth",
         device=device
     )
 
