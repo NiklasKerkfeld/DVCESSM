@@ -4,6 +4,8 @@ import torch
 from torch import nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
+from torchmetrics import MetricCollection
+from torchmetrics.classification import BinaryAccuracy, BinaryPrecision, BinaryRecall, BinaryF1Score
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
@@ -59,19 +61,34 @@ class Trainer(SuperTrainer):
         self.losses = {}
         self.reset_loss()
 
+        self.metrics = MetricCollection({
+            "accuracy": BinaryAccuracy(),
+            "f1": BinaryF1Score(),
+            "precision": BinaryPrecision(),
+            "recall": BinaryRecall()
+        }).to(self.device)
+
     def reset_loss(self):
+        self.metrics.reset()
+
         self.losses = {
-            "generation loss": {
+            "generation": {
                 "loss": [],
-                "adoption": [],
+                "perturbation": [],
                 "reconstruction": [],
                 "adversarial": [],
                 "segmentation": []
             },
-            "adversarial loss": [],
-            "val loss": {
+            "adversarial": {
                 "loss": [],
-                "adoption": [],
+                "accuracy": [],
+                "f1": [],
+                "precision": [],
+                "recall": []
+            },
+            "validation": {
+                "loss": [],
+                "perturbation": [],
                 "reconstruction": [],
                 "adversarial": [],
                 "segmentation": []
@@ -118,12 +135,10 @@ class Trainer(SuperTrainer):
             self.save_checkpoint()
 
     def train_epoch(self, train_dataloader: DataLoader):
-        self.generator.train()
-        self.adversarial.eval()
         self.segmentation.eval()
 
         for image, target in tqdm(train_dataloader, total=len(train_dataloader),
-                                  desc='train generator'):
+                                  desc=f"Epoch {self.epoch}"):
             image, target = image.to(self.device), target.to(self.device)
 
             counterfactual = self.train_generator(image, target)
@@ -132,21 +147,21 @@ class Trainer(SuperTrainer):
     def train_generator(self,
                         image: torch.Tensor,
                         target: torch.Tensor) -> torch.Tensor:
-        with torch.no_grad():
-            prediction_org = self.segmentation(image).argmax(1).long()
-
         self.generator.train()
         self.adversarial.eval()
         self.segmentation.eval()
         self.generator.zero_grad()
 
-        adoption_cf = self.generator(image, target, prediction_org)
-        counterfactual = image + adoption_cf
-        adoption_rec = self.generator(counterfactual, prediction_org, target)
-        reconstruction = counterfactual + adoption_rec
+        with torch.no_grad():
+            prediction_org = self.segmentation(image).argmax(1).long()
+
+        perturbation_cf = self.generator(image, target, prediction_org)
+        counterfactual = image + perturbation_cf
+        perturbation_rec = self.generator(counterfactual, prediction_org, target)
+        reconstruction = counterfactual + perturbation_rec
         rec_loss = self.rec_loss_fn(reconstruction, image)
 
-        per_loss = torch.mean(torch.abs(adoption_cf)) + torch.mean(torch.abs(adoption_rec))
+        per_loss = torch.mean(torch.abs(perturbation_cf)) + torch.mean(torch.abs(perturbation_rec))
 
         adv_pred = self.adversarial(counterfactual, target)
         adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long,
@@ -163,11 +178,11 @@ class Trainer(SuperTrainer):
         loss.backward()
         self.generator_optimizer.step()
 
-        self.losses["generation loss"]["loss"].append(loss.detach().cpu().item())
-        self.losses["generation loss"]["adoption"].append(per_loss.detach().cpu().item())
-        self.losses["generation loss"]["reconstruction"].append(rec_loss.detach().cpu().item())
-        self.losses["generation loss"]["adversarial"].append(adv_loss.detach().cpu().item())
-        self.losses["generation loss"]["segmentation"].append(seg_loss.detach().cpu().item())
+        self.losses["generation"]["loss"].append(loss.detach().cpu().item())
+        self.losses["generation"]["perturbation"].append(per_loss.detach().cpu().item())
+        self.losses["generation"]["reconstruction"].append(rec_loss.detach().cpu().item())
+        self.losses["generation"]["adversarial"].append(adv_loss.detach().cpu().item())
+        self.losses["generation"]["segmentation"].append(seg_loss.detach().cpu().item())
 
         return counterfactual
 
@@ -181,19 +196,28 @@ class Trainer(SuperTrainer):
         self.adversarial.zero_grad()
 
         real_pred = self.adversarial(image, target)
-        d_loss_real = self.dis_loss_fn(real_pred, torch.zeros(image.size(0), dtype=torch.long,
-                                                              device=self.device))
+        real_labels = torch.zeros(image.size(0), dtype=torch.long, device=self.device)
+        d_loss_real = self.dis_loss_fn(real_pred, real_labels)
 
         fake_pred = self.adversarial(counterfactual.detach(), target)
-        d_loss_fake = self.dis_loss_fn(fake_pred, torch.ones(image.size(0), dtype=torch.long,
-                                                             device=self.device))
+        fake_labels = torch.ones(image.size(0), dtype=torch.long, device=self.device)
+        d_loss_fake = self.dis_loss_fn(fake_pred, fake_labels)
 
         loss = d_loss_real + d_loss_fake
-
         loss.backward()
         self.adversarial_optimizer.step()
 
-        self.losses["adversarial loss"].append(loss.detach().cpu().item())
+        # --- Metrics Logging ---
+        with torch.no_grad():
+            all_preds = torch.cat([real_pred, fake_pred], dim=0)
+            all_labels = torch.cat([real_labels, fake_labels], dim=0)
+
+            batch_metrics = self.metrics(torch.argmax(all_preds, dim=1), all_labels)
+
+        # Store results
+        self.losses["adversarial"]["loss"].append(loss.detach().cpu().item())
+        for key, value in batch_metrics.items():
+            self.losses["adversarial"][key].append(value.item())
 
     @torch.no_grad()
     def evaluation(self, valid_dataloader: DataLoader):
@@ -207,13 +231,13 @@ class Trainer(SuperTrainer):
             with torch.no_grad():
                 prediction = self.segmentation(image).argmax(1).long()
 
-            adoption_cf = self.generator(image, target, prediction)
-            counterfactual = image + adoption_cf
-            adoption_rec = self.generator(counterfactual, prediction, target)
-            reconstruction = counterfactual + adoption_rec
+            perturbation_cf = self.generator(image, target, prediction)
+            counterfactual = image + perturbation_cf
+            perturbation_rec = self.generator(counterfactual, prediction, target)
+            reconstruction = counterfactual + perturbation_rec
             rec_loss = self.rec_loss_fn(reconstruction, image)
 
-            per_loss = torch.mean(torch.abs(adoption_cf)) + torch.mean(torch.abs(adoption_rec))
+            per_loss = torch.mean(torch.abs(perturbation_cf)) + torch.mean(torch.abs(perturbation_rec))
 
             adv_pred = self.adversarial(counterfactual, target)
             adv_loss = self.dis_loss_fn(adv_pred,
@@ -229,15 +253,15 @@ class Trainer(SuperTrainer):
                     self.lambda_per * per_loss)
 
             # Store results
-            self.losses["val loss"]["loss"].append(loss.item())
-            self.losses["val loss"]["adoption"].append(per_loss.item())
-            self.losses["val loss"]["reconstruction"].append(rec_loss.item())
-            self.losses["val loss"]["adversarial"].append(adv_loss.item())
-            self.losses["val loss"]["segmentation"].append(seg_loss.item())
+            self.losses["validation"]["loss"].append(loss.item())
+            self.losses["validation"]["perturbation"].append(per_loss.item())
+            self.losses["validation"]["reconstruction"].append(rec_loss.item())
+            self.losses["validation"]["adversarial"].append(adv_loss.item())
+            self.losses["validation"]["segmentation"].append(seg_loss.item())
 
         # Log averages to Tensorboard
         self.save_visual_explanation(image.cpu(),
-                                     adoption_cf.cpu(),
+                                     perturbation_cf.cpu(),
                                      counterfactual.cpu(),
                                      reconstruction.cpu(),
                                      target.cpu(),
@@ -245,18 +269,18 @@ class Trainer(SuperTrainer):
                                      prediction_cf.argmax(1).cpu())
 
     @torch.no_grad()
-    def save_visual_explanation(self, img, adoption, cf, reconstruction, target_mask, seg_org,
+    def save_visual_explanation(self, img, perturbation, cf, reconstruction, target_mask, seg_org,
                                 seg_cf):
         img = visualize_mri(img)
         cf = visualize_mri(cf)
         reconstruction = visualize_mri(reconstruction)
-        adoption = visualize_adaption(adoption)
+        perturbation = visualize_adaption(perturbation)
         orig_map = visualize_seg(seg_org).permute(0, 3, 1, 2)
         cf_map = visualize_seg(seg_cf).permute(0, 3, 1, 2)
         target_map = visualize_seg(target_mask).permute(0, 3, 1, 2)
 
         for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
-            visual = torch.stack([img[:, i], adoption[:, i], cf[:, i], reconstruction[:, i]],
+            visual = torch.stack([img[:, i], perturbation[:, i], cf[:, i], reconstruction[:, i]],
                                  dim=1).flatten(0, 1)
             self.writer.add_image(f'image/{seq}',
                                   make_grid(visual, nrow=4, padding=2),
@@ -269,43 +293,55 @@ class Trainer(SuperTrainer):
 
     def log_losses(self):
         self.writer.add_scalar("generation/loss",
-                               torch.mean(torch.tensor(self.losses["generation loss"]["loss"])),
+                               torch.mean(torch.tensor(self.losses["generation"]["loss"])),
                                global_step=self.epoch)
-        self.writer.add_scalar("generation/adoption",
+        self.writer.add_scalar("generation/perturbation",
                                torch.mean(
-                                   torch.tensor(self.losses["generation loss"]["adoption"])),
+                                   torch.tensor(self.losses["generation"]["perturbation"])),
                                global_step=self.epoch)
         self.writer.add_scalar("generation/reconstruction",
                                torch.mean(
-                                   torch.tensor(self.losses["generation loss"]["reconstruction"])),
+                                   torch.tensor(self.losses["generation"]["reconstruction"])),
                                global_step=self.epoch)
         self.writer.add_scalar("generation/adversarial",
                                torch.mean(
-                                   torch.tensor(self.losses["generation loss"]["adversarial"])),
+                                   torch.tensor(self.losses["generation"]["adversarial"])),
                                global_step=self.epoch)
         self.writer.add_scalar("generation/segmentation",
                                torch.mean(
-                                   torch.tensor(self.losses["generation loss"]["segmentation"])),
+                                   torch.tensor(self.losses["generation"]["segmentation"])),
                                global_step=self.epoch)
         self.writer.add_scalar("adversarial/loss",
-                               torch.mean(torch.tensor(self.losses["adversarial loss"])),
+                               torch.mean(torch.tensor(self.losses["adversarial"]["loss"])),
+                               global_step=self.epoch)
+        self.writer.add_scalar("adversarial/f1",
+                               torch.mean(torch.tensor(self.losses["adversarial"]["f1"])),
+                               global_step=self.epoch)
+        self.writer.add_scalar("adversarial/accuracy",
+                               torch.mean(torch.tensor(self.losses["adversarial"]["accuracy"])),
+                               global_step=self.epoch)
+        self.writer.add_scalar("adversarial/precision",
+                               torch.mean(torch.tensor(self.losses["adversarial"]["precision"])),
+                               global_step=self.epoch)
+        self.writer.add_scalar("adversarial/recall",
+                               torch.mean(torch.tensor(self.losses["adversarial"]["recall"])),
                                global_step=self.epoch)
 
-        avg_loss = sum(self.losses["val loss"]["loss"]) / len(self.losses["val loss"]["loss"])
-        self.writer.add_scalar("val/loss", avg_loss, global_step=self.epoch)
-        self.writer.add_scalar("val/adoption",
-                               sum(self.losses["val loss"]["adoption"]) / len(
-                                   self.losses["val loss"]["adoption"]),
+        avg_loss = sum(self.losses["validation"]["loss"]) / len(self.losses["validation"]["loss"])
+        self.writer.add_scalar("validation/loss", avg_loss, global_step=self.epoch)
+        self.writer.add_scalar("validation/perturbation",
+                               sum(self.losses["validation"]["perturbation"]) / len(
+                                   self.losses["validation"]["perturbation"]),
                                global_step=self.epoch)
-        self.writer.add_scalar("val/reconstruction",
-                               sum(self.losses["val loss"]["reconstruction"]) / len(
-                                   self.losses["val loss"]["reconstruction"]),
+        self.writer.add_scalar("validation/reconstruction",
+                               sum(self.losses["validation"]["reconstruction"]) / len(
+                                   self.losses["validation"]["reconstruction"]),
                                global_step=self.epoch)
-        self.writer.add_scalar("val/adversarial",
-                               sum(self.losses["val loss"]["adversarial"]) / len(
-                                   self.losses["val loss"]["adversarial"]),
+        self.writer.add_scalar("validation/adversarial",
+                               sum(self.losses["validation"]["adversarial"]) / len(
+                                   self.losses["validation"]["adversarial"]),
                                global_step=self.epoch)
-        self.writer.add_scalar("val/segmentation",
-                               sum(self.losses["val loss"]["segmentation"]) / len(
-                                   self.losses["val loss"]["segmentation"]),
+        self.writer.add_scalar("validation/segmentation",
+                               sum(self.losses["validation"]["segmentation"]) / len(
+                                   self.losses["validation"]["segmentation"]),
                                global_step=self.epoch)
