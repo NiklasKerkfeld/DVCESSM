@@ -36,11 +36,11 @@ gan:
   name: null
   segmentation_model: ???
   epochs: 60
-  lr_generator: 0.002
-  lr_adversarial: 0.0004
+  lr_generator: 0.02
+  lr_adversarial: 0.004
   lambda_adv: 1.0
-  lambda_seg: 10.0
-  lambda_adpt: 1.0
+  lambda_seg: 100.0
+  lambda_adpt: 0.1
   lambda_per: 0.01
 
 system:

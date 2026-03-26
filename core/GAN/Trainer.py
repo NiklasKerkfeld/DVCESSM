@@ -37,13 +37,14 @@ class Trainer(SuperTrainer):
         self.lr_generator = lr_generator
         self.lr_adversarial = lr_adversarial
 
+        self.lambda_adv = lambda_adv
+        self.lambda_seg = lambda_seg
+        self.lambda_adpt = lambda_adpt
+        self.lambda_per = lambda_per
+
         self.dis_loss_fn = nn.CrossEntropyLoss()
         self.seg_loss_fn = nn.CrossEntropyLoss()
         self.rec_loss_fn = nn.MSELoss()
-        self.loss_fn = MultiTaskLoss(4)
-        with torch.no_grad():
-            self.multi_loss.log_vars[0].fill_(-2.0)  # Reconstruction weight ~7.3
-            self.multi_loss.log_vars[3].fill_(-2.0)  # Segmentation weight ~7.3
 
         self.generator.to(self.device)
         self.adversarial.to(self.device)
@@ -52,15 +53,11 @@ class Trainer(SuperTrainer):
         for param in self.segmentation.parameters():
             param.requires_grad = False
 
-        self.generator_optimizer = AdamW([
-            {'params': self.generator.parameters()},
-            {'params': self.loss_fn.parameters(), 'lr': self.lr_generator}
-        ], lr=self.lr_generator)
+        self.generator_optimizer = AdamW(self.generator.parameters(), lr=self.lr_generator)
         self.adversarial_optimizer = AdamW(self.adversarial.parameters(), lr=self.lr_adversarial)
 
         self.losses = {}
         self.reset_loss()
-
 
     def reset_loss(self):
         self.losses = {
@@ -132,7 +129,6 @@ class Trainer(SuperTrainer):
             counterfactual = self.train_generator(image, target)
             self.train_adversarial(image, target, counterfactual)
 
-
     def train_generator(self,
                         image: torch.Tensor,
                         target: torch.Tensor) -> torch.Tensor:
@@ -159,7 +155,11 @@ class Trainer(SuperTrainer):
         prediction_cf = self.segmentation(counterfactual)
         seg_loss = self.seg_loss_fn(prediction_cf, target)
 
-        loss = self.loss_fn(torch.tensor([rec_loss, per_loss, adv_loss, seg_loss]))
+        loss = (self.lambda_adv * adv_loss +
+                self.lambda_seg * seg_loss +
+                self.lambda_adpt * rec_loss +
+                self.lambda_per * per_loss)
+
         loss.backward()
         self.generator_optimizer.step()
 
@@ -223,7 +223,10 @@ class Trainer(SuperTrainer):
             prediction_cf = self.segmentation(counterfactual)
             seg_loss = self.seg_loss_fn(prediction_cf, target)
 
-            loss = self.loss_fn(torch.tensor([rec_loss, per_loss, adv_loss, seg_loss]))
+            loss = (self.lambda_adv * adv_loss +
+                    self.lambda_seg * seg_loss +
+                    self.lambda_adpt * rec_loss +
+                    self.lambda_per * per_loss)
 
             # Store results
             self.losses["val loss"]["loss"].append(loss.item())
@@ -241,11 +244,9 @@ class Trainer(SuperTrainer):
                                      prediction.cpu(),
                                      prediction_cf.argmax(1).cpu())
 
-        # log loss weights
-        self.log_loss_weights()
-
     @torch.no_grad()
-    def save_visual_explanation(self, img, adoption, cf, reconstruction, target_mask, seg_org, seg_cf):
+    def save_visual_explanation(self, img, adoption, cf, reconstruction, target_mask, seg_org,
+                                seg_cf):
         img = visualize_mri(img)
         cf = visualize_mri(cf)
         reconstruction = visualize_mri(reconstruction)
@@ -255,11 +256,11 @@ class Trainer(SuperTrainer):
         target_map = visualize_seg(target_mask).permute(0, 3, 1, 2)
 
         for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
-            visual = torch.stack([img[:, i], adoption[:, i], cf[:, i], reconstruction[:, i]], dim=1).flatten(0, 1)
+            visual = torch.stack([img[:, i], adoption[:, i], cf[:, i], reconstruction[:, i]],
+                                 dim=1).flatten(0, 1)
             self.writer.add_image(f'image/{seq}',
                                   make_grid(visual, nrow=4, padding=2),
                                   global_step=self.epoch)
-
 
         visual = torch.stack([orig_map, cf_map, target_map], dim=1).flatten(0, 1)
         self.writer.add_image('image/maps',
@@ -293,21 +294,18 @@ class Trainer(SuperTrainer):
         avg_loss = sum(self.losses["val loss"]["loss"]) / len(self.losses["val loss"]["loss"])
         self.writer.add_scalar("val/loss", avg_loss, global_step=self.epoch)
         self.writer.add_scalar("val/adoption",
-                               sum(self.losses["val loss"]["adoption"]) / len(self.losses["val loss"]["adoption"]),
+                               sum(self.losses["val loss"]["adoption"]) / len(
+                                   self.losses["val loss"]["adoption"]),
                                global_step=self.epoch)
         self.writer.add_scalar("val/reconstruction",
                                sum(self.losses["val loss"]["reconstruction"]) / len(
                                    self.losses["val loss"]["reconstruction"]),
                                global_step=self.epoch)
         self.writer.add_scalar("val/adversarial",
-                               sum(self.losses["val loss"]["adversarial"]) / len(self.losses["val loss"]["adversarial"]),
+                               sum(self.losses["val loss"]["adversarial"]) / len(
+                                   self.losses["val loss"]["adversarial"]),
                                global_step=self.epoch)
         self.writer.add_scalar("val/segmentation",
-                               sum(self.losses["val loss"]["segmentation"]) / len(self.losses["val loss"]["segmentation"]),
+                               sum(self.losses["val loss"]["segmentation"]) / len(
+                                   self.losses["val loss"]["segmentation"]),
                                global_step=self.epoch)
-
-    def log_loss_weights(self):
-        self.writer.add_scalar("MultiTaskLoss/weight_0", self.loss_fn.log_vars[0], global_step=self.epoch)
-        self.writer.add_scalar("MultiTaskLoss/weight_1", self.loss_fn.log_vars[1], global_step=self.epoch)
-        self.writer.add_scalar("MultiTaskLoss/weight_2", self.loss_fn.log_vars[2], global_step=self.epoch)
-        self.writer.add_scalar("MultiTaskLoss/weight_3", self.loss_fn.log_vars[3], global_step=self.epoch)
