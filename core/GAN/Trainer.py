@@ -59,7 +59,6 @@ class Trainer(SuperTrainer):
         self.adversarial_optimizer = AdamW(self.adversarial.parameters(), lr=self.lr_adversarial)
 
         self.losses = {}
-        self.reset_loss()
 
         self.metrics = MetricCollection({
             "accuracy": BinaryAccuracy(),
@@ -67,6 +66,8 @@ class Trainer(SuperTrainer):
             "precision": BinaryPrecision(),
             "recall": BinaryRecall()
         }).to(self.device)
+
+        self.reset_loss()
 
     def reset_loss(self):
         self.metrics.reset()
