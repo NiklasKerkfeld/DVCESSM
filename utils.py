@@ -74,6 +74,22 @@ def visualize_mri(image: torch.Tensor):
     return image[:, :, None].repeat(1, 1, 3, 1, 1)
 
 
+def visualize_counterfactuals(image: torch.Tensor, *args: torch.Tensor):
+    """
+    Normalizes 'image' and any number of additional tensors (*args)
+    based on the min/max of the first 'image'.
+    """
+    img_min = torch.amin(image, dim=(2, 3), keepdim=True)
+    img_max = torch.amax(image, dim=(2, 3), keepdim=True)
+
+    def transform(img):
+        img = torch.clamp(img, img_min, img_max)
+        img = (img - img_min) / (img_max - img_min + 1e-8)
+        return img.unsqueeze(2).repeat(1, 1, 3, 1, 1)
+
+    return transform(image), *[transform(a) for a in args]
+
+
 def visualize_seg(seg_map: torch.Tensor):
     palette = torch.tensor([
         [0, 0, 0],  # Class 0
@@ -98,6 +114,8 @@ def visualize_adaption(adaption: torch.Tensor):
 
 
 if __name__ == '__main__':
-    images = torch.linspace(-1, 1, 1000).reshape(1000, 1) @ torch.linspace(-1, 1, 1000).reshape(1, 1000)
-    print(images.shape)
-    visualize_adaption(images[None])
+    image = torch.randn((1, 4, 224, 224))
+    cf1 = torch.randn((1, 4, 224, 224))
+    cf2 = torch.randn((1, 4, 224, 224))
+    cf3 = torch.randn((1, 4, 224, 224))
+    image, cf1, cf2, cf3 = visualize_counterfactuals(image, cf1, cf2, cf3)

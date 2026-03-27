@@ -13,7 +13,7 @@ from tqdm import tqdm
 from core.Trainer import SuperTrainer
 from models.GAN import Generator, Adversarial
 from models.Losses import MaskedCrossEntropyLoss
-from utils import visualize_mri, visualize_seg, visualize_adaption
+from utils import visualize_mri, visualize_seg, visualize_adaption, visualize_counterfactuals
 
 
 class Trainer(SuperTrainer):
@@ -272,27 +272,29 @@ class Trainer(SuperTrainer):
         self.save_visual_explanation(image.cpu(),
                                      perturbation_cf.cpu(),
                                      counterfactual.cpu(),
+                                     perturbation_rec.cpu(),
                                      reconstruction.cpu(),
                                      target.cpu(),
                                      prediction.cpu(),
                                      prediction_cf.argmax(1).cpu())
 
     @torch.no_grad()
-    def save_visual_explanation(self, img, perturbation, cf, reconstruction, target_mask, seg_org,
+    def save_visual_explanation(self, img, perturbation_cf, cf, pertubation_rec, reconstruction, target_mask, seg_org,
                                 seg_cf):
-        img = visualize_mri(img)
-        cf = visualize_mri(cf)
-        reconstruction = visualize_mri(reconstruction)
-        perturbation = visualize_adaption(perturbation)
+        img, cf, reconstruction = visualize_counterfactuals(img, cf, reconstruction)
+
+        perturbation_cf = visualize_adaption(perturbation_cf)
+        pertubation_rec = visualize_adaption(pertubation_rec)
+
         orig_map = visualize_seg(seg_org).permute(0, 3, 1, 2)
         cf_map = visualize_seg(seg_cf).permute(0, 3, 1, 2)
         target_map = visualize_seg(target_mask).permute(0, 3, 1, 2)
 
         for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
-            visual = torch.stack([img[:, i], perturbation[:, i], cf[:, i], reconstruction[:, i]],
+            visual = torch.stack([img[:, i], perturbation_cf[:, i], cf[:, i], pertubation_rec[:, i], reconstruction[:, i]],
                                  dim=1).flatten(0, 1)
             self.writer.add_image(f'image/{seq}',
-                                  make_grid(visual, nrow=4, padding=2),
+                                  make_grid(visual, nrow=5, padding=2),
                                   global_step=self.epoch)
 
         visual = torch.stack([orig_map, cf_map, target_map], dim=1).flatten(0, 1)
