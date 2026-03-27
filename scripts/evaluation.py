@@ -1,3 +1,5 @@
+import os
+
 import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -81,6 +83,7 @@ def main(cfg: DictConfig):
         prediction_cf = visualize_seg(prediction_cf)
         target = visualize_seg(target)
 
+        os.makedirs("./figures/evaluation/image_{i}", exist_ok=True)
         save_image(image[0], f"./figures/evaluation/image_{i}/image.png")
         save_image(prediction_org[0].permute(2, 0, 1),
                    f"./figures/evaluation/image_{i}/prediction_org.png")
