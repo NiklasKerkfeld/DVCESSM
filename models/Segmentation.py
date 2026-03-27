@@ -57,7 +57,7 @@ class SegmentationUNet(nn.Module):
         self.up5 = UpBlock(feature_maps[1], feature_maps[0], feature_maps[0])
 
         self.final_conv = nn.Sequential(
-            ConvLayer(feature_maps[0], feature_maps[0], kernel_size=3, padding=0),
+            ConvLayer(feature_maps[0], feature_maps[0], kernel_size=3, padding=1),
             ConvLayer(feature_maps[0], self.out_channels, kernel_size=1, padding=0,
                       activation=nn.Identity())
         )
