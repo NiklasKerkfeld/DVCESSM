@@ -30,6 +30,7 @@ def main(cfg: DictConfig, n :int = 585):
         out_channels=cfg.data.n_classes,
         img_width=cfg.data.image_width,
         img_height=cfg.data.image_height,
+        attention=cfg.segmentation.attention,
     )
     diffusion = DiffusionModel(cfg.model.dims, cfg.data.image_width, cfg.data.image_height,
                                cfg.model.time_dim)

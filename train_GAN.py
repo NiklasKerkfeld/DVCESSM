@@ -57,6 +57,7 @@ def main(cfg: DictConfig):
         out_channels=cfg.data.n_classes,
         img_width=cfg.data.image_width,
         img_height=cfg.data.image_height,
+        attention=cfg.segmentation.attention
     )
 
     checkpoint = torch.load(f'{cfg.segmentation.checkpoint_path}/{cfg.gan.segmentation_model}.pt', map_location=device)

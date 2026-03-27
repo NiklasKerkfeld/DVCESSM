@@ -30,6 +30,7 @@ segmentation:
   name: null
   epochs: 25
   lr: 0.001
+  attention: True
 
 gan:
   checkpoint_path: "./checkpoints/GAN"

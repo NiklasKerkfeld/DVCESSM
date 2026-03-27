@@ -26,7 +26,8 @@ class SegmentationUNet(nn.Module):
                  out_channels: int,
                  img_width: int,
                  img_height: int,
-                 feature_maps: List[int] = [32, 64, 128, 256, 512, 512]):
+                 feature_maps: List[int] = [32, 64, 128, 256, 512, 512],
+                 attention: bool = False):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -40,9 +41,14 @@ class SegmentationUNet(nn.Module):
         self.down4 = ResidualBlock(feature_maps[3], feature_maps[4])    # size // 16
         self.down5 = ResidualBlock(feature_maps[4], feature_maps[5])    # size // 32
 
-        self.h3_att = AttentionBlock(feature_maps[3], self.width // 8, self.height // 8)
-        self.h4_att = AttentionBlock(feature_maps[4], self.width // 16, self.height // 16)
-        self.u_att = AttentionBlock(feature_maps[5], self.width // 32, self.height // 32)
+        if attention:
+            self.h3_att = AttentionBlock(feature_maps[3], self.width // 8, self.height // 8)
+            self.h4_att = AttentionBlock(feature_maps[4], self.width // 16, self.height // 16)
+            self.u_att = AttentionBlock(feature_maps[5], self.width // 32, self.height // 32)
+        else:
+            self.h3_att = nn.Identity()
+            self.h4_att = nn.Identity()
+            self.u_att = nn.Identity()
 
         self.up1 = UpBlock(feature_maps[5], feature_maps[4], feature_maps[4])
         self.up2 = UpBlock(feature_maps[4], feature_maps[3], feature_maps[3])
