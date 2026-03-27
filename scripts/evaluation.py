@@ -64,6 +64,8 @@ def main(cfg: DictConfig):
     for i, (image, target) in enumerate(bar):
         image.to(device)
         target.to(device)
+        if target.sum() == 0.0:
+            continue
 
         counterfactual, adaption, prediction_org, prediction_cf = generator.generate(
             image, target)

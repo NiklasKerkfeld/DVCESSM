@@ -3,7 +3,20 @@ from typing import Literal, Tuple
 import torch
 from torch import Tensor, nn
 
-from utils import cosine_beta_schedule
+
+def cosine_beta_schedule(T: int, s: float = 0.008):
+    """
+    Cosine schedule as proposed in https://arxiv.org/abs/2102.09672
+    """
+    steps = T + 1
+    t = torch.linspace(0, T, steps)
+
+    alphas_cumprod = torch.cos((((t / T) + s) / (1 + s)) * torch.pi * 0.5) ** 2
+    alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
+
+    betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
+
+    return torch.clip(betas, 0.0001, 0.9999)
 
 
 class Engine(nn.Module):
