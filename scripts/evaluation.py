@@ -83,6 +83,13 @@ def main(cfg: DictConfig):
         prediction_cf = visualize_seg(prediction_cf)
         target = visualize_seg(target)
 
+        print(f"{image.shape=}")
+        print(f"{counterfactual.shape=}")
+        print(f"{adaption.shape=}")
+        print(f"{prediction_org.shape=}")
+        print(f"{prediction_cf.shape=}")
+        print(f"{target.shape=}")
+
         os.makedirs(f"./figures/evaluation/image_{i}", exist_ok=True)
         save_image(image[0], f"./figures/evaluation/image_{i}/image.png")
         save_image(prediction_org[0].permute(2, 0, 1),
