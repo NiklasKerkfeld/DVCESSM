@@ -41,8 +41,9 @@ gan:
   lambda_adv: 1.0
   lambda_seg: 1000.0
   lambda_rec: 0.1
-  lambda_per: 0.1
+  lambda_per: 0.01
   free_rec: 0.1
+  free_per: 0.1
 
 system:
   log_dir: "./runs"
