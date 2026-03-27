@@ -24,7 +24,7 @@ class Trainer(SuperTrainer):
                  lr_adversarial: float = 0.001,
                  lambda_adv: float = 1.0,
                  lambda_seg: float = 1.0,
-                 lambda_adpt: float = 1.0,
+                 lambda_rec: float = 1.0,
                  lambda_per: float = 1.0,
                  device: torch.device = torch.device('cpu'),
                  name: str = 'GANModel',
@@ -41,7 +41,7 @@ class Trainer(SuperTrainer):
 
         self.lambda_adv = lambda_adv
         self.lambda_seg = lambda_seg
-        self.lambda_adpt = lambda_adpt
+        self.lambda_adpt = lambda_rec
         self.lambda_per = lambda_per
 
         self.dis_loss_fn = nn.CrossEntropyLoss()
@@ -104,6 +104,7 @@ class Trainer(SuperTrainer):
             'generator_optimizer_state_dict': self.generator_optimizer.state_dict(),
             'adversarial_state_dict': self.adversarial.state_dict(),
             'adversarial_optimizer_state_dict': self.adversarial_optimizer.state_dict(),
+            'segmentation_state_dict': self.segmentation.state_dict(),
             'rng_state': torch.get_rng_state(),
             'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
         }

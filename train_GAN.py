@@ -70,7 +70,7 @@ def main(cfg: DictConfig):
         lr_adversarial=cfg.gan.lr_adversarial,
         lambda_adv=cfg.gan.lambda_adv,
         lambda_seg=cfg.gan.lambda_seg,
-        lambda_adpt=cfg.gan.lambda_adpt,
+        lambda_rec=cfg.gan.lambda_rec,
         lambda_per=cfg.gan.lambda_per,
         device=device,
         name=run_name,
