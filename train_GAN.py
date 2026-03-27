@@ -72,6 +72,8 @@ def main(cfg: DictConfig):
         lambda_seg=cfg.gan.lambda_seg,
         lambda_rec=cfg.gan.lambda_rec,
         lambda_per=cfg.gan.lambda_per,
+        free_rec=cfg.gan.free_rec,
+        free_per=cfg.gan.free_per,
         device=device,
         name=run_name,
         log_dir=log_dir,
