@@ -2,6 +2,7 @@ import os
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
@@ -11,7 +12,6 @@ from tqdm import tqdm
 
 from core.Trainer import SuperTrainer
 from models.GAN import Generator, Adversarial
-from models.Losses import MultiTaskLoss
 from utils import visualize_mri, visualize_seg, visualize_adaption
 
 
@@ -26,6 +26,8 @@ class Trainer(SuperTrainer):
                  lambda_seg: float = 1.0,
                  lambda_rec: float = 1.0,
                  lambda_per: float = 1.0,
+                 free_rec: float = 0.0,
+                 free_per: float = 0.0,
                  device: torch.device = torch.device('cpu'),
                  name: str = 'GANModel',
                  log_dir: str = 'runs/GAN',
@@ -43,6 +45,8 @@ class Trainer(SuperTrainer):
         self.lambda_seg = lambda_seg
         self.lambda_adpt = lambda_rec
         self.lambda_per = lambda_per
+        self.free_rec = free_rec
+        self.free_per = free_per
 
         self.dis_loss_fn = nn.CrossEntropyLoss()
         self.seg_loss_fn = nn.CrossEntropyLoss()
@@ -162,8 +166,10 @@ class Trainer(SuperTrainer):
         perturbation_rec = self.generator(counterfactual, prediction_org, target)
         reconstruction = counterfactual + perturbation_rec
         rec_loss = self.rec_loss_fn(reconstruction, image)
+        rec_loss = F.relu(rec_loss - self.free_rec)
 
         per_loss = torch.mean(torch.abs(perturbation_cf)) + torch.mean(torch.abs(perturbation_rec))
+        per_loss = F.relu(per_loss - self.free_per)
 
         adv_pred = self.adversarial(counterfactual, target)
         adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long,
