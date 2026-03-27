@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from core.Trainer import SuperTrainer
 from models.GAN import Generator, Adversarial
+from models.Losses import MaskedCrossEntropyLoss
 from utils import visualize_mri, visualize_seg, visualize_adaption
 
 
@@ -49,7 +50,7 @@ class Trainer(SuperTrainer):
         self.free_per = free_per
 
         self.dis_loss_fn = nn.CrossEntropyLoss()
-        self.seg_loss_fn = nn.CrossEntropyLoss()
+        self.seg_loss_fn = MaskedCrossEntropyLoss()
         self.rec_loss_fn = nn.MSELoss()
 
         self.generator.to(self.device)

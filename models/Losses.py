@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -66,6 +68,19 @@ class FocalLoss(nn.Module):
             return loss.sum()
         return loss
 
+
+class MaskedCrossEntropyLoss(nn.Module):
+    def __init__(self, reduction: Literal['mean', 'sum'] = 'mean'):
+        super(MaskedCrossEntropyLoss, self).__init__()
+        self.reduction = torch.sum if reduction == 'sum' else torch.mean
+
+    def forward(self, logits, targets):
+        mask = (logits.argmax(dim=1) != targets).float()
+        loss = F.cross_entropy(logits, targets, reduction='none')
+
+        return self.reduction(loss * mask)
+
+
 def masked_cross_entropy(logits, targets):
     # Get current predictions: [B, H, W]
     current_preds = logits.argmax(dim=1)
@@ -92,3 +107,10 @@ def capped_cross_entropy(logits, targets, threshold=0.75):
 
     loss = F.cross_entropy(logits, targets, reduction='none')
     return (loss * mask).sum()
+
+
+if __name__ == '__main__':
+    loss_fn = MaskedCrossEntropyLoss()
+    logits = torch.randn(4, 5, 128, 128)
+    targets = torch.randint(0, 5, (4, 128, 128))
+    print(loss_fn(logits, targets))

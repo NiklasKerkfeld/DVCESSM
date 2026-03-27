@@ -83,13 +83,6 @@ def main(cfg: DictConfig):
         prediction_cf = visualize_seg(prediction_cf)
         target = visualize_seg(target)
 
-        print(f"{image.shape=}")                # image.shape=torch.Size([1, 4, 3, 128, 128])
-        print(f"{counterfactual.shape=}")       # counterfactual.shape=torch.Size([1, 4, 3, 128, 128])
-        print(f"{adaption.shape=}")             # adaption.shape=torch.Size([1, 4, 3, 128, 128])
-        print(f"{prediction_org.shape=}")       # prediction_org.shape=torch.Size([1, 128, 128, 3])
-        print(f"{prediction_cf.shape=}")        # prediction_cf.shape=torch.Size([1, 128, 128, 3])
-        print(f"{target.shape=}")               # target.shape=torch.Size([1, 128, 128, 3])
-
         os.makedirs(f"./figures/evaluation/image_{i}", exist_ok=True)
         save_image(image[0], f"./figures/evaluation/image_{i}/image.png")
         save_image(prediction_org[0].permute(2, 0, 1),
