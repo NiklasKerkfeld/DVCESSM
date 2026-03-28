@@ -15,7 +15,9 @@ from utils import visualize_seg, visualize_counterfactuals
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(cfg: DictConfig, n: int = 697):
+def main(cfg: DictConfig):
+    n = cfg.diffusion.sample_idx
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
