@@ -24,8 +24,8 @@ def main(cfg: DictConfig):
     dataset, _ = get_datasets('Segmentation')
     print(f"dataset size: {len(dataset)}")
 
-    image = torch.stack([dataset[n][0]], dim=0)
-    target = torch.stack([dataset[n][1]], dim=0)
+    image = torch.stack([dataset[n][0]], dim=0).to(device)
+    target = torch.stack([dataset[n][1]], dim=0).to(device)
 
     segmentation = SegmentationUNet(
         in_channels=cfg.data.image_channels,
