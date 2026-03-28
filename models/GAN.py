@@ -99,7 +99,7 @@ class Adversarial(nn.Module):
         # Classification head
         self.fc1 = LinearLayer(feature_maps[3], feature_maps[2])
         self.fc2 = LinearLayer(feature_maps[2], feature_maps[2])
-        self.fc3 = LinearLayer(feature_maps[2], 2)
+        self.fc3 = LinearLayer(feature_maps[2], 1)
 
     def forward(self, image: torch.Tensor, condition: torch.Tensor) -> torch.Tensor:
         condition = F.one_hot(condition, num_classes=self.num_classes).permute(0, 3, 1, 2)
