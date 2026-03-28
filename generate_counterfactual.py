@@ -37,7 +37,7 @@ def main(cfg: DictConfig):
     diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
                                cfg.diffusion.time_dim).to(device)
 
-    engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max, device=device)
+    engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max, device=device).to(device)
 
     generator = CounterfactualGenerator(segmentation, diffusion, engine, device,
                                         diffusion_checkpoint=cfg.diffusion.checkpoint_path,

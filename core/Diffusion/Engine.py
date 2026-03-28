@@ -62,7 +62,7 @@ class Engine(nn.Module):
 
     def diffuse(self, images: Tensor, t: Tensor) -> Tuple[Tensor, Tensor]:
         # generate random noise for diffusion
-        noise = torch.randn_like(images)
+        noise = torch.randn_like(images, device=images.device)
 
         # get values in the shape (batch_size, 1, 1, 1)
         sqrt_alpha_hat = self._extract(self.sqrt_alphas_cumprod, t, images.shape)
