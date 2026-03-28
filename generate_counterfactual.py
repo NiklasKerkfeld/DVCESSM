@@ -51,6 +51,8 @@ def main(cfg: DictConfig):
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
                                                                                  cfg.diffusion.start_fraction)
 
+    target = target.cpu()
+    image = image.cpu()
     counterfactual = counterfactual.detach().cpu()
     adaption = adaption.detach().cpu()
     prediction_org = prediction_org.detach().cpu()
