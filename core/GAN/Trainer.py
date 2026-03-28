@@ -2,7 +2,6 @@ import os
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
@@ -13,7 +12,7 @@ from tqdm import tqdm
 from core.Trainer import SuperTrainer
 from models.GAN import Generator, Adversarial
 from models.Losses import MaskedCrossEntropyLoss
-from utils import visualize_mri, visualize_seg, visualize_adaption, visualize_counterfactuals
+from utils import visualize_seg, visualize_adaption, visualize_counterfactuals, gaussian_blur_2d
 
 
 class Trainer(SuperTrainer):
@@ -81,7 +80,6 @@ class Trainer(SuperTrainer):
             "generation": {
                 "loss": [],
                 "perturbation": [],
-                "reconstruction": [],
                 "adversarial": [],
                 "segmentation": []
             },
@@ -95,7 +93,6 @@ class Trainer(SuperTrainer):
             "validation": {
                 "loss": [],
                 "perturbation": [],
-                "reconstruction": [],
                 "adversarial": [],
                 "segmentation": []
             }
@@ -162,34 +159,37 @@ class Trainer(SuperTrainer):
         with torch.no_grad():
             prediction_org = self.segmentation(image).argmax(1).long()
 
-        perturbation_cf = self.generator(image, target, prediction_org)
-        counterfactual = image + perturbation_cf
-        perturbation_rec = self.generator(counterfactual, prediction_org, target)
-        reconstruction = counterfactual + perturbation_rec
-        rec_loss = self.rec_loss_fn(reconstruction, image)
-        rec_loss = F.relu(rec_loss - self.free_rec)
+        # 1. Forward Pass
+        delta = self.generator(image, target, prediction_org)
+        counterfactual = image + delta
 
-        per_loss = torch.mean(torch.abs(perturbation_cf)) + torch.mean(torch.abs(perturbation_rec))
-        per_loss = F.relu(per_loss - self.free_per)
-
-        adv_pred = self.adversarial(counterfactual, target)
-        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long,
-                                                          device=self.device))
-
+        # 2. Get the "Clean" Segmentation Gradient
         prediction_cf = self.segmentation(counterfactual)
         seg_loss = self.seg_loss_fn(prediction_cf, target)
 
-        loss = (self.lambda_adv * adv_loss +
-                self.lambda_seg * seg_loss +
-                self.lambda_adpt * rec_loss +
-                self.lambda_per * per_loss)
+        # Manually calculate gradient of loss w.r.t modified_image
+        grad_seg = torch.autograd.grad(seg_loss, counterfactual, retain_graph=True)[0]
 
+        # 3. Smooth ONLY this gradient
+        smoothed_grad_seg = gaussian_blur_2d(grad_seg, kernel_size=5, sigma=1.5)
+
+        # 4. Combine with other losses (which provide their own raw gradients)
+        adv_pred = self.adversarial(counterfactual, target)
+        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long,
+                                                          device=self.device))
+        per_loss = torch.mean(torch.abs(delta))
+
+        # Total Loss for the rest of the graph
+        loss = self.lambda_adv * adv_loss + self.lambda_per * per_loss
         loss.backward()
+
+        # 5. Manually inject the smoothed segmentation gradient into delta
+        # This adds the smoothed spatial direction to the existing raw gradients
+        delta.grad.add_(smoothed_grad_seg)
         self.generator_optimizer.step()
 
         self.losses["generation"]["loss"].append(loss.detach().cpu().item())
         self.losses["generation"]["perturbation"].append(per_loss.detach().cpu().item())
-        self.losses["generation"]["reconstruction"].append(rec_loss.detach().cpu().item())
         self.losses["generation"]["adversarial"].append(adv_loss.detach().cpu().item())
         self.losses["generation"]["segmentation"].append(seg_loss.detach().cpu().item())
 
@@ -242,11 +242,8 @@ class Trainer(SuperTrainer):
 
             perturbation_cf = self.generator(image, target, prediction)
             counterfactual = image + perturbation_cf
-            perturbation_rec = self.generator(counterfactual, prediction, target)
-            reconstruction = counterfactual + perturbation_rec
-            rec_loss = self.rec_loss_fn(reconstruction, image)
 
-            per_loss = torch.mean(torch.abs(perturbation_cf)) + torch.mean(torch.abs(perturbation_rec))
+            per_loss = torch.mean(torch.abs(perturbation_cf))
 
             adv_pred = self.adversarial(counterfactual, target)
             adv_loss = self.dis_loss_fn(adv_pred,
@@ -258,13 +255,11 @@ class Trainer(SuperTrainer):
 
             loss = (self.lambda_adv * adv_loss +
                     self.lambda_seg * seg_loss +
-                    self.lambda_adpt * rec_loss +
                     self.lambda_per * per_loss)
 
             # Store results
             self.losses["validation"]["loss"].append(loss.item())
             self.losses["validation"]["perturbation"].append(per_loss.item())
-            self.losses["validation"]["reconstruction"].append(rec_loss.item())
             self.losses["validation"]["adversarial"].append(adv_loss.item())
             self.losses["validation"]["segmentation"].append(seg_loss.item())
 
@@ -272,26 +267,23 @@ class Trainer(SuperTrainer):
         self.save_visual_explanation(image.cpu(),
                                      perturbation_cf.cpu(),
                                      counterfactual.cpu(),
-                                     perturbation_rec.cpu(),
-                                     reconstruction.cpu(),
                                      target.cpu(),
                                      prediction.cpu(),
                                      prediction_cf.argmax(1).cpu())
 
     @torch.no_grad()
-    def save_visual_explanation(self, img, perturbation_cf, cf, pertubation_rec, reconstruction, target_mask, seg_org,
+    def save_visual_explanation(self, img, perturbation_cf, cf, target_mask, seg_org,
                                 seg_cf):
-        img, cf, reconstruction = visualize_counterfactuals(img, cf, reconstruction)
+        img, cf = visualize_counterfactuals(img, cf)
 
         perturbation_cf = visualize_adaption(perturbation_cf)
-        pertubation_rec = visualize_adaption(pertubation_rec)
 
         orig_map = visualize_seg(seg_org).permute(0, 3, 1, 2)
         cf_map = visualize_seg(seg_cf).permute(0, 3, 1, 2)
         target_map = visualize_seg(target_mask).permute(0, 3, 1, 2)
 
         for i, seq in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
-            visual = torch.stack([img[:, i], perturbation_cf[:, i], cf[:, i], pertubation_rec[:, i], reconstruction[:, i]],
+            visual = torch.stack([img[:, i], perturbation_cf[:, i], cf[:, i]],
                                  dim=1).flatten(0, 1)
             self.writer.add_image(f'image/{seq}',
                                   make_grid(visual, nrow=5, padding=2),
@@ -309,10 +301,6 @@ class Trainer(SuperTrainer):
         self.writer.add_scalar("generation/perturbation",
                                torch.mean(
                                    torch.tensor(self.losses["generation"]["perturbation"])),
-                               global_step=self.epoch)
-        self.writer.add_scalar("generation/reconstruction",
-                               torch.mean(
-                                   torch.tensor(self.losses["generation"]["reconstruction"])),
                                global_step=self.epoch)
         self.writer.add_scalar("generation/adversarial",
                                torch.mean(
@@ -343,10 +331,6 @@ class Trainer(SuperTrainer):
         self.writer.add_scalar("validation/perturbation",
                                sum(self.losses["validation"]["perturbation"]) / len(
                                    self.losses["validation"]["perturbation"]),
-                               global_step=self.epoch)
-        self.writer.add_scalar("validation/reconstruction",
-                               sum(self.losses["validation"]["reconstruction"]) / len(
-                                   self.losses["validation"]["reconstruction"]),
                                global_step=self.epoch)
         self.writer.add_scalar("validation/adversarial",
                                sum(self.losses["validation"]["adversarial"]) / len(
