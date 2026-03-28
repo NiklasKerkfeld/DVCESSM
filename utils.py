@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 
 
 def calculate_iou(preds, labels, num_classes, ignore_index=None):
@@ -111,6 +112,25 @@ def visualize_adaption(adaption: torch.Tensor):
     palate = torch.stack([r, g, b], dim=-1)
     print(f"{palate.shape=}")
     return palate.permute(0, 1, 4, 2, 3)
+
+
+def gaussian_blur_2d(grad, kernel_size=3, sigma=1.0):
+    """
+    Applies a Gaussian blur to a 4D gradient tensor (B, C, H, W).
+    """
+    # Create a 1D Gaussian kernel
+    x = torch.arange(-kernel_size // 2 + 1, kernel_size // 2 + 1, dtype=grad.dtype,
+                     device=grad.device)
+    gauss = torch.exp(-x ** 2 / (2 * sigma ** 2))
+    gauss = gauss / gauss.sum()
+
+    # Expand to 2D
+    kernel_2d = gauss[:, None] * gauss[None, :]
+    kernel_2d = kernel_2d.expand(grad.shape[1], 1, kernel_size, kernel_size)
+
+    # Apply as a depthwise convolution to keep channels separate
+    smoothed_grad = F.conv2d(grad, kernel_2d, groups=grad.shape[1], padding=kernel_size // 2)
+    return smoothed_grad
 
 
 if __name__ == '__main__':

@@ -11,15 +11,15 @@ from core.Datasets import get_datasets
 from core.Diffusion.Engine import Engine
 from models.DiffusionModel import DiffusionModel
 from models.Segmentation import SegmentationUNet
-from utils import visualize_mri, visualize_seg
+from utils import visualize_mri, visualize_seg, visualize_counterfactuals
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(cfg: DictConfig, n :int = 585):
+def main(cfg: DictConfig, n: int = 685):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    _, dataset = get_datasets('Segmentation')
+    dataset, _ = get_datasets('Segmentation')
     print(f"dataset size: {len(dataset)}")
 
     image = torch.stack([dataset[n][0]], dim=0)
@@ -32,36 +32,47 @@ def main(cfg: DictConfig, n :int = 585):
         img_height=cfg.data.image_height,
         attention=cfg.segmentation.attention,
     )
-    diffusion = DiffusionModel(cfg.model.dims, cfg.data.image_width, cfg.data.image_height,
-                               cfg.model.time_dim)
+    diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
+                               cfg.diffusion.time_dim)
 
-
-    engine = Engine(**cfg.diffusion.engine, device=device)
+    engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max, device=device)
 
     generator = CounterfactualGenerator(segmentation, diffusion, engine, device,
-                                        weight_classifier=cfg.inference.weight_classifier,
-                                        weight_distance=cfg.inference.weight_distance)
+                                        diffusion_checkpoint=cfg.diffusion.checkpoint_path,
+                                        diffusion_name=cfg.diffusion.name,
+                                        segmentation_checkpoint=cfg.segmentation.checkpoint_path,
+                                        segmentation_name=cfg.segmentation.name,
+                                        weight_classifier=cfg.diffusion.weight_classifier,
+                                        weight_distance=cfg.diffusion.weight_distance)
 
-    generator.load_checkpoint(f"{cfg.diffusion.checkpoint_path}/{cfg.diffusion.name}.pt", f"{cfg.inference.checkpoint_path}/{cfg.inference.name}.pt")
 
-    counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target, cfg.inference.start_fraction)
+    counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
+                                                                                 cfg.diffusion.start_fraction)
 
-    target = visualize_seg(target)
-    pred_original = visualize_seg(prediction_org)
-    pred_counterfactual = visualize_seg(prediction_cf)
+    target = visualize_seg(target)[0].permute(2, 0, 1)
+    pred_original = visualize_seg(prediction_org)[0].permute(2, 0, 1)
+    pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
 
-    image = visualize_mri(image)
-    counterfactual = visualize_mri(counterfactual)
+    image, counterfactual = visualize_counterfactuals(image, counterfactual)
+
+    print(f"{target.shape=}")
+    print(f"{pred_original.shape=}")
+    print(f"{pred_counterfactual.shape=}")
+    print(f"{image.shape=}")
+    print(f"{counterfactual.shape=}")
 
     os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
-
     torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/example_{n}/target.png")
-    torchvision.utils.save_image(pred_original, f"{cfg.system.figures_dir}/example_{n}/prediction_original.png")
-    torchvision.utils.save_image(pred_counterfactual, f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
+    torchvision.utils.save_image(pred_original,
+                                 f"{cfg.system.figures_dir}/example_{n}/prediction_original.png")
+    torchvision.utils.save_image(pred_counterfactual,
+                                 f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
 
     for i, channel in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
-        torchvision.utils.save_image(image[0, i], f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
-        torchvision.utils.save_image(counterfactual[0, i], f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
+        torchvision.utils.save_image(image[0, i],
+                                     f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
+        torchvision.utils.save_image(counterfactual[0, i],
+                                     f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
 
 
 if __name__ == '__main__':

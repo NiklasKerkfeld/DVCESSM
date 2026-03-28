@@ -13,39 +13,44 @@ class CounterfactualGenerator:
                  engine: Engine,
                  device: torch.device,
                  diffusion_checkpoint: str,
+                 diffusion_name: str,
                  segmentation_checkpoint: str,
+                 segmentation_name: str,
                  weight_classifier: float,
                  weight_distance: float):
         super().__init__()
-        self.segmentation = segmentation
+        self.segmentation_model = segmentation
         self.diffusion_model = diffusion_model
         self.engine = engine
         self.device = device
         self.diffusion_checkpoint = diffusion_checkpoint
+        self.diffusion_name = diffusion_name
         self.segmentation_checkpoint = segmentation_checkpoint
+        self.segmentation_name = segmentation_name
         self.weight_classifier = weight_classifier
         self.weight_distance = weight_distance
 
-        self.load_checkpoint(self.diffusion_checkpoint, self.segmentation_checkpoint)
-
-        self.segmentation.eval()
+        self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pth",
+                             f"{self.segmentation_checkpoint}/{self.segmentation_name}.pt")
+        self.segmentation_model.eval()
         self.diffusion_model.eval()
 
     def load_checkpoint(self, diffusion_checkpoint: str, segmentation_checkpoint: str):
+        print(f"{diffusion_checkpoint=}, {segmentation_checkpoint=}")
         checkpoint = torch.load(diffusion_checkpoint, map_location=self.device)
-        self.diffusion_model.load_state_dict(checkpoint['model_state_dict'])
+        self.diffusion_model.load_state_dict(checkpoint) # ['model_state_dict']
 
         checkpoint = torch.load(segmentation_checkpoint, map_location=self.device)
-        self.diffusion_model.load_state_dict(checkpoint['model_state_dict'])
+        self.segmentation_model.load_state_dict(checkpoint['model_state_dict'])
 
     @torch.no_grad()
     def generate(self, images: Tensor, targets: Tensor, start_fraction: float):
-        prediction_org = self.segmentation(images).detach().cpu().argmax(dim=1)
+        prediction_org = self.segmentation_model(images).detach().cpu().argmax(dim=1)
 
         counterfactuals = self._generate_counterfactual(images, targets, start_fraction)
         adaptions = counterfactuals - images
 
-        prediction_cf = self.segmentation(counterfactuals).detach().cpu().argmax(dim=1)
+        prediction_cf = self.segmentation_model(counterfactuals).detach().cpu().argmax(dim=1)
 
         return counterfactuals, adaptions, prediction_org, prediction_cf
 
@@ -53,10 +58,10 @@ class CounterfactualGenerator:
     def _generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor,
                                  start_fraction: float):
         self.diffusion_model.eval()
-        self.segmentation.eval()
+        self.segmentation_model.eval()
 
         images = images.to(self.device)
-        self.segmentation.to(self.device)
+        self.segmentation_model.to(self.device)
         self.diffusion_model.to(self.device)
 
         start_t = int(self.engine.T * start_fraction)
@@ -90,7 +95,7 @@ class CounterfactualGenerator:
         approx_images = self.engine.image_approximation(x, epsilon_pred, t)
 
         # model
-        logits = self.segmentation(approx_images)
+        logits = self.segmentation_model(approx_images)
         loss_c = masked_cross_entropy(logits, targets)
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,

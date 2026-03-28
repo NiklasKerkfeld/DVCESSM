@@ -35,11 +35,11 @@ class SegmentationUNet(nn.Module):
         self.height = img_height
 
         self.conv1 = ConvLayer(self.in_channels, feature_maps[0], kernel_size=3, padding=1)  # size
-        self.down1 = ResidualBlock(feature_maps[0], feature_maps[1])    # size // 2
-        self.down2 = ResidualBlock(feature_maps[1], feature_maps[2])    # size // 4
-        self.down3 = ResidualBlock(feature_maps[2], feature_maps[3])    # size // 8
-        self.down4 = ResidualBlock(feature_maps[3], feature_maps[4])    # size // 16
-        self.down5 = ResidualBlock(feature_maps[4], feature_maps[5])    # size // 32
+        self.down1 = ResidualBlock(feature_maps[0], feature_maps[1])  # size // 2
+        self.down2 = ResidualBlock(feature_maps[1], feature_maps[2])  # size // 4
+        self.down3 = ResidualBlock(feature_maps[2], feature_maps[3])  # size // 8
+        self.down4 = ResidualBlock(feature_maps[3], feature_maps[4])  # size // 16
+        self.down5 = ResidualBlock(feature_maps[4], feature_maps[5])  # size // 32
 
         if attention:
             self.h3_att = AttentionBlock(feature_maps[3], self.width // 8, self.height // 8)
