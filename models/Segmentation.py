@@ -56,11 +56,13 @@ class SegmentationUNet(nn.Module):
         self.up4 = UpBlock(feature_maps[2], feature_maps[1], feature_maps[1])
         self.up5 = UpBlock(feature_maps[1], feature_maps[0], feature_maps[0])
 
-        self.final_conv = nn.Sequential(
-            ConvLayer(feature_maps[0], feature_maps[0], kernel_size=3, padding=1),
-            ConvLayer(feature_maps[0], self.out_channels, kernel_size=1, padding=0,
+        self.final_conv = ConvLayer(feature_maps[0], self.out_channels, kernel_size=1, padding=0,
                       activation=nn.Identity())
-        )
+        # self.final_conv = nn.Sequential(
+        #     ConvLayer(feature_maps[0], feature_maps[0], kernel_size=3, padding=1),
+        #     ConvLayer(feature_maps[0], self.out_channels, kernel_size=1, padding=0,
+        #               activation=nn.Identity())
+        # )
 
     def forward(self, x: torch.Tensor):
         # encoder

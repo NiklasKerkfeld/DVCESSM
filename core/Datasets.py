@@ -52,8 +52,3 @@ def get_datasets(task: Literal['Diffusion', 'Segmentation'], test_size:float=0.0
 
     return dataset(train_samples), dataset(test_samples)
 
-
-if __name__ == "__main__":
-    train_dataset, test_dataset = get_datasets('Diffusion')
-    print(len(train_dataset))
-    print(len(test_dataset))

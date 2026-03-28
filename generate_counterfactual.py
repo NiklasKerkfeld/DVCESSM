@@ -11,11 +11,11 @@ from core.Datasets import get_datasets
 from core.Diffusion.Engine import Engine
 from models.DiffusionModel import DiffusionModel
 from models.Segmentation import SegmentationUNet
-from utils import visualize_mri, visualize_seg, visualize_counterfactuals
+from utils import visualize_seg, visualize_counterfactuals
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(cfg: DictConfig, n: int = 685):
+def main(cfg: DictConfig, n: int = 697):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
@@ -54,12 +54,6 @@ def main(cfg: DictConfig, n: int = 685):
     pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
 
     image, counterfactual = visualize_counterfactuals(image, counterfactual)
-
-    print(f"{target.shape=}")
-    print(f"{pred_original.shape=}")
-    print(f"{pred_counterfactual.shape=}")
-    print(f"{image.shape=}")
-    print(f"{counterfactual.shape=}")
 
     os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
     torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/example_{n}/target.png")

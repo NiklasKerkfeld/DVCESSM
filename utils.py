@@ -2,6 +2,25 @@ import torch
 import torch.nn.functional as F
 
 
+def calc_iou(labels, preds, num_classes=5):
+    conf_matrix = torch.zeros((num_classes, num_classes))
+
+    conf_matrix += torch.bincount(
+        num_classes * labels.view(-1) + preds.view(-1),
+        minlength=num_classes ** 2
+    ).reshape(num_classes, num_classes)
+
+    # Calculate Metrics
+    tp = conf_matrix.diag()
+    fp = conf_matrix.sum(dim=0) - tp
+    fn = conf_matrix.sum(dim=1) - tp
+
+    iou = tp / (tp + fp + fn + 1e-6)
+
+    ground_truth_present = conf_matrix.sum(dim=1) > 0
+
+    return iou[ground_truth_present].mean()
+
 def calculate_iou(preds, labels, num_classes, ignore_index=None):
     """
     Calculates the Mean Intersection over Union (mIoU) for multi-class segmentation.
