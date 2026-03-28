@@ -64,11 +64,11 @@ def main(cfg: DictConfig):
     pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
 
     adaption = visualize_adaption(adaption)
+    image, counterfactual = visualize_counterfactuals(image, counterfactual)
+
     print(f"{adaption.shape=}")
     print(f"{image.shape=}")
     print(f"{counterfactual.shape=}")
-
-    image, counterfactual = visualize_counterfactuals(image, counterfactual)
 
     os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
     torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/example_{n}/target.png")
@@ -86,9 +86,9 @@ def main(cfg: DictConfig):
                                      f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
 
     stacked_image = make_grid([
-        image.unsqueeze(2).repeat(1, 1, 3, 1, 1),
-        adaption,
-        counterfactual.unsqueeze(2).repeat(1, 1, 3, 1, 1)
+        image[0],
+        adaption[0],
+        counterfactual[0]
     ], nrow=4)
     torchvision.utils.save_image(stacked_image,
                                  f"{cfg.system.figures_dir}/example_{n}/comparison.png")
