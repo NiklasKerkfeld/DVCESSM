@@ -23,6 +23,7 @@ def main():
     checkpoint = torch.load("checkpoints/Segmentation/15_SegmentationTraining.pt",
                             map_location=device)
     segmentation.load_state_dict(checkpoint['model_state_dict'])
+    segmentation.to(device)
 
     train_dataset, test_dataset = get_datasets('Segmentation')
     dataloader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=4)
