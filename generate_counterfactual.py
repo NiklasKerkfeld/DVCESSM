@@ -38,7 +38,8 @@ def main(cfg: DictConfig):
     diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
                                cfg.diffusion.time_dim).to(device)
 
-    engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max, device=device).to(device)
+    engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max,
+                    device=device).to(device)
 
     generator = CounterfactualGenerator(segmentation, diffusion, engine, device,
                                         diffusion_checkpoint=cfg.diffusion.checkpoint_path,
@@ -47,7 +48,6 @@ def main(cfg: DictConfig):
                                         segmentation_name=cfg.segmentation.name,
                                         weight_classifier=cfg.diffusion.weight_classifier,
                                         weight_distance=cfg.diffusion.weight_distance)
-
 
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
                                                                                  cfg.diffusion.start_fraction)
@@ -85,9 +85,14 @@ def main(cfg: DictConfig):
         torchvision.utils.save_image(adaption[0, i],
                                      f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
 
+    stacked_image = make_grid([
+        image.unsqueeze(2).repeat(1, 1, 3, 1, 1),
+        adaption,
+        counterfactual.unsqueeze(2).repeat(1, 1, 3, 1, 1)
+    ], nrow=4)
+    torchvision.utils.save_image(stacked_image,
+                                 f"{cfg.system.figures_dir}/example_{n}/comparison.png")
 
-    stacked_image = make_grid([image, adaption, counterfactual], nrow=4)
-    torchvision.utils.save_image(stacked_image, f"{cfg.system.figures_dir}/example_{n}/comparison.png")
 
 if __name__ == '__main__':
     main()
