@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 
 def calc_iou(labels, preds, num_classes=5):
-    conf_matrix = torch.zeros((num_classes, num_classes))
+    conf_matrix = torch.zeros((num_classes, num_classes), device=labels.device)
 
     conf_matrix += torch.bincount(
         num_classes * labels.view(-1) + preds.view(-1),
