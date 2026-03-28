@@ -5,13 +5,14 @@ import torch
 
 from omegaconf import DictConfig
 import torchvision
+from torchvision.utils import make_grid
 
 from core.Diffusion.Generator import CounterfactualGenerator
 from core.Datasets import get_datasets
 from core.Diffusion.Engine import Engine
 from models.DiffusionModel import DiffusionModel
 from models.Segmentation import SegmentationUNet
-from utils import visualize_seg, visualize_counterfactuals
+from utils import visualize_seg, visualize_counterfactuals, visualize_adaption
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -62,6 +63,11 @@ def main(cfg: DictConfig):
     pred_original = visualize_seg(prediction_org)[0].permute(2, 0, 1)
     pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
 
+    adaption = visualize_adaption(adaption)
+    print(f"{adaption.shape=}")
+    print(f"{image.shape=}")
+    print(f"{counterfactual.shape=}")
+
     image, counterfactual = visualize_counterfactuals(image, counterfactual)
 
     os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
@@ -76,7 +82,12 @@ def main(cfg: DictConfig):
                                      f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
         torchvision.utils.save_image(counterfactual[0, i],
                                      f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
+        torchvision.utils.save_image(adaption[0, i],
+                                     f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
 
+
+    stacked_image = make_grid([image, adaption, counterfactual], nrow=4)
+    torchvision.utils.save_image(stacked_image, f"{cfg.system.figures_dir}/example_{n}/comparison.png")
 
 if __name__ == '__main__':
     main()
