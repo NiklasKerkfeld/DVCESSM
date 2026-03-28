@@ -51,6 +51,11 @@ def main(cfg: DictConfig):
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
                                                                                  cfg.diffusion.start_fraction)
 
+    counterfactual = counterfactual.detach().cpu()
+    adaption = adaption.detach().cpu()
+    prediction_org = prediction_org.detach().cpu()
+    prediction_cf = prediction_cf.detach().cpu()
+
     target = visualize_seg(target)[0].permute(2, 0, 1)
     pred_original = visualize_seg(prediction_org)[0].permute(2, 0, 1)
     pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
