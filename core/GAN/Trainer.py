@@ -161,6 +161,7 @@ class Trainer(SuperTrainer):
 
         # 1. Forward Pass
         delta = self.generator(image, target, prediction_org)
+        delta.retain_grad()
         counterfactual = image + delta
 
         # 2. Get the "Clean" Segmentation Gradient
