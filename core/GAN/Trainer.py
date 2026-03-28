@@ -176,7 +176,7 @@ class Trainer(SuperTrainer):
 
         # 4. Combine with other losses (which provide their own raw gradients)
         adv_pred = self.adversarial(counterfactual, target)
-        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.long,
+        adv_loss = self.dis_loss_fn(adv_pred, torch.zeros(image.shape[0], dtype=torch.float,
                                                           device=self.device))
         per_loss = torch.mean(torch.abs(delta))
 
@@ -206,11 +206,11 @@ class Trainer(SuperTrainer):
         self.adversarial.zero_grad()
 
         real_pred = self.adversarial(image, target)
-        real_labels = torch.zeros(image.size(0), dtype=torch.long, device=self.device)
+        real_labels = torch.zeros(image.size(0), dtype=torch.float, device=self.device)
         d_loss_real = self.dis_loss_fn(real_pred, real_labels)
 
         fake_pred = self.adversarial(counterfactual.detach(), target)
-        fake_labels = torch.ones(image.size(0), dtype=torch.long, device=self.device)
+        fake_labels = torch.ones(image.size(0), dtype=torch.float, device=self.device)
         d_loss_fake = self.dis_loss_fn(fake_pred, fake_labels)
 
         loss = d_loss_real + d_loss_fake
@@ -248,7 +248,7 @@ class Trainer(SuperTrainer):
 
             adv_pred = self.adversarial(counterfactual, target)
             adv_loss = self.dis_loss_fn(adv_pred,
-                                        torch.zeros(counterfactual.shape[0], dtype=torch.long,
+                                        torch.zeros(counterfactual.shape[0], dtype=torch.float,
                                                     device=self.device))
 
             prediction_cf = self.segmentation(counterfactual)
