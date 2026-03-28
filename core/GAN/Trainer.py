@@ -48,7 +48,7 @@ class Trainer(SuperTrainer):
         self.free_rec = free_rec
         self.free_per = free_per
 
-        self.dis_loss_fn = nn.CrossEntropyLoss()
+        self.dis_loss_fn = nn.MSELoss()
         self.seg_loss_fn = MaskedCrossEntropyLoss()
         self.rec_loss_fn = nn.MSELoss()
 
@@ -287,7 +287,7 @@ class Trainer(SuperTrainer):
             visual = torch.stack([img[:, i], perturbation_cf[:, i], cf[:, i]],
                                  dim=1).flatten(0, 1)
             self.writer.add_image(f'image/{seq}',
-                                  make_grid(visual, nrow=5, padding=2),
+                                  make_grid(visual, nrow=3, padding=2),
                                   global_step=self.epoch)
 
         visual = torch.stack([orig_map, cf_map, target_map], dim=1).flatten(0, 1)
