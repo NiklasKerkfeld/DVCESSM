@@ -33,9 +33,9 @@ def main(cfg: DictConfig):
         img_width=cfg.data.image_width,
         img_height=cfg.data.image_height,
         attention=cfg.segmentation.attention,
-    )
+    ).to(device)
     diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
-                               cfg.diffusion.time_dim)
+                               cfg.diffusion.time_dim).to(device)
 
     engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max, device=device)
 
