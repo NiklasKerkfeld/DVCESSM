@@ -26,7 +26,7 @@ def main():
     segmentation.to(device)
 
     train_dataset, test_dataset = get_datasets('Segmentation')
-    dataloader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=4)
+    dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     idxs = []
     values = []
