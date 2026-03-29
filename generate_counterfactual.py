@@ -83,7 +83,7 @@ def main(cfg: DictConfig):
         torchvision.utils.save_image(counterfactual[0, i],
                                      f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
         torchvision.utils.save_image(adaption[0, i],
-                                     f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
+                                     f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
 
     stacked_image = make_grid(torch.stack([
         image[0],
