@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from skimage.io import imread
 from skimage.transform import resize
+from tqdm import tqdm
 
 
 def preprocess(image_path, mask_path, batch, name):
@@ -26,9 +27,13 @@ def preprocess(image_path, mask_path, batch, name):
 
 def main():
     images = glob.glob("./data/CelebAMask/CelebAMask-HQ/CelebA-HQ-img/*.jpg")
-    for image in images:
+    for image in tqdm(images):
         name = f"{int(os.path.basename(image)[:-4]):05d}"
         batch = int(name) // 2000
+
+        if os.path.exists(f"./data/CelebAMask/preprocessed/{batch}/{name}.npz"):
+            continue
+
         masks = f"./data/CelebAMask/CelebAMask-HQ/CelebAMask-HQ-mask-anno/{batch}/{name}"
         preprocess(image, masks, batch, name)
     
