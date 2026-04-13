@@ -1,0 +1,9 @@
+  name: CelebAMask
+  root: data/CelebAMask
+  image_channels: 3
+  n_classes: 19
+  image_width: 256
+  image_height: 256
+  batch_size: 64
+  num_workers: 8  # Number of CPU cores for data loading
+  visualization: rgb

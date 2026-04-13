@@ -25,7 +25,7 @@ def main():
     segmentation.load_state_dict(checkpoint['model_state_dict'])
     segmentation.to(device)
 
-    train_dataset, test_dataset = get_datasets('Segmentation')
+    train_dataset, test_dataset = get_datasets('Segmentation', 'data/BraTS')
     dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     idxs = []

@@ -33,7 +33,7 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    dataset, _ = get_datasets('Diffusion')
+    dataset, _ = get_datasets('Diffusion', cfg.data.root)
 
     train_loader = DataLoader(
         dataset,

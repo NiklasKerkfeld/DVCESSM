@@ -44,11 +44,16 @@ class SegmentationDataset(SuperDataset):
         return image, label
 
 
-def get_datasets(task: Literal['Diffusion', 'Segmentation'], test_size:float=0.05, random_state:int=42):
+def get_datasets(task: Literal['Diffusion', 'Segmentation'], path: str, test_size:float=0.05, random_state:int=42):
     dataset = DiffusionDataset if task == 'Diffusion' else SegmentationDataset
 
-    files = glob.glob(f"data/BraTS/V2024/preprocessed/*")
+    files = glob.glob(f"{path}/preprocessed/*")
     train_samples, test_samples = train_test_split(files, test_size=test_size, random_state=random_state)
 
     return dataset(train_samples), dataset(test_samples)
 
+
+if __name__ == "__main__":
+    train_data, test_data = get_datasets('Diffusion', 'data/CelebAMask')
+    print(len(train_data))
+    print(len(test_data))

@@ -32,7 +32,7 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    _, test_dataset = get_datasets('Segmentation')
+    _, test_dataset = get_datasets('Segmentation', cfg.data.root)
 
     test_loader = DataLoader(
         test_dataset,
