@@ -64,20 +64,6 @@ def calculate_iou(preds, labels, num_classes, ignore_index=None):
     return ious, miou
 
 
-def get_one_of_each(dataset):
-    samples = {}
-
-    for i in range(len(dataset)):
-        image, label = dataset[i]
-        if label not in samples:
-            samples[label] = image
-
-        if len(samples) == 10:
-            break
-
-    return torch.cat([samples[i] for i in range(10)])[:, None]
-
-
 def to_vis(x):
     return torch.clamp((x + 1) / 2, 0.0, 1.0)
 

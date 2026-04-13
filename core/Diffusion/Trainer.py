@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Literal
 
 import torch
 from torch import nn, Tensor
@@ -22,12 +22,14 @@ class Trainer(SuperTrainer):
                  device: torch.device = torch.device('cpu'),
                  name: str = 'DiffusionModel',
                  log_dir: str = 'runs/Diffusion',
-                 checkpoint: str = "./checkpoints/GAN"
+                 checkpoint: str = "./checkpoints/GAN",
+                 image_type: Literal['mri', 'rgb'] = 'mri'
                  ):
         super().__init__(device, name, log_dir, checkpoint)
         self.model = model
         self.engine = engine
         self.lr = lr
+        self.image_type = image_type
 
         self.model.to(self.device)
         self.engine.to(self.device)
@@ -92,11 +94,35 @@ class Trainer(SuperTrainer):
         print("Training complete and logs flushed.")
 
     @torch.no_grad()
+    def generate_image(self, batch_size: Optional[int] = 1):
+        images = torch.randn(batch_size, self.model.channels, self.model.width, self.model.height)
+        self.model.eval()
+
+        images = images.to(self.device)
+        self.model.to(self.device)
+
+        for t in reversed(range(self.engine.T)):
+            t_tensor = torch.full((images.shape[0],), t, device=self.device)
+            epsilon_pred = self.model(images, t_tensor)
+
+            # calculate mean of image at t-1
+            mean = self.engine.reverse(images, epsilon_pred, t_tensor)
+
+            if t > 0:
+                noise = torch.randn_like(images)
+                sigma = self.engine.get_sigma(t_tensor, images.shape)
+                images = mean + sigma * noise
+            else:
+                images = mean
+
+        return images.detach()
+
+    @torch.no_grad()
     def _visualize_sampling(self):
         self.model.eval()
 
         samples = self.generate_image(batch_size=4)
-        grid = make_grid(samples[:, 0, None], nrow=4)
+        grid = make_grid(self._visualize_image(samples), nrow=4)
         self.writer.add_image(f"Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
@@ -130,29 +156,11 @@ class Trainer(SuperTrainer):
 
     def _log_one_step(self, epoch: int, t: int, x_0_recon: Tensor, x_t: Tensor):
         comparison = torch.cat([to_vis(x_t), to_vis(x_0_recon)], dim=0)
-        grid = make_grid(comparison[:, 0, None], nrow=4)
+        grid = make_grid(self._visualize_image(comparison), nrow=4)
         self.writer.add_image(f"Visual_Check/T_{t}", grid, epoch)
 
-    @torch.no_grad()
-    def generate_image(self, batch_size: Optional[int] = 1):
-        images = torch.randn(batch_size, self.model.channels, self.model.width, self.model.height)
-        self.model.eval()
-
-        images = images.to(self.device)
-        self.model.to(self.device)
-
-        for t in reversed(range(self.engine.T)):
-            t_tensor = torch.full((images.shape[0],), t, device=self.device)
-            epsilon_pred = self.model(images, t_tensor)
-
-            # calculate mean of image at t-1
-            mean = self.engine.reverse(images, epsilon_pred, t_tensor)
-
-            if t > 0:
-                noise = torch.randn_like(images)
-                sigma = self.engine.get_sigma(t_tensor, images.shape)
-                images = mean + sigma * noise
-            else:
-                images = mean
-
-        return images.detach()
+    def _visualize_image(self, image):
+        if self.image_type == 'mri':
+            return image[:, 0, None]
+        else:
+            return image
