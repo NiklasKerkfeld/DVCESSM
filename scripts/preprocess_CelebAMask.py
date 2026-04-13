@@ -26,7 +26,7 @@ def preprocess(image_path, mask_path, batch, name):
 
 def main():
     images = glob.glob("./data/CelebAMask/CelebAMask-HQ/CelebA-HQ-img/*.jpg")
-    for image in images[:100]:
+    for image in images:
         name = f"{int(os.path.basename(image)[:-4]):05d}"
         batch = int(name) // 2000
         masks = f"./data/CelebAMask/CelebAMask-HQ/CelebAMask-HQ-mask-anno/{batch}/{name}"
@@ -34,28 +34,4 @@ def main():
     
    
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
     main()
-
-    data = np.load("data/CelebAMask/preprocessed/5/11045.npz")
-    image = data["image"]
-    mask = data["label"]
-    print(image.shape, mask.shape)
-
-    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-
-    ax[0].imshow(image.transpose(1, 2, 0))
-    ax[0].set_title("Original Image")
-    ax[0].axis("off")
-
-
-    print(f"{mask.min()}, {mask.max()}, {np.unique(mask)}")
-    ax[1].imshow(mask, cmap='tab20', vmin=0, vmax=20)
-    ax[1].set_title("Segmentation Mask")
-    ax[1].axis("off")
-
-    plt.show()
-
-    plt.imshow(mask, cmap='tab20', vmin=0, vmax=20)
-    plt.show()
