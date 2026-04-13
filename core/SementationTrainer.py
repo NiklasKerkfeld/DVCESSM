@@ -56,15 +56,15 @@ class Trainer(SuperTrainer):
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
     def train(self, train_dataloader: DataLoader, valid_dataloader: DataLoader, epochs: int):
-        self._log_examples(valid_dataloader)
+        images = self._log_examples(valid_dataloader)
 
         self.model.train()
-
-        exit()
 
         for self.epoch in range(1, epochs + 1):
             self.train_one_epoch(train_dataloader, self.optimizer)
             self.evaluate(valid_dataloader, self.device)
+
+            self.log_samples(images)
 
             self.save_checkpoint()
 
@@ -75,12 +75,14 @@ class Trainer(SuperTrainer):
         if self.image_type == 'mri':
             image_grid = make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True)
         else:
-            image_grid = make_grid(images.permute(0, 3, 1, 2), nrow=5, normalize=True)
+            image_grid = make_grid(images, nrow=5, normalize=True)
 
         target_grid = make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True)
 
         self.writer.add_image('images', image_grid)
         self.writer.add_image('targets', target_grid)
+
+        return images
 
     def train_one_epoch(self, dataloader: DataLoader, optimizer):
         self.model.train()

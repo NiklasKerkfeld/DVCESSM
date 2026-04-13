@@ -21,7 +21,7 @@ def preprocess(image_path, mask_path, batch, name):
             mask[attribute_mask] = label
 
     os.makedirs(f"./data/CelebAMask/preprocessed/{batch}", exist_ok=True)
-    np.savez(f"./data/CelebAMask/preprocessed/{batch}/{name}", image=image, label=mask)
+    np.savez(f"./data/CelebAMask/preprocessed/{batch}/{name}", image=image.transpose(2, 0, 1), label=mask)
 
 
 def main():
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
-    ax[0].imshow(image)
+    ax[0].imshow(image.transpose(1, 2, 0))
     ax[0].set_title("Original Image")
     ax[0].axis("off")
 

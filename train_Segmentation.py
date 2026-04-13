@@ -37,6 +37,8 @@ def main(cfg: DictConfig):
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
 
+    print(train_dataset[0][0].shape)
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.data.batch_size,
