@@ -1,8 +1,9 @@
 import os
+from typing import Literal
 
 import torch
 from monai.losses import DiceLoss
-from torch import nn
+from torch import nn, Tensor
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid
@@ -18,8 +19,9 @@ class Trainer(SuperTrainer):
                  device: torch.device,
                  name='SegmentationModel',
                  log_dir: str = './runs/Segmentation',
-                 checkpoint: str = './checkpoints/Segmentation'):
-        super().__init__(device, name, log_dir, checkpoint)
+                 checkpoint: str = './checkpoints/Segmentation',
+                 image_type: Literal['mri', 'rgb'] = 'mri'):
+        super().__init__(device, name, log_dir, checkpoint, image_type)
         self.model = model
         self.lr = lr
         self.num_classes = model.out_channels
@@ -54,19 +56,31 @@ class Trainer(SuperTrainer):
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
     def train(self, train_dataloader: DataLoader, valid_dataloader: DataLoader, epochs: int):
-        images = torch.stack([valid_dataloader.dataset[i][0] for i in [100, 200, 300, 400, 500]])
-        targets = torch.stack([valid_dataloader.dataset[i][1] for i in [100, 200, 300, 400, 500]])
-        self.writer.add_image('images', make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True))
-        self.writer.add_image('targets', make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True))
+        self._log_examples(valid_dataloader)
 
         self.model.train()
+
+        exit()
 
         for self.epoch in range(1, epochs + 1):
             self.train_one_epoch(train_dataloader, self.optimizer)
             self.evaluate(valid_dataloader, self.device)
 
-            self.log_samples(images)
             self.save_checkpoint()
+
+    def _log_examples(self, valid_dataloader: DataLoader) -> Tensor:
+        images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
+        targets = torch.stack([valid_dataloader.dataset[i][1] for i in range(5)])
+
+        if self.image_type == 'mri':
+            image_grid = make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True)
+        else:
+            image_grid = make_grid(images.permute(0, 3, 1, 2), nrow=5, normalize=True)
+
+        target_grid = make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True)
+
+        self.writer.add_image('images', image_grid)
+        self.writer.add_image('targets', target_grid)
 
     def train_one_epoch(self, dataloader: DataLoader, optimizer):
         self.model.train()

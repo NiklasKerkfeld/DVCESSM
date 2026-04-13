@@ -25,11 +25,10 @@ class Trainer(SuperTrainer):
                  checkpoint: str = "./checkpoints/GAN",
                  image_type: Literal['mri', 'rgb'] = 'mri'
                  ):
-        super().__init__(device, name, log_dir, checkpoint)
+        super().__init__(device, name, log_dir, checkpoint, image_type)
         self.model = model
         self.engine = engine
         self.lr = lr
-        self.image_type = image_type
 
         self.model.to(self.device)
         self.engine.to(self.device)
@@ -158,9 +157,3 @@ class Trainer(SuperTrainer):
         comparison = torch.cat([to_vis(x_t), to_vis(x_0_recon)], dim=0)
         grid = make_grid(self._visualize_image(comparison), nrow=4)
         self.writer.add_image(f"Visual_Check/T_{t}", grid, epoch)
-
-    def _visualize_image(self, image):
-        if self.image_type == 'mri':
-            return image[:, 0, None]
-        else:
-            return image

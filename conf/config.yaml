@@ -1,8 +1,6 @@
 defaults:
+  - data: BraTS
   - _self_
-
-
-data: BraTS
 
 diffusion:
   checkpoint_path: "./checkpoints/Diffusion"

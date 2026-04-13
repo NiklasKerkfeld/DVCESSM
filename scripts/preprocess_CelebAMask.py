@@ -11,21 +11,22 @@ def preprocess(image_path, mask_path, batch, name):
     atts = ['skin', 'l_brow', 'r_brow', 'l_eye', 'r_eye', 'eye_g', 'l_ear', 'r_ear', 'ear_r',
             'nose', 'mouth', 'u_lip', 'l_lip', 'neck', 'neck_l', 'cloth', 'hair', 'hat']
 
-    mask = np.zeros((512, 512), dtype=np.uint8)
-    image = resize(imread(image_path), (512, 512))
+    mask = np.zeros((256, 256), dtype=np.uint8)
+    image = resize(imread(image_path), (256, 256))
 
     for label, attribute in enumerate(atts, 1):
         if Path(f"{mask_path}_{attribute}.png").exists():
             attribute_mask = imread(f"{mask_path}_{attribute}.png").max(2) >= 128
+            attribute_mask = resize(attribute_mask, (256, 256))
             mask[attribute_mask] = label
 
     os.makedirs(f"./data/CelebAMask/preprocessed/{batch}", exist_ok=True)
-    np.savez(f"./data/CelebAMask/preprocessed/{batch}/{name}", image=image, mask=mask)
+    np.savez(f"./data/CelebAMask/preprocessed/{batch}/{name}", image=image, label=mask)
 
 
 def main():
     images = glob.glob("./data/CelebAMask/CelebAMask-HQ/CelebA-HQ-img/*.jpg")
-    for image in images[:10]:
+    for image in images[:100]:
         name = f"{int(os.path.basename(image)[:-4]):05d}"
         batch = int(name) // 2000
         masks = f"./data/CelebAMask/CelebAMask-HQ/CelebAMask-HQ-mask-anno/{batch}/{name}"
@@ -39,7 +40,7 @@ if __name__ == '__main__':
 
     data = np.load("data/CelebAMask/preprocessed/5/11045.npz")
     image = data["image"]
-    mask = data["mask"]
+    mask = data["label"]
     print(image.shape, mask.shape)
 
     fig, ax = plt.subplots(1, 2, figsize=(12, 6))

@@ -51,7 +51,7 @@ def preprocess():
         print(sample)
         name = sample.split('/')[-1]
 
-        volume_dir = f"./data/BraTS/V2024/preprocessed/{name}"
+        volume_dir = f"./data/BraTS/preprocessed/{name}"
         os.makedirs(volume_dir, exist_ok=True)
 
         data = transforms({
