@@ -22,7 +22,7 @@ def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
     # Setup Logging & Run Number
-    log_dir = f'{cfg.system.log_dir}/Diffusion/*'
+    log_dir = f'{cfg.system.log_dir}/Diffusion/'
     if cfg.diffusion.name is not None:
         run_name = cfg.diffusion.name
     else:
@@ -55,6 +55,7 @@ def main(cfg: DictConfig):
         name=run_name,
         log_dir=log_dir,
         checkpoint=cfg.diffusion.checkpoint_path,
+        image_type=cfg.data.image_type
     )
 
     checkpoint = f'{cfg.diffusion.checkpoint_path}/{run_name}.pt'
