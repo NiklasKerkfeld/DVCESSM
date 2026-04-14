@@ -1,5 +1,6 @@
 defaults:
   - data: BraTS
+  - engine: linear
   - _self_
 
 diffusion:
@@ -15,7 +16,6 @@ diffusion:
   start_fraction: 0.5 # noise level for CF generation
   weight_classifier: 0.1
   weight_distance: 0.15
-  engine: linear
 
 
 segmentation:
