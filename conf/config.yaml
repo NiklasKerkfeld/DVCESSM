@@ -21,7 +21,7 @@ diffusion:
 segmentation:
   checkpoint_path: "./checkpoints/Segmentation"
   name: null
-  epochs: 50
+  epochs: 100
   lr: 0.001
   attention: True
 
