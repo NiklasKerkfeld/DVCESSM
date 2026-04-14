@@ -22,7 +22,7 @@ class Trainer(SuperTrainer):
                  device: torch.device = torch.device('cpu'),
                  name: str = 'DiffusionModel',
                  log_dir: str = 'runs/Diffusion',
-                 checkpoint: str = "./checkpoints/GAN",
+                 checkpoint: str = "./checkpoints",
                  image_type: Literal['mri', 'rgb'] = 'mri'
                  ):
         super().__init__(device, name, log_dir, checkpoint, image_type)
