@@ -4,6 +4,6 @@
   n_classes: 19
   image_width: 256
   image_height: 256
-  batch_size: 32
+  batch_size: 16
   num_workers: 8  # Number of CPU cores for data loading
   image_type: rgb
