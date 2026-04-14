@@ -44,7 +44,7 @@ def main(cfg: DictConfig):
         drop_last=True
     )
 
-    model = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height, cfg.model.time_dim)
+    model = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height, cfg.diffusion.time_dim)
     engine = Engine(**cfg.diffusion.engine, device=device)
 
     trainer = Trainer(
