@@ -5,5 +5,6 @@
   image_width: 128
   image_height: 128
   batch_size: 64
+  accumulation_steps: 1
   num_workers: 8  # Number of CPU cores for data loading
   image_type: mri

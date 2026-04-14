@@ -51,6 +51,7 @@ def main(cfg: DictConfig):
         model,
         engine,
         cfg.diffusion.lr,
+        cfg.data.accumulation_steps,
         device,
         name=run_name,
         log_dir=log_dir,

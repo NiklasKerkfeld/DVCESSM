@@ -19,6 +19,7 @@ class Trainer(SuperTrainer):
                  model: DiffusionModel,
                  engine: Engine,
                  lr: float,
+                 accumulation_steps: int = 1,
                  device: torch.device = torch.device('cpu'),
                  name: str = 'DiffusionModel',
                  log_dir: str = 'runs/Diffusion',
@@ -29,6 +30,7 @@ class Trainer(SuperTrainer):
         self.model = model
         self.engine = engine
         self.lr = lr
+        self.accumulation_steps = accumulation_steps
 
         self.model.to(self.device)
         self.engine.to(self.device)
@@ -67,16 +69,20 @@ class Trainer(SuperTrainer):
 
         for self.epoch in range(self.epoch + 1, epochs + 1):
             losses = torch.zeros((len(dataloader),))
+            self.optimizer.zero_grad()
+
             bar = tqdm(dataloader, total=len(dataloader), desc=f"Epoch {self.epoch}")
             for i, x in enumerate(bar):
                 x = x.to(self.device)
                 x_t, noise, t = self.engine.sample(x)
 
-                self.optimizer.zero_grad()
                 pred = self.model(x_t, t)
                 loss = self.loss_fn(pred, noise)
                 loss.backward()
-                self.optimizer.step()
+
+                if (i + 1) % self.accumulation_steps == 0:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
 
                 bar.set_postfix({"loss": loss.detach().item()})
                 losses[i] = loss.detach().item()
