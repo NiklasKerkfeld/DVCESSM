@@ -1,4 +1,4 @@
-  _target_: src.datasets.CelebAMaskDataset
+  _target_: core.Datasets.BraTSDataset.BraTSDataset
   name: CelebAMask
   root: data/CelebAMask
   image_channels: 3
