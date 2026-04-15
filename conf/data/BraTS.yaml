@@ -10,4 +10,4 @@
   image_type: mri
 
   dataset:
-    _target_: core.Datasets.CelebAMaskDataset.CelebAMaskDataset
+    _target_: core.Datasets.BraTSDataset.BraTSDataset

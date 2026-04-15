@@ -10,6 +10,6 @@
   image_type: rgb
 
   dataset:
-    _target_: core.Datasets.BraTSDataset.BraTSDataset
+    _target_: core.Datasets.CelebAMaskDataset.CelebAMaskDataset
     mean: 0.5170, 0.4166, 0.3633
     std: 0.2652, 0.2379, 0.2308
