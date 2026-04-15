@@ -11,5 +11,5 @@
 
   dataset:
     _target_: core.Datasets.CelebAMaskDataset.CelebAMaskDataset
-    mean: 0.5170, 0.4166, 0.3633
-    std: 0.2652, 0.2379, 0.2308
+    means: 0.5170, 0.4166, 0.3633
+    stds: 0.2652, 0.2379, 0.2308
