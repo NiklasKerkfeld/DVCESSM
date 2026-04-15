@@ -7,8 +7,7 @@ def get_datasets(cfg):
     """
     cfg is the full OmegaConf object from Hydra
     """
-    search_path = f"{cfg.data.root}/preprocessed/*/*.npz"
-    files = glob.glob(search_path)
+    files = glob.glob(f"{cfg.data.root}/preprocessed/*/*.npz")
 
     train_samples, test_samples = train_test_split(
         files,

@@ -9,9 +9,7 @@ from torch.utils.data import Dataset
 class BraTSDataset(Dataset):
     def __init__(self, samples: List[str]):
         super().__init__()
-        self.files = []
-        for sample in samples:
-            self.files.extend(glob.glob(f"{sample}/*.npz"))
+        self.files = samples
 
     def __len__(self):
         return len(self.files)

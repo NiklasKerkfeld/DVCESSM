@@ -11,9 +11,7 @@ from torchvision.transforms import v2
 class CelebAMaskDataset(Dataset):
     def __init__(self, samples: List[str], means: List[float], stds: List[float]):
         super().__init__()
-        self.files = []
-        for sample in samples:
-            self.files.extend(glob.glob(f"{sample}/*.npz"))
+        self.files = samples
 
         self.means = torch.tensor(means)
         self.stds = torch.tensor(stds)
