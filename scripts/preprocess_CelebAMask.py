@@ -1,42 +1,54 @@
-import glob
 import os
-from pathlib import Path
-
+import glob
 import numpy as np
+from pathlib import Path
 from skimage.io import imread
 from skimage.transform import resize
 from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
+
+ATTRIBUTES = [
+    'skin', 'l_brow', 'r_brow', 'l_eye', 'r_eye', 'eye_g', 'l_ear', 'r_ear', 'ear_r',
+    'nose', 'mouth', 'u_lip', 'l_lip', 'neck', 'neck_l', 'cloth', 'hair', 'hat'
+]
 
 
-def preprocess(image_path, mask_path, batch, name):
-    atts = ['skin', 'l_brow', 'r_brow', 'l_eye', 'r_eye', 'eye_g', 'l_ear', 'r_ear', 'ear_r',
-            'nose', 'mouth', 'u_lip', 'l_lip', 'neck', 'neck_l', 'cloth', 'hair', 'hat']
+def process_single_item(image_path):
+    """Worker function for parallel processing"""
+    name = f"{int(os.path.basename(image_path)[:-4]):05d}"
+    batch = int(name) // 2000
+    out_dir = Path(f"./data/CelebAMask/preprocessed/{batch}")
+    out_path = out_dir / f"{name}.npz"
 
-    mask = np.zeros((256, 256), dtype=np.uint8)
-    image = resize(imread(image_path), (256, 256))
+    if out_path.exists():
+        return
 
-    for label, attribute in enumerate(atts, 1):
-        if Path(f"{mask_path}_{attribute}.png").exists():
-            attribute_mask = imread(f"{mask_path}_{attribute}.png").max(2) >= 128
-            attribute_mask = resize(attribute_mask, (256, 256))
-            mask[attribute_mask] = label
+    img = imread(image_path)
+    img_resized = (resize(img, (256, 256), preserve_range=True)).astype(np.uint8)
 
-    os.makedirs(f"./data/CelebAMask/preprocessed/{batch}", exist_ok=True)
-    np.savez(f"./data/CelebAMask/preprocessed/{batch}/{name}", image=image.transpose(2, 0, 1), label=mask)
+    mask_dir = Path(f"./data/CelebAMask/CelebAMask-HQ/CelebAMask-HQ-mask-anno/{batch}")
+    combined_mask = np.zeros((256, 256), dtype=np.uint8)
+
+    for label, attr in enumerate(ATTRIBUTES, 1):
+        attr_path = mask_dir / f"{name}_{attr}.png"
+        if attr_path.exists():
+            attr_img = imread(str(attr_path))
+            attr_img = attr_img.max(axis=2)
+
+            attr_mask = resize(attr_img >= 128, (256, 256), order=0, preserve_range=True,
+                               anti_aliasing=False)
+            combined_mask[attr_mask > 0] = label
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(out_path, image=img_resized.transpose(2, 0, 1), label=combined_mask)
 
 
 def main():
     images = glob.glob("./data/CelebAMask/CelebAMask-HQ/CelebA-HQ-img/*.jpg")
-    for image in tqdm(images):
-        name = f"{int(os.path.basename(image)[:-4]):05d}"
-        batch = int(name) // 2000
 
-        if os.path.exists(f"./data/CelebAMask/preprocessed/{batch}/{name}.npz"):
-            continue
+    with ProcessPoolExecutor() as executor:
+        list(tqdm(executor.map(process_single_item, images), total=len(images)))
 
-        masks = f"./data/CelebAMask/CelebAMask-HQ/CelebAMask-HQ-mask-anno/{batch}/{name}"
-        preprocess(image, masks, batch, name)
-    
-   
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

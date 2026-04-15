@@ -1,3 +1,4 @@
+  _target_: src.datasets.BraTSDataset
   name: BraTS
   root: data/BraTS
   image_channels: 4

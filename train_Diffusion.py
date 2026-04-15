@@ -4,13 +4,11 @@ from pathlib import Path
 import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader
 
-from core.Datasets import get_datasets
+from core.Datasets.dataset import get_datasets
 from models.DiffusionModel import DiffusionModel
 from core.Diffusion.Engine import Engine
 from core.Diffusion.Trainer import Trainer
-
 
 torch.manual_seed(42)
 if torch.cuda.is_available():
@@ -33,30 +31,18 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    dataset, _ = get_datasets('Diffusion', cfg.data.root)
+    dataset, _ = get_datasets(cfg)
 
-    train_loader = DataLoader(
-        dataset,
-        batch_size=cfg.data.batch_size,
-        shuffle=True,
-        num_workers=cfg.data.num_workers,
-        pin_memory=True,  # Speeds up transfer to GPU
-        drop_last=True
-    )
-
-    model = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height, cfg.diffusion.time_dim)
+    model = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
+                           cfg.diffusion.time_dim)
     engine = Engine(**cfg.engine, device=device)
 
     trainer = Trainer(
+        dataset,
         model,
         engine,
-        cfg.diffusion.lr,
-        cfg.data.accumulation_steps,
         device,
-        name=run_name,
-        log_dir=log_dir,
-        checkpoint=cfg.diffusion.checkpoint_path,
-        image_type=cfg.data.image_type
+        cfg
     )
 
     checkpoint = f'{cfg.diffusion.checkpoint_path}/{run_name}.pt'
@@ -64,10 +50,7 @@ def main(cfg: DictConfig):
         trainer.load_checkpoint(checkpoint)
         print(f"continue training form {checkpoint}...")
 
-    trainer.train(
-        train_loader,
-        epochs=cfg.diffusion.epochs,
-    )
+    trainer.train(cfg.diffusion.epochs)
 
 
 if __name__ == '__main__':

@@ -1,10 +1,11 @@
 import os
-from typing import Optional, Literal
+from typing import Optional
+from omegaconf import DictConfig
 
 import torch
 from torch import nn, Tensor
 from torch.optim import Adam
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
@@ -16,21 +17,17 @@ from utils import to_vis
 
 class Trainer(SuperTrainer):
     def __init__(self,
+                 dataset: Dataset,
                  model: DiffusionModel,
                  engine: Engine,
-                 lr: float,
-                 accumulation_steps: int = 1,
-                 device: torch.device = torch.device('cpu'),
-                 name: str = 'DiffusionModel',
-                 log_dir: str = 'runs/Diffusion',
-                 checkpoint: str = "./checkpoints",
-                 image_type: Literal['mri', 'rgb'] = 'mri'
+                 device: torch.device,
+                 cfg: DictConfig
                  ):
-        super().__init__(device, name, log_dir, checkpoint, image_type)
+        super().__init__(dataset, device, cfg)
         self.model = model
         self.engine = engine
-        self.lr = lr
-        self.accumulation_steps = accumulation_steps
+        self.lr = cfg.diffusion.lr
+        self.accumulation_steps = cfg.data.accumulation_steps
 
         self.model.to(self.device)
         self.engine.to(self.device)
@@ -61,17 +58,17 @@ class Trainer(SuperTrainer):
         if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
-    def train(self, dataloader: DataLoader, epochs: int):
+    def train(self, epochs: int):
         samples = torch.stack(
-            [dataloader.dataset[i] for i in torch.randint(0, len(dataloader.dataset), (4,))])
+            [self.dataset[i] for i in torch.randint(0, len(self.dataset), (4,))])
 
         self.model.train()
 
         for self.epoch in range(self.epoch + 1, epochs + 1):
-            losses = torch.zeros((len(dataloader),))
+            losses = torch.zeros((len(self.train_dataloader),))
             self.optimizer.zero_grad()
 
-            bar = tqdm(dataloader, total=len(dataloader), desc=f"Epoch {self.epoch}")
+            bar = tqdm(self.train_dataloader, total=len(self.train_dataloader ), desc=f"Epoch {self.epoch}")
             for i, x in enumerate(bar):
                 x = x.to(self.device)
                 x_t, noise, t = self.engine.sample(x)

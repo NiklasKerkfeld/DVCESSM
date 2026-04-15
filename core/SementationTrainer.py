@@ -1,11 +1,11 @@
 import os
-from typing import Literal
+from omegaconf import DictConfig
 
 import torch
 from monai.losses import DiceLoss
 from torch import nn, Tensor
 from torch.optim import AdamW
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
@@ -14,16 +14,14 @@ from core.Trainer import SuperTrainer
 
 class Trainer(SuperTrainer):
     def __init__(self,
+                 train_dataset: Dataset,
+                 valid_dataset: Dataset,
                  model: nn.Module,
-                 lr: float,
                  device: torch.device,
-                 name='SegmentationModel',
-                 log_dir: str = './runs/Segmentation',
-                 checkpoint: str = './checkpoints/Segmentation',
-                 image_type: Literal['mri', 'rgb'] = 'mri'):
-        super().__init__(device, name, log_dir, checkpoint, image_type)
+                 cfg: DictConfig):
+        super().__init__(train_dataset, device, cfg)
         self.model = model
-        self.lr = lr
+        self.lr = cfg.segmentation.lr
         self.num_classes = model.out_channels
 
         self.loss_fn = DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
@@ -31,6 +29,11 @@ class Trainer(SuperTrainer):
         self.model.to(self.device)
 
         self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
+
+        self.valid_dataloader = DataLoader(valid_dataset,
+                                           batch_size=cfg.data.batch_size,
+                                           shuffle=False,
+                                           num_workers=cfg.data.num_workers)
 
     def save_checkpoint(self):
         os.makedirs(self.checkpoint, exist_ok=True)
@@ -55,14 +58,14 @@ class Trainer(SuperTrainer):
         if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
-    def train(self, train_dataloader: DataLoader, valid_dataloader: DataLoader, epochs: int):
-        images = self._log_examples(valid_dataloader)
+    def train(self, epochs: int):
+        images = self._log_examples(self.valid_dataloader)
 
         self.model.train()
 
         for self.epoch in range(1, epochs + 1):
-            self.train_one_epoch(train_dataloader, self.optimizer)
-            self.evaluate(valid_dataloader, self.device)
+            self.train_one_epoch(self.train_dataloader, self.optimizer)
+            self.evaluate(self.valid_dataloader, self.device)
 
             self.log_samples(images)
 

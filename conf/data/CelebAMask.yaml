@@ -1,3 +1,4 @@
+  _target_: src.datasets.CelebAMaskDataset
   name: CelebAMask
   root: data/CelebAMask
   image_channels: 3
@@ -8,3 +9,5 @@
   accumulation_steps: 4
   num_workers: 8  # Number of CPU cores for data loading
   image_type: rgb
+  mean: 0.5170, 0.4166, 0.3633
+  std: 0.2652, 0.2379, 0.2308

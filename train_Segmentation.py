@@ -4,9 +4,8 @@ from pathlib import Path
 import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader
 
-from core.Datasets import get_datasets
+from core.Datasets.dataset import get_datasets
 from core.SementationTrainer import Trainer
 from models.Segmentation import SegmentationUNet
 
@@ -33,24 +32,11 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    train_dataset, test_dataset = get_datasets('Segmentation', cfg.data.root)
+    train_dataset, test_dataset = get_datasets(cfg)
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
 
     print(train_dataset[0][0].shape)
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=cfg.data.batch_size,
-        shuffle=True,
-        num_workers=cfg.data.num_workers
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.data.batch_size,
-        shuffle=False,
-        num_workers=cfg.data.num_workers
-    )
 
     model = SegmentationUNet(
         in_channels=cfg.data.image_channels,
@@ -61,12 +47,11 @@ def main(cfg: DictConfig):
     ).to(device)
 
     trainer = Trainer(
-        model=model,
-        lr=cfg.segmentation.lr,
-        device=device,
-        name=run_name,
-        log_dir=log_dir,
-        image_type=cfg.data.image_type,
+        train_dataset,
+        test_dataset,
+        model,
+        device,
+        cfg
     )
 
     checkpoint = f'{cfg.segmentation.checkpoint_path}/{run_name}.pt'
@@ -74,7 +59,7 @@ def main(cfg: DictConfig):
         trainer.load_checkpoint(checkpoint)
         print(f"continue training form {checkpoint}...")
 
-    trainer.train(train_loader, test_loader, epochs=cfg.segmentation.epochs)
+    trainer.train(cfg.segmentation.epochs)
 
 
 if __name__ == '__main__':

@@ -1,24 +1,28 @@
-from typing import Literal
-
 import torch
+from omegaconf import DictConfig
+from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 
 class SuperTrainer:
     def __init__(self,
+                 dataset: Dataset,
                  device: torch.device,
-                 name: str = 'Trainer',
-                 log_dir: str = './runs',
-                 checkpoint: str = "./checkpoints",
-                 image_type: Literal['mri', 'rgb'] = 'mri'
+                 cfg: DictConfig,
                  ):
+        self.dataset = dataset
         self.device = device
-        self.name = name
-        self.log_dir = log_dir
-        self.checkpoint = checkpoint
-        self.image_type = image_type
+        self.name = 'SuperTrainer'
+        self.log_dir = cfg.system.log_dir
+        self.checkpoint = "./checkpoints"
+        self.image_type = cfg.data.image_type
 
         self.epoch = 0
+
+        self.train_dataloader = DataLoader(dataset=dataset,
+                                           batch_size=cfg.data.batch_size,
+                                           shuffle=True,
+                                           num_workers=cfg.data.num_workers)
 
         self.writer = SummaryWriter(f'{self.log_dir}/{self.name}')
 
@@ -32,4 +36,4 @@ class SuperTrainer:
         if self.image_type == 'mri':
             return image[:, 0, None]
         else:
-            return image
+            return (image * self.std) + self.mean
