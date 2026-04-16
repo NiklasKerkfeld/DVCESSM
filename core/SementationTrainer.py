@@ -114,7 +114,6 @@ class Trainer(SuperTrainer):
     @torch.no_grad()
     def evaluate(self, dataloader, device):
         self.model.eval()
-        # Initialize a confusion matrix: [Target, Prediction]
         conf_matrix = torch.zeros((self.num_classes, self.num_classes), device=device)
 
         with torch.no_grad():

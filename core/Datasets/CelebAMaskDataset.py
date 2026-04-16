@@ -17,10 +17,6 @@ class CelebAMaskDataset(Dataset):
         self.stds = torch.tensor(stds)
 
         self.normalize = v2.Normalize(mean=means, std=stds)
-        self.denormalize = v2.Compose([
-            v2.Normalize(mean=torch.zeros_like(self.means), std=1/self.stds),
-            v2.Normalize(mean=-self.means, std=torch.ones_like(self.stds)),
-        ])
 
     def __len__(self):
         return len(self.files)
@@ -34,7 +30,9 @@ class CelebAMaskDataset(Dataset):
         return image, label
 
     def denormalize(self, image: torch.Tensor) -> torch.Tensor:
-        return self.denormalize(image)
+        means = self.means.view(-1, 1, 1).to(image.device)
+        stds = self.stds.view(-1, 1, 1).to(image.device)
+        return (image * stds) + means
 
 
 if __name__ == "__main__":
