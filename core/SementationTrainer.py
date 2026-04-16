@@ -100,7 +100,7 @@ class Trainer(SuperTrainer):
             images, mask = images.to(self.device), mask.to(self.device)
 
             outputs = self.model(images)
-            loss = self.loss_fn(outputs, mask.unsqueeze(1))
+            loss = self.loss_fn(outputs, mask) #.unsqueeze(1)
 
             optimizer.zero_grad()
             loss.backward()
