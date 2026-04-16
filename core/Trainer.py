@@ -38,4 +38,4 @@ class SuperTrainer:
         if self.image_type == 'mri':
             return image[:, 0, None]
         else:
-            return (image * self.std) + self.mean
+            return self.dataset.denormalize(image)
