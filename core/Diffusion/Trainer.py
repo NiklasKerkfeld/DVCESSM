@@ -61,8 +61,7 @@ class Trainer(SuperTrainer):
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
     def train(self, epochs: int):
-        samples = torch.stack(
-            [self.dataset[i] for i in torch.randint(0, len(self.dataset), (4,))])
+        samples = torch.stack([self.dataset[i][0] for i in range(5)])
 
         self.model.train()
 
