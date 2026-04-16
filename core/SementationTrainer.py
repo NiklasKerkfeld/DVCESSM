@@ -4,6 +4,7 @@ from omegaconf import DictConfig
 import torch
 from monai.losses import DiceLoss
 from torch import nn, Tensor
+from torch.nn import CrossEntropyLoss
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from torchvision.utils import make_grid
@@ -27,7 +28,7 @@ class Trainer(SuperTrainer):
         self.lr = cfg.segmentation.lr
         self.num_classes = model.out_channels
 
-        self.loss_fn = DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
+        self.loss_fn = CrossEntropyLoss() # DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
 
         self.model.to(self.device)
 
