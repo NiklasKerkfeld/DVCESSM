@@ -70,7 +70,7 @@ class Trainer(SuperTrainer):
             self.optimizer.zero_grad()
 
             bar = tqdm(self.train_dataloader, total=len(self.train_dataloader ), desc=f"Epoch {self.epoch}")
-            for i, x in enumerate(bar):
+            for i, (x, _) in enumerate(bar):
                 x = x.to(self.device)
                 x_t, noise, t = self.engine.sample(x)
 
