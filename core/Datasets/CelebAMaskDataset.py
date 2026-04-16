@@ -1,5 +1,5 @@
 import glob
-from typing import Literal, List
+from typing import List
 
 import numpy as np
 import torch
@@ -27,7 +27,7 @@ class CelebAMaskDataset(Dataset):
 
     def __getitem__(self, index):
         data = np.load(self.files[index])
-        image = torch.from_numpy(data['image']).float() / 255.0
+        image = torch.from_numpy(data['image']).float() # / 255.0
         image = self.normalize(image)
         label = torch.from_numpy(data["label"]).long().squeeze(0)
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     mean = [0.5170, 0.4166, 0.3633]
     std = [0.2652, 0.2379, 0.2308]
-    dataset = SuperDataset(test_samples, mean, std)
+    dataset = CelebAMaskDataset(test_samples, mean, std)
 
     image = dataset[0]
 

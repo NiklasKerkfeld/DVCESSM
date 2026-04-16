@@ -9,11 +9,13 @@ class SuperTrainer:
                  dataset: Dataset,
                  device: torch.device,
                  cfg: DictConfig,
+                 name: str = 'SuperTrainer',
+                 log_dir: str = '.logs/'
                  ):
         self.dataset = dataset
         self.device = device
-        self.name = 'SuperTrainer'
-        self.log_dir = cfg.system.log_dir
+        self.name = name
+        self.log_dir = log_dir
         self.checkpoint = "./checkpoints"
         self.image_type = cfg.data.image_type
 

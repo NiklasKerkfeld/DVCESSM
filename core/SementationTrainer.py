@@ -18,8 +18,11 @@ class Trainer(SuperTrainer):
                  valid_dataset: Dataset,
                  model: nn.Module,
                  device: torch.device,
-                 cfg: DictConfig):
-        super().__init__(train_dataset, device, cfg)
+                 cfg: DictConfig,
+                 name: str = 'SegmentationTrainer',
+                 log_dir: str = '.logs/'
+                 ):
+        super().__init__(train_dataset, device, cfg, name, log_dir)
         self.model = model
         self.lr = cfg.segmentation.lr
         self.num_classes = model.out_channels

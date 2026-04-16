@@ -21,9 +21,11 @@ class Trainer(SuperTrainer):
                  model: DiffusionModel,
                  engine: Engine,
                  device: torch.device,
-                 cfg: DictConfig
+                 cfg: DictConfig,
+                 name: str = 'DiffusionTrainer',
+                 log_dir: str = '.logs/'
                  ):
-        super().__init__(dataset, device, cfg)
+        super().__init__(dataset, device, cfg, name, log_dir)
         self.model = model
         self.engine = engine
         self.lr = cfg.diffusion.lr

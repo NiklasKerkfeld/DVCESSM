@@ -42,7 +42,9 @@ def main(cfg: DictConfig):
         model,
         engine,
         device,
-        cfg
+        cfg,
+        name=run_name,
+        log_dir=log_dir
     )
 
     checkpoint = f'{cfg.diffusion.checkpoint_path}/{run_name}.pt'

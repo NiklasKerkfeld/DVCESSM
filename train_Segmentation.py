@@ -51,7 +51,9 @@ def main(cfg: DictConfig):
         test_dataset,
         model,
         device,
-        cfg
+        cfg,
+        name=run_name,
+        log_dir=log_dir
     )
 
     checkpoint = f'{cfg.segmentation.checkpoint_path}/{run_name}.pt'
