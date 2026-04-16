@@ -27,7 +27,7 @@ class CelebAMaskDataset(Dataset):
 
     def __getitem__(self, index):
         data = np.load(self.files[index])
-        image = torch.from_numpy(data['image']).float() # / 255.0
+        image = torch.from_numpy(data['image']).float() / 255.0
         image = self.normalize(image)
         label = torch.from_numpy(data["label"]).long().squeeze(0)
 
