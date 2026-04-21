@@ -1,3 +1,4 @@
+import copy
 import os
 from typing import Optional
 from omegaconf import DictConfig
@@ -31,17 +32,35 @@ class Trainer(SuperTrainer):
         self.lr = cfg.diffusion.lr
         self.accumulation_steps = cfg.data.accumulation_steps
 
+        # --- EMA Setup ---
+        self.ema_decay = cfg.diffusion.get("ema_decay", 0.999)
+        self.ema_model = copy.deepcopy(self.model)
+        self.ema_model.to(self.device)
+        self.ema_model.eval()  # EMA model is never in train mode
+        self.step = 0
+        # -----------------
+
         self.model.to(self.device)
         self.engine.to(self.device)
 
         self.loss_fn = nn.MSELoss()
         self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
+    @torch.no_grad()
+    def update_ema(self):
+        """Step the EMA weights."""
+        self.step += 1
+        current_decay = min(self.ema_decay, (1 + self.step) / (10 + self.step))
+
+        for ema_param, param in zip(self.ema_model.parameters(), self.model.parameters()):
+            ema_param.data.mul_(current_decay).add_(param.data, alpha=1 - current_decay)
+
     def save_checkpoint(self):
         os.makedirs(self.checkpoint, exist_ok=True)
         checkpoint = {
             'epoch': self.epoch,
             'model_state_dict': self.model.state_dict(),
+            'ema_model_state_dict': self.ema_model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'rng_state': torch.get_rng_state(),
             'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
@@ -53,6 +72,7 @@ class Trainer(SuperTrainer):
 
         self.epoch = checkpoint["epoch"]
         self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.ema_model.load_state_dict(checkpoint['ema_model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
         if 'rng_state' in checkpoint:
@@ -61,7 +81,7 @@ class Trainer(SuperTrainer):
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
     def train(self, epochs: int):
-        samples = torch.stack([self.dataset[i][0] for i in range(5)])
+        samples = torch.stack([self.dataset[i][0] for i in range(4)])
 
         self.model.train()
 
@@ -81,6 +101,7 @@ class Trainer(SuperTrainer):
                 if (i + 1) % self.accumulation_steps == 0:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
+                    self.update_ema()
 
                 bar.set_postfix({"loss": loss.detach().item()})
                 losses[i] = loss.detach().item()
@@ -97,16 +118,16 @@ class Trainer(SuperTrainer):
         print("Training complete and logs flushed.")
 
     @torch.no_grad()
-    def generate_image(self, batch_size: Optional[int] = 1):
-        images = torch.randn(batch_size, self.model.channels, self.model.width, self.model.height)
-        self.model.eval()
+    def generate_image(self, batch_size: Optional[int] = 1, use_ema: bool = True):
+        model = self.ema_model if use_ema else self.model
+        model.eval()
 
-        images = images.to(self.device)
-        self.model.to(self.device)
+        images = torch.randn(batch_size, model.channels, model.width, model.height).to(self.device)
+        model.to(self.device)
 
         for t in reversed(range(self.engine.T)):
             t_tensor = torch.full((images.shape[0],), t, device=self.device)
-            epsilon_pred = self.model(images, t_tensor)
+            epsilon_pred = model(images, t_tensor)
 
             # calculate mean of image at t-1
             mean = self.engine.reverse(images, epsilon_pred, t_tensor)

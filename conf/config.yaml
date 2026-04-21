@@ -11,6 +11,7 @@ diffusion:
   beta_max: 2e-2
   epochs: 250
   lr: 3e-4
+  ema_decay: 0.999
   time_dim: 256
   sample_idx: ???
   start_fraction: 0.5 # noise level for CF generation
