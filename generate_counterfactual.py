@@ -5,6 +5,7 @@ import torch
 
 from omegaconf import DictConfig
 import torchvision
+from torch import Tensor
 from torchvision.utils import make_grid
 
 from core.Diffusion.Generator import CounterfactualGenerator
@@ -13,6 +14,74 @@ from core.Diffusion.Engine import Engine
 from models.DiffusionModel import DiffusionModel
 from models.Segmentation import SegmentationUNet
 from utils import visualize_seg, visualize_counterfactuals, visualize_adaption
+
+
+def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg):
+    image, target = dataset[n][0], dataset[n][1]
+    image = dataset.denormalize(image)
+
+    target = visualize_seg(target)[0].permute(2, 0, 1)
+    pred_original = visualize_seg(prediction_org)[0].permute(2, 0, 1)
+    pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
+
+    os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
+
+    torchvision.utils.save_image(target,
+                                 f"{cfg.system.figures_dir}/example_{n}/target.png")
+    torchvision.utils.save_image(pred_original,
+                                 f"{cfg.system.figures_dir}/example_{n}/prediction_original.png")
+    torchvision.utils.save_image(pred_counterfactual,
+                                 f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
+
+    torchvision.utils.save_image(image[0],
+                                 f"{cfg.system.figures_dir}/example_{n}/original.png")
+    torchvision.utils.save_image(counterfactual[0],
+                                 f"{cfg.system.figures_dir}/example_{n}/counterfactual.png")
+    torchvision.utils.save_image(adaption[0],
+                                 f"{cfg.system.figures_dir}/example_{n}/adaption.png")
+
+    stacked_image = make_grid(torch.stack([
+        image[0],
+        adaption[0],
+        counterfactual[0]
+    ]).flatten(0), nrow=4)
+    print(f"{stacked_image.shape=}")
+    torchvision.utils.save_image(stacked_image,
+                                 f"{cfg.system.figures_dir}/example_{n}/comparison.png")
+
+
+def visualize_mri(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg):
+    image, target = dataset[n][0], dataset[n][1]
+
+    target = visualize_seg(target)[0].permute(2, 0, 1)
+    pred_original = visualize_seg(prediction_org)[0].permute(2, 0, 1)
+    pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
+
+    adaption = visualize_adaption(adaption)
+    image, counterfactual = visualize_counterfactuals(image, counterfactual)
+
+    os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
+    torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/example_{n}/target.png")
+    torchvision.utils.save_image(pred_original,
+                                 f"{cfg.system.figures_dir}/example_{n}/prediction_original.png")
+    torchvision.utils.save_image(pred_counterfactual,
+                                 f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
+
+    for i, channel in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
+        torchvision.utils.save_image(image[0, i],
+                                     f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
+        torchvision.utils.save_image(counterfactual[0, i],
+                                     f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
+        torchvision.utils.save_image(adaption[0, i],
+                                     f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
+
+    stacked_image = make_grid(torch.stack([
+        image[0],
+        adaption[0],
+        counterfactual[0]
+    ]).flatten(0, 1), nrow=4)
+    torchvision.utils.save_image(stacked_image,
+                                 f"{cfg.system.figures_dir}/example_{n}/comparison.png")
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -52,51 +121,10 @@ def main(cfg: DictConfig):
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
                                                                                  cfg.diffusion.start_fraction)
 
-    target = target.cpu()
-    image = image.cpu()
-    counterfactual = counterfactual.detach().cpu()
-    adaption = adaption.detach().cpu()
-    prediction_org = prediction_org.detach().cpu()
-    prediction_cf = prediction_cf.detach().cpu()
-
-    target = visualize_seg(target)[0].permute(2, 0, 1)
-    pred_original = visualize_seg(prediction_org)[0].permute(2, 0, 1)
-    pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
-
-    adaption = visualize_adaption(adaption)
-    image, counterfactual = visualize_counterfactuals(image, counterfactual)
-
-    print(f"{adaption.shape=}")
-    print(f"{image.shape=}")
-    print(f"{counterfactual.shape=}")
-
-    os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
-    torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/example_{n}/target.png")
-    torchvision.utils.save_image(pred_original,
-                                 f"{cfg.system.figures_dir}/example_{n}/prediction_original.png")
-    torchvision.utils.save_image(pred_counterfactual,
-                                 f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
-
     if cfg.data.image_type == 'mri':
-        for i, channel in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
-            torchvision.utils.save_image(image[0, i],
-                                         f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
-            torchvision.utils.save_image(counterfactual[0, i],
-                                         f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
-            torchvision.utils.save_image(adaption[0, i],
-                                         f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
+        visualize_mri(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg)
     else:
-        torchvision.utils.save_image(image[0], f"{cfg.system.figures_dir}/example_{n}/original.png")
-        torchvision.utils.save_image(counterfactual[0], f"{cfg.system.figures_dir}/example_{n}/counterfactual.png")
-        torchvision.utils.save_image(adaption[0],f"{cfg.system.figures_dir}/example_{n}/adaption.png")
-
-    stacked_image = make_grid(torch.stack([
-        image[0],
-        adaption[0],
-        counterfactual[0]
-    ]).flatten(0, 1), nrow=4)
-    torchvision.utils.save_image(stacked_image,
-                                 f"{cfg.system.figures_dir}/example_{n}/comparison.png")
+        visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg)
 
 
 if __name__ == '__main__':

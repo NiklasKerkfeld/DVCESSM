@@ -54,7 +54,7 @@ class CounterfactualGenerator:
 
         prediction_cf = self.segmentation_model(counterfactuals).detach().cpu().argmax(dim=1)
 
-        return counterfactuals, adaptions, prediction_org, prediction_cf
+        return counterfactuals.cpu(), adaptions.cpu(), prediction_org.cpu(), prediction_cf.cpu()
 
     @torch.no_grad()
     def _generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor,
