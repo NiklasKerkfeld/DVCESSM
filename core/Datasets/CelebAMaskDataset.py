@@ -38,17 +38,23 @@ class CelebAMaskDataset(Dataset):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    files = glob.glob(f"data/CelebAMask/preprocessed/*")
+    files = glob.glob(f"data/CelebAMask/preprocessed/*/*.npz")
     train_samples, test_samples = train_test_split(files, test_size=0.05, random_state=42)
 
     mean = [0.5170, 0.4166, 0.3633]
     std = [0.2652, 0.2379, 0.2308]
     dataset = CelebAMaskDataset(test_samples, mean, std)
 
-    image = dataset[0]
+    image, _ = dataset[0]
 
     plt.imshow(image.permute(1, 2, 0))
     plt.show()
 
     plt.imshow(dataset.denormalize(image).permute(1, 2, 0))
+    plt.show()
+
+    image -= torch.amin(image, dim=(1, 2))[:, None, None]
+    image /= torch.amax(image, dim=(1, 2))[:, None, None]
+
+    plt.imshow(image.permute(1, 2, 0))
     plt.show()
