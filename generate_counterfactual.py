@@ -77,13 +77,18 @@ def main(cfg: DictConfig):
     torchvision.utils.save_image(pred_counterfactual,
                                  f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
 
-    for i, channel in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
-        torchvision.utils.save_image(image[0, i],
-                                     f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
-        torchvision.utils.save_image(counterfactual[0, i],
-                                     f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
-        torchvision.utils.save_image(adaption[0, i],
-                                     f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
+    if cfg.data.image_type == 'mri':
+        for i, channel in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
+            torchvision.utils.save_image(image[0, i],
+                                         f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
+            torchvision.utils.save_image(counterfactual[0, i],
+                                         f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
+            torchvision.utils.save_image(adaption[0, i],
+                                         f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
+    else:
+        torchvision.utils.save_image(image[0], f"{cfg.system.figures_dir}/example_{n}/original.png")
+        torchvision.utils.save_image(counterfactual[0], f"{cfg.system.figures_dir}/example_{n}/counterfactual.png")
+        torchvision.utils.save_image(adaption[0],f"{cfg.system.figures_dir}/example_{n}/adaption.png")
 
     stacked_image = make_grid(torch.stack([
         image[0],
