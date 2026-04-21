@@ -18,7 +18,7 @@ class AdaptGrad(nn.Module):
 
         sigma = torch.where((x <= self.x_min) | (x >= self.x_max), torch.zeros_like(sigma), sigma)
 
-        noise = self.factor * torch.randn((self.N, *x.shape), requires_grad=False) * sigma
+        noise = self.factor * torch.randn((self.N, *x.shape), requires_grad=False, device=x.device) * sigma
 
         return (x + noise).flatten(0, 1)
 
