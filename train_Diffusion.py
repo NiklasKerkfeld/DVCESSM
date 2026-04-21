@@ -6,7 +6,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 from core.Datasets.dataset import get_datasets
-from models.DiffusionModel import DiffusionModel
+from models.DiffusionModel_new import DiffusionModel
 from core.Diffusion.Engine import Engine
 from core.Diffusion.Trainer import Trainer
 
