@@ -5,7 +5,6 @@ import torch
 
 from omegaconf import DictConfig
 import torchvision
-from torch import Tensor
 from torchvision.utils import make_grid
 
 from core.Diffusion.Generator import CounterfactualGenerator
@@ -42,6 +41,7 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
     torchvision.utils.save_image(adaption[0],
                                  f"{cfg.system.figures_dir}/example_{n}/adaption.png")
 
+    print(f"{image.shape=}, {adaption.shape=}, {counterfactual.shape=}")
     stacked_image = make_grid(torch.stack([
         image[0],
         adaption[0],
