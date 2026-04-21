@@ -20,9 +20,11 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
     image, target = dataset[n][0], dataset[n][1]
     image = dataset.denormalize(image)
 
-    target = visualize_seg(target)[0].permute(2, 0, 1)
-    pred_original = visualize_seg(prediction_org)[0].permute(2, 0, 1)
-    pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
+    target = visualize_seg(target)
+    pred_original = visualize_seg(prediction_org)
+    pred_counterfactual = visualize_seg(prediction_cf)
+
+    print(f"{target.shape=}, {pred_original.shape=}, {pred_counterfactual.shape=}")
 
     os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
 
