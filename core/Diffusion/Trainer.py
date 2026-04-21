@@ -142,21 +142,22 @@ class Trainer(SuperTrainer):
         return images.detach()
 
     @torch.no_grad()
-    def _visualize_sampling(self):
+    def _visualize_sampling(self, use_ema: bool = True):
         self.model.eval()
 
-        samples = self.generate_image(batch_size=4)
+        samples = self.generate_image(batch_size=4, use_ema=use_ema)
         grid = make_grid(self._visualize_image(samples), nrow=4)
         self.writer.add_image(f"Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
 
     @torch.no_grad()
-    def _visualize_one_step(self, images: torch.Tensor):
+    def _visualize_one_step(self, images: torch.Tensor, use_ema: bool = True):
         """
         fixed_images: A batch of clean images (x0) normalized to [-1, 1].
         """
-        self.model.eval()
+        model = self.ema_model if use_ema else self.model
+        model.eval()
         images = images.to(self.device)
 
         check_steps = [
@@ -170,7 +171,7 @@ class Trainer(SuperTrainer):
             t_tensor = torch.full((images.shape[0],), t, device=self.device)
             x_t, _ = self.engine.diffuse(images, t_tensor)
 
-            epsilon_pred = self.model(x_t, t_tensor)
+            epsilon_pred = model(x_t, t_tensor)
 
             x_0_recon = self.engine.image_approximation(x_t, epsilon_pred, t_tensor)
 

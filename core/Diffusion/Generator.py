@@ -2,6 +2,7 @@ import torch
 from torch import nn, Tensor
 from tqdm import tqdm
 
+from core.AdaptGrad import AdaptGrad
 from core.Diffusion.Engine import Engine
 from models.Losses import masked_cross_entropy
 
@@ -29,8 +30,9 @@ class CounterfactualGenerator:
         self.segmentation_name = segmentation_name
         self.weight_classifier = weight_classifier
         self.weight_distance = weight_distance
+        self.adaptgrad = AdaptGrad()
 
-        self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pth",
+        self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pt",
                              f"{self.segmentation_checkpoint}/{self.segmentation_name}.pt")
         self.segmentation_model.eval()
         self.diffusion_model.eval()
@@ -38,7 +40,7 @@ class CounterfactualGenerator:
     def load_checkpoint(self, diffusion_checkpoint: str, segmentation_checkpoint: str):
         print(f"{diffusion_checkpoint=}, {segmentation_checkpoint=}")
         checkpoint = torch.load(diffusion_checkpoint, map_location=self.device)
-        self.diffusion_model.load_state_dict(checkpoint) # ['model_state_dict']
+        self.diffusion_model.load_state_dict(checkpoint['model_state_dict']) #
 
         checkpoint = torch.load(segmentation_checkpoint, map_location=self.device)
         self.segmentation_model.load_state_dict(checkpoint['model_state_dict'])
@@ -95,8 +97,9 @@ class CounterfactualGenerator:
         approx_images = self.engine.image_approximation(x, epsilon_pred, t)
 
         # model
+        approx_images = self.adaptgrad(approx_images)
         logits = self.segmentation_model(approx_images)
-        loss_c = masked_cross_entropy(logits, targets)
+        loss_c = masked_cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)

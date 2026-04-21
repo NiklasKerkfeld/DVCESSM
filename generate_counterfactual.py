@@ -8,7 +8,7 @@ import torchvision
 from torchvision.utils import make_grid
 
 from core.Diffusion.Generator import CounterfactualGenerator
-from core.Datasets import get_datasets
+from core.Datasets.dataset import get_datasets
 from core.Diffusion.Engine import Engine
 from models.DiffusionModel import DiffusionModel
 from models.Segmentation import SegmentationUNet
@@ -22,7 +22,7 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    _, dataset = get_datasets('Segmentation', cfg.data.root)
+    _, dataset = get_datasets(cfg)
     print(f"dataset size: {len(dataset)}")
 
     image = torch.stack([dataset[n][0]], dim=0).to(device)

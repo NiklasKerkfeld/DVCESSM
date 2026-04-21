@@ -98,13 +98,34 @@ def visualize_counterfactuals(image: torch.Tensor, *args: torch.Tensor):
 
 def visualize_seg(seg_map: torch.Tensor):
     palette = torch.tensor([
-        [0, 0, 0],  # Class 0
-        [1, 0, 0],  # Class 1
-        [0, 1, 0],  # Class 2
-        [0, 0, 1],  # Class 3
-        [0, 1, 1],  # Class 4
-        [1, 0, 1],  # Class 5
-        [1, 1, 0]  # Class 6
+        [0., 0., 0.],  # Class 0
+        [1., 0., 0.],  # Class 1
+        [0., 1., 0.],  # Class 2
+        [0., 0., 1.],  # Class 3
+        [0., 1., 1.],  # Class 4
+        [1., 0., 1.],  # Class 5
+        [1., 1., 0.],  # Class 6
+        [.5, 0., 0.],  # Class 7
+        [0., .5, 0.],  # Class 8
+        [0., 0., .5],  # Class 9
+        [0., .5, .5],  # Class 10
+        [.5, 0., .5],  # Class 11
+        [.5, .5, 0.],  # Class 12
+        [.25, 0., 0.],  # Class 13
+        [0., .25, 0.],  # Class 14
+        [0., 0., .25],  # Class 15
+        [0., 1., .5],  # Class 16
+        [1., 0., .5],  # Class 17
+        [1., .5, 0.],  # Class 18
+        [0., .5, 1.],  # Class 19
+        [.25, 0., 1.],  # Class 20
+        [.25, 1., 0.],  # Class 21
+        [0., 1., .25],  # Class 22
+        [1., 0., .25],  # Class 23
+        [1., .25, 0.],  # Class 24
+        [0., .25, 1.],  # Class 25
+        [.25, 0., 1.],  # Class 26
+        [.25, 1., 0.]  # Class 27
     ], dtype=torch.float32)
 
     return palette[seg_map]
