@@ -43,7 +43,7 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
 
     print(f"{image.shape=}, {adaption.shape=}, {counterfactual.shape=}")
     stacked_image = make_grid(torch.stack([
-        image[0],
+        image,
         adaption[0],
         counterfactual[0]
     ]).flatten(0), nrow=4)
