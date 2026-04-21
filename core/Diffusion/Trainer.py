@@ -31,6 +31,7 @@ class Trainer(SuperTrainer):
         self.engine = engine
         self.lr = cfg.diffusion.lr
         self.accumulation_steps = cfg.data.accumulation_steps
+        self.checkpoint = cfg.diffusion.checkpoint_path
 
         # --- EMA Setup ---
         self.ema_decay = cfg.diffusion.get("ema_decay", 0.999)

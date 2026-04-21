@@ -27,6 +27,7 @@ class Trainer(SuperTrainer):
         self.model = model
         self.lr = cfg.segmentation.lr
         self.num_classes = model.out_channels
+        self.checkpoint = cfg.segmentation.checkpoint_path
 
         self.loss_fn = CrossEntropyLoss() # DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
 
