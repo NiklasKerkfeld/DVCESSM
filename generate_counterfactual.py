@@ -43,10 +43,10 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
 
     print(f"{image.shape=}, {adaption.shape=}, {counterfactual.shape=}")
     stacked_image = make_grid(torch.stack([
-        image,
-        adaption[0],
-        counterfactual[0]
-    ]).flatten(0), nrow=4)
+        image[None],
+        adaption[0, None],
+        counterfactual[0, None]
+    ]), nrow=3)
     print(f"{stacked_image.shape=}")
     torchvision.utils.save_image(stacked_image,
                                  f"{cfg.system.figures_dir}/example_{n}/comparison.png")
