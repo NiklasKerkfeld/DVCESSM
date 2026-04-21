@@ -5,8 +5,8 @@
   image_width: 256
   image_height: 256
   batch_size: 16
-  accumulation_steps: 4
-  num_workers: 8  # Number of CPU cores for data loading
+  accumulation_steps: 8
+  num_workers: 32
   image_type: rgb
 
   dataset:
