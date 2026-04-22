@@ -1,14 +1,11 @@
 defaults:
   - data: BraTS
-  - engine: linear
+  - engine: cosine
   - _self_
 
 diffusion:
   checkpoint_path: "./checkpoints/Diffusion"
   name: null
-  T: 1000
-  beta_min: 1e-4
-  beta_max: 2e-2
   epochs: 250
   lr: 3e-4
   ema_decay: 0.999

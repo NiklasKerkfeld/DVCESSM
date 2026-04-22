@@ -16,7 +16,7 @@ def cosine_beta_schedule(T: int, s: float = 0.008):
 
     betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
 
-    return torch.clip(betas, 0.0001, 0.9999)
+    return torch.clip(betas, 0.0001, 0.999)
 
 
 class Engine(nn.Module):
