@@ -1,4 +1,5 @@
 import torch
+from omegaconf import DictConfig
 from torch import nn, Tensor
 from tqdm import tqdm
 
@@ -13,24 +14,19 @@ class CounterfactualGenerator:
                  diffusion_model: nn.Module,
                  engine: Engine,
                  device: torch.device,
-                 diffusion_checkpoint: str,
-                 diffusion_name: str,
-                 segmentation_checkpoint: str,
-                 segmentation_name: str,
-                 weight_classifier: float,
-                 weight_distance: float):
+                 cfg: DictConfig):
         super().__init__()
         self.segmentation_model = segmentation
         self.diffusion_model = diffusion_model
         self.engine = engine
         self.device = device
-        self.diffusion_checkpoint = diffusion_checkpoint
-        self.diffusion_name = diffusion_name
-        self.segmentation_checkpoint = segmentation_checkpoint
-        self.segmentation_name = segmentation_name
-        self.weight_classifier = weight_classifier
-        self.weight_distance = weight_distance
-        self.adaptgrad = AdaptGrad()
+        self.diffusion_checkpoint = cfg.diffusion.checkpoint_path
+        self.diffusion_name = cfg.diffusion.name
+        self.segmentation_checkpoint = cfg.segmentation.checkpoint_path
+        self.segmentation_name = cfg.segmentation.name
+        self.weight_classifier = cfg.segmentation.weight_classifier
+        self.weight_distance = cfg.segmentation.weight_distance
+        self.adaptgrad = AdaptGrad(cfg)
 
         self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pt",
                              f"{self.segmentation_checkpoint}/{self.segmentation_name}.pt")

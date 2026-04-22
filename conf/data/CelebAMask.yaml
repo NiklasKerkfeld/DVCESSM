@@ -8,6 +8,8 @@
   accumulation_steps: 8
   num_workers: 32
   image_type: rgb
+  min: 0.0
+  max: 1.0
 
   dataset:
     _target_: core.Datasets.CelebAMaskDataset.CelebAMaskDataset

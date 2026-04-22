@@ -114,13 +114,7 @@ def main(cfg: DictConfig):
     engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max,
                     device=device).to(device)
 
-    generator = CounterfactualGenerator(segmentation, diffusion, engine, device,
-                                        diffusion_checkpoint=cfg.diffusion.checkpoint_path,
-                                        diffusion_name=cfg.diffusion.name,
-                                        segmentation_checkpoint=cfg.segmentation.checkpoint_path,
-                                        segmentation_name=cfg.segmentation.name,
-                                        weight_classifier=cfg.diffusion.weight_classifier,
-                                        weight_distance=cfg.diffusion.weight_distance)
+    generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg)
 
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
                                                                                  cfg.diffusion.start_fraction)
