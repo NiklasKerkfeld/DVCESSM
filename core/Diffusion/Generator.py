@@ -61,6 +61,7 @@ class CounterfactualGenerator:
         images = images.to(self.device)
         self.segmentation_model.to(self.device)
         self.diffusion_model.to(self.device)
+        self.adaptgrad.to(self.device)
 
         start_t = int(self.engine.T * start_fraction)
         t_tensor = torch.full((images.shape[0],), start_t, device=self.device)
