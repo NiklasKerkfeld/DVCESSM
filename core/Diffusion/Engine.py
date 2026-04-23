@@ -1,6 +1,7 @@
 from typing import Literal, Tuple
 
 import torch
+from omegaconf import DictConfig
 from torch import Tensor, nn
 
 
@@ -21,17 +22,14 @@ def cosine_beta_schedule(T: int, s: float = 0.008):
 
 class Engine(nn.Module):
     def __init__(self,
-                 T: int,
-                 beta_min: float,
-                 beta_max: float,
-                 device: torch.device,
-                 beta_schedule: Literal["linear", 'cosine'] = 'linear'
+                 cfg: DictConfig,
+                 device: torch.device = torch.device('cpu'),
                  ):
         super().__init__()
-        self.T = T
+        self.T = cfg.engine.T
         self.device = device
 
-        beta = cosine_beta_schedule(T) if beta_schedule == 'cosine' else torch.linspace(beta_min, beta_max, T)
+        beta = cosine_beta_schedule(self.T) if cfg.engine.beta_schedule == 'cosine' else torch.linspace(cfg.engine.beta_min, cfg.engine.beta_max, self.T)
         alphas = 1.0 - beta
         alphas_cumprod = torch.cumprod(alphas, dim=0)
 

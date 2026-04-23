@@ -35,7 +35,7 @@ def main(cfg: DictConfig):
 
     model = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
                            cfg.diffusion.time_dim)
-    engine = Engine(**cfg.engine, device=device)
+    engine = Engine(cfg, device=device)
 
     trainer = Trainer(
         dataset,

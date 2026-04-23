@@ -163,8 +163,10 @@ class Trainer(SuperTrainer):
 
         check_steps = [
             int(self.engine.T * 0.1),
+            int(self.engine.T * 0.3),
             int(self.engine.T * 0.5),
             int(self.engine.T * 0.8),
+            int(self.engine.T * 0.9),
             self.engine.T - 1,
         ]
 
