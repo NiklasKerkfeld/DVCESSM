@@ -1,6 +1,6 @@
 defaults:
   - data: BraTS
-  - engine: cosine
+  - engine: linear
   - _self_
 
 diffusion:
