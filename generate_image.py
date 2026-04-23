@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from core.Datasets.dataset import get_datasets
 from core.Diffusion.Engine import Engine
-from models.DiffusionModel import DiffusionModel
+from models.DiffusionModel_new import DiffusionModel
 
 
 @torch.no_grad()
@@ -20,7 +20,7 @@ def generate_image(model, engine, batch_size: Optional[int] = 1, device: torch.d
     images = images.to(device)
     model.to(device)
 
-    for t in tqdm(reversed(range(engine.T))):
+    for t in tqdm(reversed(range(engine.T)), total=engine.T):
         t_tensor = torch.full((images.shape[0],), t, device=device)
         epsilon_pred = model(images, t_tensor)
 
@@ -49,7 +49,7 @@ def main(cfg: DictConfig):
 
     _, dataset = get_datasets(cfg)
 
-    engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max, device=device)
+    engine = Engine(cfg, device=device)
 
     gen_image = generate_image(diffusion, engine, batch_size=1, device=device)
     gen_image = dataset.denormalize(gen_image)
