@@ -85,17 +85,16 @@ class CounterfactualGenerator:
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
             sigma = self.engine.get_sigma(t_tensor, image.shape)
 
-            if t > 50:
-                with torch.enable_grad():
-                    g_update, approx_image, grad_c, grad_d = self._calc_g_update(
-                        x,
-                        image,
-                        targets,
-                        epsilon_pred,
-                        t_tensor)
+            with torch.enable_grad():
+                g_update, approx_image, grad_c, grad_d = self._calc_g_update(
+                    x,
+                    image,
+                    targets,
+                    epsilon_pred,
+                    t_tensor)
 
-                # Adaptive Parameterization
-                mean = mean + (sigma ** 2 * mu_norm * g_update)
+            # Adaptive Parameterization
+            mean = mean + (sigma ** 2 * mu_norm * g_update)
 
             if t > 0:
                 noise = torch.randn_like(image)
