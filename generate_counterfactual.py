@@ -101,12 +101,12 @@ def visualize_mri(dataset, n, counterfactual, adaption, prediction_org, predicti
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
-    log_dir = f'{cfg.system.log_dir}/GAN'
+    log_dir = f'{cfg.system.log_dir}/Generation'
     if cfg.gan.name is not None:
         run_name = cfg.gan.name
     else:
         nr = len(glob.glob(f"{log_dir}/*"))
-        run_name = f"{nr}_GANTraining"
+        run_name = f"{nr}_counterfactual"
 
     n = cfg.diffusion.sample_idx
 
