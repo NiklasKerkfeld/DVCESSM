@@ -6,6 +6,7 @@ from tqdm import tqdm
 from core.AdaptGrad import AdaptGrad
 from core.Diffusion.Engine import Engine
 from torch.nn.functional import cross_entropy
+from torchvision.transforms.functional import gaussian_blur
 
 class CounterfactualGenerator:
     def __init__(self,
@@ -99,8 +100,7 @@ class CounterfactualGenerator:
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
-        threshold = grad_c.abs().mean()
-        grad_c[grad_c.abs() < threshold] = 0
+        grad_c = gaussian_blur(grad_c, kernel_size=5, sigma=1.0)
 
         # distance
         distance = torch.norm(image - approx_image, p=1)
