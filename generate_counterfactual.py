@@ -23,7 +23,7 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
     pred_original = visualize_seg(prediction_org[0]).permute(2, 0, 1)
     pred_counterfactual = visualize_seg(prediction_cf[0]).permute(2, 0, 1)
 
-    adaption = visualize_adaption(adaption)
+    adaption_visual = visualize_adaption(adaption)
 
     print(f"{target.shape=}, {pred_original.shape=}, {pred_counterfactual.shape=}")
 
@@ -42,13 +42,15 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
                                  f"{cfg.system.figures_dir}/example_{n}/counterfactual.png")
 
     for i, channel in enumerate(["red", "green", "blue"]):
-        torchvision.utils.save_image(adaption[0, i],
+        torchvision.utils.save_image(adaption_visual[0, i],
                                      f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
+
+    adaption_visual = visualize_adaption(adaption.sum(dim=1))
 
     print(f"{image.shape=}, {adaption.shape=}, {counterfactual.shape=}")
     stacked_image = make_grid([
         image,
-        adaption[0],
+        adaption_visual[0],
         counterfactual[0]
     ], nrow=3)
     print(f"{stacked_image.shape=}")
