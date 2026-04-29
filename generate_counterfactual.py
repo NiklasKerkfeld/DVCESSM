@@ -3,7 +3,7 @@ import os
 import hydra
 import torch
 
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 import torchvision
 from torchvision.utils import make_grid
 
@@ -98,6 +98,8 @@ def visualize_mri(dataset, n, counterfactual, adaption, prediction_org, predicti
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
+
     n = cfg.diffusion.sample_idx
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
