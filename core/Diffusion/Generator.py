@@ -103,6 +103,7 @@ class CounterfactualGenerator:
                 self.writer.add_image('Process/approx_x_0',
                                       vutils.make_grid(approx_image, normalize=True), log_step)
                 self.writer.add_scalar('Gradients/mean', mean.mean().item(), log_step)
+                self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)
                 self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)
                 self.writer.add_scalar('Gradients/grad_c', grad_c.abs().mean().item(), log_step)
                 self.writer.add_scalar('Gradients/grad_d', grad_d.abs().mean().item(), log_step)
