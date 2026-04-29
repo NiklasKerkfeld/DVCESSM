@@ -99,6 +99,9 @@ class CounterfactualGenerator:
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
+        threshold = grad_c.abs().mean()
+        grad_c[grad_c.abs() < threshold] = 0
+
         # distance
         distance = torch.norm(image - approx_image, p=1)
         grad_d = torch.autograd.grad(distance, x)[0]
