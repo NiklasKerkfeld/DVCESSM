@@ -99,6 +99,7 @@ class CounterfactualGenerator:
                 self.writer.add_image('Process/approx_x_0',
                                       vutils.make_grid(approx_image, normalize=True), log_step)
                 self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)
+                self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)
 
                 g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
                 self.writer.add_image('Process/g_update', g_visual,
@@ -121,7 +122,7 @@ class CounterfactualGenerator:
         approx_image_batch = self.adaptgrad(approx_image)
         logits = self.segmentation_model(approx_image_batch)
         loss_c = cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
-        grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
+        grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
 
         # Force spatial coherence (Gradient Smoothing)
         # grad_c = gaussian_blur(grad_c, kernel_size=7, sigma=1.5)
