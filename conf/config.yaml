@@ -13,7 +13,7 @@ diffusion:
   sample_idx: ???
   start_fraction: 0.5 # noise level for CF generation
   weight_classifier: 1.0
-  weight_distance: 1.5
+  weight_distance: 0.1
   AdaptGrad:
     N: 32
     c: .99999
