@@ -1,3 +1,4 @@
+import glob
 import os
 
 import hydra
@@ -100,6 +101,13 @@ def visualize_mri(dataset, n, counterfactual, adaption, prediction_org, predicti
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
+    log_dir = f'{cfg.system.log_dir}/GAN'
+    if cfg.gan.name is not None:
+        run_name = cfg.gan.name
+    else:
+        nr = len(glob.glob(f"{log_dir}/*"))
+        run_name = f"{nr}_GANTraining"
+
     n = cfg.diffusion.sample_idx
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -123,7 +131,7 @@ def main(cfg: DictConfig):
 
     engine = Engine(cfg, device=device).to(device)
 
-    generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg)
+    generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg, name=run_name)
 
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
                                                                                  cfg.diffusion.start_fraction)

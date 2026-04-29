@@ -20,7 +20,8 @@ class CounterfactualGenerator:
                  diffusion_model: nn.Module,
                  engine: Engine,
                  device: torch.device,
-                 cfg: DictConfig):
+                 cfg: DictConfig,
+                 name='counterfactual'):
         super().__init__()
         self.segmentation_model = segmentation
         self.diffusion_model = diffusion_model
@@ -36,8 +37,8 @@ class CounterfactualGenerator:
         self.adaptgrad = AdaptGrad(cfg)
 
         # Initialize TensorBoard
-        print(f"logging to {cfg.system.log_dir}/Generation/counterfactual")
-        self.writer = SummaryWriter(log_dir=f"{cfg.system.log_dir}/Generation/counterfactual")
+        print(f"logging to {cfg.system.log_dir}/Generation/{name}")
+        self.writer = SummaryWriter(log_dir=f"{cfg.system.log_dir}/Generation/{name}")
 
         self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pt",
                              f"{self.segmentation_checkpoint}/{self.segmentation_name}.pt")
