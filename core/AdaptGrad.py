@@ -16,10 +16,9 @@ class AdaptGrad(nn.Module):
         self.register_buffer('denominator', torch.sqrt(torch.tensor(2.0)) * erfinv(self.c))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        sigma = torch.min(self.x_max - x, torch.abs(self.x_min - x)) / self.denominator
-
-        sigma = torch.where((x <= self.x_min) | (x >= self.x_max), torch.zeros_like(sigma), sigma)
-
-        noise = torch.randn((self.N, *x.shape), requires_grad=False, device=x.device) * sigma
+        with torch.no_grad():
+            sigma = torch.min(self.x_max - x, torch.abs(self.x_min - x)) / self.denominator
+            sigma = torch.where((x <= self.x_min) | (x >= self.x_max), torch.zeros_like(sigma), sigma)
+            noise = torch.randn((self.N, *x.shape), requires_grad=False, device=x.device) * sigma
 
         return (x + noise).flatten(0, 1)

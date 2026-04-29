@@ -133,7 +133,7 @@ class CounterfactualGenerator:
         x = x.detach().requires_grad_(True)
         approx_image = self.engine.image_approximation(x, epsilon_pred, t)
 
-        # Classification Loss
+        # Segmentation Loss
         approx_image_batch = self.adaptgrad(approx_image)
         logits = self.segmentation_model(approx_image_batch)
         print(f"{approx_image.shape=} --> {approx_image_batch.shape=} --> {logits.shape=}")
