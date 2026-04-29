@@ -51,7 +51,10 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
     stacked_image = make_grid([
         image,
         adaption_visual[0, 0],
-        counterfactual[0]
+        counterfactual[0],
+        pred_original,
+        pred_counterfactual,
+        target
     ], nrow=3)
     print(f"{stacked_image.shape=}")
     torchvision.utils.save_image(stacked_image,
