@@ -100,7 +100,7 @@ class CounterfactualGenerator:
                                       vutils.make_grid(approx_image, normalize=True), log_step)
                 self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)
 
-                g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))
+                g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
                 self.writer.add_image('Process/g_update', g_visual,
                                       log_step)
 
