@@ -18,6 +18,7 @@ from utils import visualize_seg, visualize_counterfactuals, visualize_adaption
 def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg):
     image, target = dataset[n][0], dataset[n][1]
     image = dataset.denormalize(image)
+    counterfactual = dataset.denormalize(counterfactual)
 
     target = visualize_seg(target).permute(2, 0, 1)
     pred_original = visualize_seg(prediction_org[0]).permute(2, 0, 1)
