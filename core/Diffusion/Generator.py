@@ -131,10 +131,7 @@ class CounterfactualGenerator:
         approx_image_batch = self.adaptgrad(approx_image)
         logits = self.segmentation_model(approx_image_batch)
         loss_c = cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
-        grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
-
-        # Force spatial coherence (Gradient Smoothing)
-        grad_c = gaussian_blur(grad_c, kernel_size=7, sigma=1.5)
+        grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
 
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
