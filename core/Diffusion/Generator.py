@@ -94,6 +94,12 @@ class CounterfactualGenerator:
             # Adaptive Parameterization
             mean = mean + (sigma ** 2 * mu_norm * g_update)
 
+            if t > 0:
+                noise = torch.randn_like(image)
+                x = mean + sigma * noise
+            else:
+                x = mean
+
             # --- TensorBoard Logging ---
             log_step = start_t - t
 
@@ -102,6 +108,7 @@ class CounterfactualGenerator:
                                       log_step)
                 self.writer.add_image('Process/approx_x_0',
                                       vutils.make_grid(approx_image, normalize=True), log_step)
+
                 self.writer.add_scalar('Gradients/mean', mean.mean().item(), log_step)
                 self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)
                 self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)
@@ -111,15 +118,12 @@ class CounterfactualGenerator:
                 g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
                 grad_c_visual = visualize_adaption(grad_c.sum(dim=1, keepdim=True))[0, 0]
                 grad_d_visual = visualize_adaption(grad_d.sum(dim=1, keepdim=True))[0, 0]
-                self.writer.add_image('Process/g_update', vutils.make_grid(g_visual, normalize=True), log_step)
-                self.writer.add_image('Process/grad_c', vutils.make_grid(grad_c_visual, normalize=True), log_step)
-                self.writer.add_image('Process/grad_d', vutils.make_grid(grad_d_visual, normalize=True), log_step)
-
-            if t > 0:
-                noise = torch.randn_like(image)
-                x = mean + sigma * noise
-            else:
-                x = mean
+                self.writer.add_image('Process/g_update',
+                                      vutils.make_grid(g_visual, normalize=True), log_step)
+                self.writer.add_image('Process/grad_c',
+                                      vutils.make_grid(grad_c_visual, normalize=True), log_step)
+                self.writer.add_image('Process/grad_d',
+                                      vutils.make_grid(grad_d_visual, normalize=True), log_step)
 
         return x.detach()
 
