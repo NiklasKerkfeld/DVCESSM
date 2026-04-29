@@ -47,7 +47,7 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
 
     adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True))
 
-    print(f"{image.shape=}, {adaption.shape=}, {counterfactual.shape=}")
+    print(f"{image.shape=}, {adaption_visual.shape=}, {counterfactual.shape=}")
     stacked_image = make_grid([
         image,
         adaption_visual[0],
