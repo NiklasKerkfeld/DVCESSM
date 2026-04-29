@@ -10,7 +10,7 @@ from torchvision.utils import make_grid
 from core.Diffusion.Generator import CounterfactualGenerator
 from core.Datasets.dataset import get_datasets
 from core.Diffusion.Engine import Engine
-from models.DiffusionModel import DiffusionModel
+from models.DiffusionModel_new import DiffusionModel
 from models.Segmentation import SegmentationUNet
 from utils import visualize_seg, visualize_counterfactuals, visualize_adaption
 
@@ -111,8 +111,7 @@ def main(cfg: DictConfig):
     diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
                                cfg.diffusion.time_dim).to(device)
 
-    engine = Engine(cfg.diffusion.T, cfg.diffusion.beta_min, cfg.diffusion.beta_max,
-                    device=device).to(device)
+    engine = Engine(cfg, device=device).to(device)
 
     generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg)
 

@@ -69,12 +69,13 @@ class CounterfactualGenerator:
 
         for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
             t_tensor = torch.full((images.shape[0],), t, device=self.device)
-            epsilon_pred = self.diffusion_model(x, t_tensor)
-            mean = self.engine.reverse(x, epsilon_pred, t_tensor)
 
             with torch.enable_grad():
+                x = x.detach().requires_grad_(True)
+                epsilon_pred = self.diffusion_model(x, t_tensor)
                 g_update = self._calc_g_update(x, images, targets, epsilon_pred, t_tensor)
 
+            mean = self.engine.reverse(x, epsilon_pred, t_tensor)
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
 
             sigma = self.engine.get_sigma(t_tensor, images.shape)
@@ -90,7 +91,6 @@ class CounterfactualGenerator:
 
     def _calc_g_update(self, x: Tensor, images: Tensor, targets: Tensor, epsilon_pred: Tensor,
                        t: Tensor) -> Tensor:
-        x = x.detach().requires_grad_(True)
         approx_images = self.engine.image_approximation(x, epsilon_pred, t)
 
         # model
