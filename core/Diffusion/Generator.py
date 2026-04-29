@@ -60,7 +60,14 @@ class CounterfactualGenerator:
     @torch.no_grad()
     def _generate_counterfactual(self, image: torch.Tensor, targets: torch.Tensor,
                                  start_fraction: float):
+        self.diffusion_model.eval()
+        self.segmentation_model.eval()
+
         image = image.to(self.device)
+        self.segmentation_model.to(self.device)
+        self.diffusion_model.to(self.device)
+        self.adaptgrad.to(self.device)
+
         start_t = int(self.engine.T * start_fraction)
         t_tensor = torch.full((image.shape[0],), start_t, device=self.device)
         x, _ = self.engine.diffuse(image, t_tensor)
