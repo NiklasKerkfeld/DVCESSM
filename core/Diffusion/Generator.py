@@ -10,6 +10,8 @@ from core.Diffusion.Engine import Engine
 from torch.nn.functional import cross_entropy
 from torchvision.transforms.functional import gaussian_blur
 
+from utils import visualize_adaption
+
 
 class CounterfactualGenerator:
     def __init__(self,
@@ -33,8 +35,8 @@ class CounterfactualGenerator:
         self.adaptgrad = AdaptGrad(cfg)
 
         # Initialize TensorBoard
-        print(f"logging to ./{cfg.system.log_dir}/Generation")
-        self.writer = SummaryWriter(log_dir=f"./{cfg.system.log_dir}/Generation")
+        print(f"logging to {cfg.system.log_dir}/Generation")
+        self.writer = SummaryWriter(log_dir=f"{cfg.system.log_dir}/Generation")
 
         self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pt",
                              f"{self.segmentation_checkpoint}/{self.segmentation_name}.pt")
@@ -89,12 +91,18 @@ class CounterfactualGenerator:
             mean = mean + (sigma ** 2 * mu_norm * g_update)
 
             # --- TensorBoard Logging ---
+            log_step = start_t - t
+
             if t % 50 == 0:
-                self.writer.add_image('Process/1_Noisy_xt', vutils.make_grid(x, normalize=True), t)
-                self.writer.add_image('Process/2_Approx_x0',
-                                      vutils.make_grid(approx_image, normalize=True), t)
-                self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), t)
-                self.writer.add_scalar('Gradients/sigma_sq', (sigma ** 2).mean().item(), t)
+                self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),
+                                      log_step)
+                self.writer.add_image('Process/approx_x_0',
+                                      vutils.make_grid(approx_image, normalize=True), log_step)
+                self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)
+
+                g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))
+                self.writer.add_image('Process/g_update', g_visual,
+                                      log_step)
 
             if t > 0:
                 noise = torch.randn_like(image)
