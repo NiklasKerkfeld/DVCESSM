@@ -11,8 +11,8 @@ diffusion:
   ema_decay: 0.999
   time_dim: 256
   sample_idx: ???
-  start_fraction: 0.5 # noise level for CF generation
-  weight_classifier: 0.1
+  start_fraction: 0.3 # noise level for CF generation
+  weight_classifier: 0.05
   weight_distance: 0.15
   AdaptGrad:
     N: 32
