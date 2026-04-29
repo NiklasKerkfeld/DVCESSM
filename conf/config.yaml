@@ -12,8 +12,8 @@ diffusion:
   time_dim: 256
   sample_idx: ???
   start_fraction: 0.5 # noise level for CF generation
-  weight_classifier: 5.0
-  weight_distance: 0.1
+  weight_classifier: 2.5
+  weight_distance: 0.2
   AdaptGrad:
     N: 32
     c: .99999
