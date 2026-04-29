@@ -33,7 +33,7 @@ class CounterfactualGenerator:
         self.adaptgrad = AdaptGrad(cfg)
 
         # Initialize TensorBoard
-        self.writer = SummaryWriter(log_dir=".logs/Generation")
+        self.writer = SummaryWriter(log_dir=f".{cfg.system.log_dir}/Generation")
 
         self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pt",
                              f"{self.segmentation_checkpoint}/{self.segmentation_name}.pt")
