@@ -5,8 +5,7 @@ from tqdm import tqdm
 
 from core.AdaptGrad import AdaptGrad
 from core.Diffusion.Engine import Engine
-from models.Losses import masked_cross_entropy
-
+from torch.nn.functional import cross_entropy
 
 class CounterfactualGenerator:
     def __init__(self,
@@ -79,7 +78,7 @@ class CounterfactualGenerator:
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
 
             sigma = self.engine.get_sigma(t_tensor, images.shape)
-            mean = mean + (sigma * mu_norm * g_update)
+            mean = mean + (sigma**2 * mu_norm * g_update)
 
             if t > 0:
                 noise = torch.randn_like(images)
@@ -91,17 +90,17 @@ class CounterfactualGenerator:
 
     def _calc_g_update(self, x: Tensor, images: Tensor, targets: Tensor, epsilon_pred: Tensor,
                        t: Tensor) -> Tensor:
-        approx_images = self.engine.image_approximation(x, epsilon_pred, t)
+        approx_image = self.engine.image_approximation(x, epsilon_pred, t)
 
         # model
-        approx_images = self.adaptgrad(approx_images)
-        logits = self.segmentation_model(approx_images)
-        loss_c = masked_cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
+        approx_image_batch = self.adaptgrad(approx_image)
+        logits = self.segmentation_model(approx_image_batch)
+        loss_c = cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
         # distance
-        distance = torch.norm(images - approx_images, p=1)
+        distance = torch.norm(images - approx_image, p=1)
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
