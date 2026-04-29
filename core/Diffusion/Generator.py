@@ -143,7 +143,7 @@ class CounterfactualGenerator:
                                                                                  1) + 1e-8)
 
         # Distance Loss
-        distance = torch.norm(image - approx_image, p=2)
+        distance = torch.norm(image - approx_image, p=1)
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)

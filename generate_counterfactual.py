@@ -133,7 +133,6 @@ def main(cfg: DictConfig):
 
     generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg, name=run_name)
 
-    target[target == 17] = 0
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
                                                                                  cfg.diffusion.start_fraction)
 
