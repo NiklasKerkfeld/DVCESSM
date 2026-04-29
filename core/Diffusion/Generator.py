@@ -52,43 +52,43 @@ class CounterfactualGenerator:
         return counterfactuals.cpu(), adaptions.cpu(), prediction_org.cpu(), prediction_cf.cpu()
 
     @torch.no_grad()
-    def _generate_counterfactual(self, images: torch.Tensor, targets: torch.Tensor,
+    def _generate_counterfactual(self, image: torch.Tensor, targets: torch.Tensor,
                                  start_fraction: float):
         self.diffusion_model.eval()
         self.segmentation_model.eval()
 
-        images = images.to(self.device)
+        image = image.to(self.device)
         self.segmentation_model.to(self.device)
         self.diffusion_model.to(self.device)
         self.adaptgrad.to(self.device)
 
         start_t = int(self.engine.T * start_fraction)
-        t_tensor = torch.full((images.shape[0],), start_t, device=self.device)
-        x, _ = self.engine.diffuse(images, t_tensor)
+        t_tensor = torch.full((image.shape[0],), start_t, device=self.device)
+        x, _ = self.engine.diffuse(image, t_tensor)
 
         for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
-            t_tensor = torch.full((images.shape[0],), t, device=self.device)
+            t_tensor = torch.full((image.shape[0],), t, device=self.device)
 
             with torch.enable_grad():
                 x = x.detach().requires_grad_(True)
                 epsilon_pred = self.diffusion_model(x, t_tensor)
-                g_update = self._calc_g_update(x, images, targets, epsilon_pred, t_tensor)
+                g_update = self._calc_g_update(x, image, targets, epsilon_pred, t_tensor)
 
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
 
-            sigma = self.engine.get_sigma(t_tensor, images.shape)
+            sigma = self.engine.get_sigma(t_tensor, image.shape)
             mean = mean + (sigma**2 * mu_norm * g_update)
 
             if t > 0:
-                noise = torch.randn_like(images)
+                noise = torch.randn_like(image)
                 x = mean + sigma * noise
             else:
                 x = mean
 
         return x.detach()
 
-    def _calc_g_update(self, x: Tensor, images: Tensor, targets: Tensor, epsilon_pred: Tensor,
+    def _calc_g_update(self, x: Tensor, image: Tensor, targets: Tensor, epsilon_pred: Tensor,
                        t: Tensor) -> Tensor:
         approx_image = self.engine.image_approximation(x, epsilon_pred, t)
 
@@ -100,7 +100,7 @@ class CounterfactualGenerator:
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
         # distance
-        distance = torch.norm(images - approx_image, p=1)
+        distance = torch.norm(image - approx_image, p=1)
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
