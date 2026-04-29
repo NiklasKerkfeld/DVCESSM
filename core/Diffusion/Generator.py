@@ -35,8 +35,8 @@ class CounterfactualGenerator:
         self.adaptgrad = AdaptGrad(cfg)
 
         # Initialize TensorBoard
-        print(f"logging to {cfg.system.log_dir}/Generation")
-        self.writer = SummaryWriter(log_dir=f"{cfg.system.log_dir}/Generation")
+        print(f"logging to {cfg.system.log_dir}/Generation/counterfactual")
+        self.writer = SummaryWriter(log_dir=f"{cfg.system.log_dir}/Generation/counterfactual")
 
         self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pt",
                              f"{self.segmentation_checkpoint}/{self.segmentation_name}.pt")
@@ -115,7 +115,6 @@ class CounterfactualGenerator:
     def _calc_g_update(self, x: Tensor, image: Tensor, targets: Tensor, epsilon_pred: Tensor,
                        t: Tensor):
         x = x.detach().requires_grad_(True)
-        # Equation 8: Estimate clean image from noisy latent
         approx_image = self.engine.image_approximation(x, epsilon_pred, t)
 
         # Classification Loss
@@ -125,7 +124,7 @@ class CounterfactualGenerator:
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
 
         # Force spatial coherence (Gradient Smoothing)
-        grad_c = gaussian_blur(grad_c, kernel_size=7, sigma=1.5)
+        # grad_c = gaussian_blur(grad_c, kernel_size=7, sigma=1.5)
 
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
