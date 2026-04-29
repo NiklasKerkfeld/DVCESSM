@@ -23,6 +23,8 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
     pred_original = visualize_seg(prediction_org[0]).permute(2, 0, 1)
     pred_counterfactual = visualize_seg(prediction_cf[0]).permute(2, 0, 1)
 
+    adaption = visualize_adaption(adaption)
+
     print(f"{target.shape=}, {pred_original.shape=}, {pred_counterfactual.shape=}")
 
     os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
@@ -34,7 +36,7 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
     torchvision.utils.save_image(pred_counterfactual,
                                  f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
 
-    torchvision.utils.save_image(image[0],
+    torchvision.utils.save_image(image,
                                  f"{cfg.system.figures_dir}/example_{n}/original.png")
     torchvision.utils.save_image(counterfactual[0],
                                  f"{cfg.system.figures_dir}/example_{n}/counterfactual.png")

@@ -15,7 +15,7 @@ diffusion:
   weight_classifier: 0.1
   weight_distance: 0.15
   AdaptGrad:
-    N: 16
+    N: 32
     c: .99999
 
 
