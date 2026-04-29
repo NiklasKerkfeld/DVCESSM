@@ -10,6 +10,7 @@ from core.Diffusion.Engine import Engine
 from torch.nn.functional import cross_entropy
 from torchvision.transforms.functional import gaussian_blur
 
+from models.Losses import masked_cross_entropy
 from utils import visualize_adaption
 
 
@@ -135,7 +136,7 @@ class CounterfactualGenerator:
         # Classification Loss
         approx_image_batch = self.adaptgrad(approx_image)
         logits = self.segmentation_model(approx_image_batch)
-        loss_c = cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
+        loss_c = masked_cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
         grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
 
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
