@@ -7,8 +7,6 @@ import torchvision.utils as vutils
 
 from core.AdaptGrad import AdaptGrad
 from core.Diffusion.Engine import Engine
-from torch.nn.functional import cross_entropy
-from torchvision.transforms.functional import gaussian_blur
 
 from models.Losses import masked_cross_entropy
 from utils import visualize_adaption
@@ -145,7 +143,7 @@ class CounterfactualGenerator:
                                                                                  1) + 1e-8)
 
         # Distance Loss
-        distance = torch.norm(image - approx_image, p=1)
+        distance = torch.norm(image - approx_image, p=2)
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
