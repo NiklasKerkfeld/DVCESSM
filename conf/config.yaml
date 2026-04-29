@@ -16,7 +16,7 @@ diffusion:
   weight_distance: 0.5
   AdaptGrad:
     N: 32
-    c: .99999
+    c: .9999
 
 
 segmentation:
