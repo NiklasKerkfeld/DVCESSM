@@ -80,8 +80,12 @@ class CounterfactualGenerator:
             epsilon_pred = self.diffusion_model(x, t_tensor).detach()
 
             with torch.enable_grad():
-                g_update, approx_image = self._calc_g_update(x, image, targets, epsilon_pred,
-                                                             t_tensor)
+                g_update, approx_image, grad_c, grad_d = self._calc_g_update(
+                    x,
+                    image,
+                    targets,
+                    epsilon_pred,
+                    t_tensor)
 
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
@@ -102,8 +106,11 @@ class CounterfactualGenerator:
                 self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)
 
                 g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
-                self.writer.add_image('Process/g_update', g_visual,
-                                      log_step)
+                grad_c_visual = visualize_adaption(grad_c.sum(dim=1, keepdim=True))[0, 0]
+                grad_d_visual = visualize_adaption(grad_d.sum(dim=1, keepdim=True))[0, 0]
+                self.writer.add_image('Process/g_update', vutils.make_grid(g_visual, normalize=True), log_step)
+                self.writer.add_image('Process/grad_c', vutils.make_grid(grad_c_visual, normalize=True), log_step)
+                self.writer.add_image('Process/grad_d', vutils.make_grid(grad_d_visual, normalize=True), log_step)
 
             if t > 0:
                 noise = torch.randn_like(image)
@@ -137,4 +144,4 @@ class CounterfactualGenerator:
                                                                                  1) + 1e-8)
 
         g_update = self.weight_classifier * grad_c - self.weight_distance * grad_d
-        return g_update, approx_image
+        return g_update, approx_image, grad_c, grad_d
