@@ -1,6 +1,5 @@
 import torch
 from omegaconf import DictConfig
-from tests.transforms.utility.test_splitdim import keepdim
 from torch import nn, Tensor
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
