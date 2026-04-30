@@ -1,5 +1,6 @@
 import torch
 from omegaconf import DictConfig
+from tests.transforms.utility.test_splitdim import keepdim
 from torch import nn, Tensor
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -151,7 +152,8 @@ class CounterfactualGenerator:
 
         g_update = self.weight_classifier * grad_c - self.weight_distance * grad_d
 
-        prediction = torch.argmax(logits.mean(dim=0), dim=1)
+        prediction = torch.argmax(logits.mean(dim=0, keepdim=True), dim=1)
+        print(f"{prediction.shape=}")
         prediction = visualize_seg(prediction.detach().cpu())
 
         return g_update, approx_image, grad_c, grad_d, prediction
