@@ -9,7 +9,7 @@ from core.AdaptGrad import AdaptGrad
 from core.Diffusion.Engine import Engine
 
 from models.Losses import masked_cross_entropy
-from utils import visualize_adaption
+from utils import visualize_adaption, visualize_seg
 
 
 class CounterfactualGenerator:
@@ -84,7 +84,7 @@ class CounterfactualGenerator:
             sigma = self.engine.get_sigma(t_tensor, image.shape)
 
             with torch.enable_grad():
-                g_update, approx_image, grad_c, grad_d = self._calc_g_update(
+                g_update, approx_image, grad_c, grad_d, prediction = self._calc_g_update(
                     x,
                     image,
                     targets,
@@ -104,6 +104,7 @@ class CounterfactualGenerator:
             log_step = start_t - t
 
             if t % 50 == 0:
+                print(f"{prediction.shape=}")
                 self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),
                                       log_step)
                 self.writer.add_image('Process/approx_x_0',
@@ -114,6 +115,7 @@ class CounterfactualGenerator:
                 self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)
                 self.writer.add_scalar('Gradients/grad_c', grad_c.abs().mean().item(), log_step)
                 self.writer.add_scalar('Gradients/grad_d', grad_d.abs().mean().item(), log_step)
+                self.writer.add_scalar('Gradients/prediction', prediction, log_step)
 
                 g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
                 grad_c_visual = visualize_adaption(grad_c.sum(dim=1, keepdim=True))[0, 0]
@@ -136,7 +138,7 @@ class CounterfactualGenerator:
         approx_image_batch = self.adaptgrad(approx_image)
         logits = self.segmentation_model(approx_image_batch)
         loss_c = masked_cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
-        grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
+        grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
 
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
@@ -148,4 +150,8 @@ class CounterfactualGenerator:
                                                                                  1) + 1e-8)
 
         g_update = self.weight_classifier * grad_c - self.weight_distance * grad_d
-        return g_update, approx_image, grad_c, grad_d
+
+        prediction = torch.argmax(logits.mean(dim=0), dim=1)
+        prediction = visualize_seg(prediction)
+
+        return g_update, approx_image, grad_c, grad_d, prediction
