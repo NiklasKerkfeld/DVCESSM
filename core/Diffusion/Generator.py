@@ -152,6 +152,6 @@ class CounterfactualGenerator:
         g_update = self.weight_classifier * grad_c - self.weight_distance * grad_d
 
         prediction = torch.argmax(logits.mean(dim=0), dim=1)
-        prediction = visualize_seg(prediction)
+        prediction = visualize_seg(prediction.detach().cpu())
 
         return g_update, approx_image, grad_c, grad_d, prediction
