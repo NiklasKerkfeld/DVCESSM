@@ -135,9 +135,8 @@ class CounterfactualGenerator:
         # Segmentation Loss
         approx_image_batch = self.adaptgrad(approx_image)
         logits = self.segmentation_model(approx_image_batch)
-        print(f"{approx_image.shape=} --> {approx_image_batch.shape=} --> {logits.shape=}")
         loss_c = masked_cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
-        grad_c = torch.autograd.grad(-loss_c, x, retain_graph=True)[0]
+        grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
 
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
