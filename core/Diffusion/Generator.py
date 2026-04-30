@@ -115,7 +115,6 @@ class CounterfactualGenerator:
                 self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)
                 self.writer.add_scalar('Gradients/grad_c', grad_c.abs().mean().item(), log_step)
                 self.writer.add_scalar('Gradients/grad_d', grad_d.abs().mean().item(), log_step)
-                self.writer.add_scalar('Gradients/prediction', prediction, log_step)
 
                 g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
                 grad_c_visual = visualize_adaption(grad_c.sum(dim=1, keepdim=True))[0, 0]
@@ -126,6 +125,8 @@ class CounterfactualGenerator:
                                       vutils.make_grid(grad_c_visual, normalize=True), log_step)
                 self.writer.add_image('Process/grad_d',
                                       vutils.make_grid(grad_d_visual, normalize=True), log_step)
+                self.writer.add_image('Gradients/prediction', prediction, log_step)
+
 
         return x.detach()
 
