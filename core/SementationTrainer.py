@@ -111,11 +111,11 @@ class SegmentationTrainer(SuperTrainer):
         if not self.robust:
             return images
 
-        if self.epoch < self.start_epoch:
+        if self.epoch <= self.start_epoch:
             return images
 
         eps = self.epsilon
-        if self.epoch < self.start_epoch + self.warm_up:
+        if self.epoch <= self.start_epoch + self.warm_up:
             eps = self.epsilon * ((self.epoch - self.start_epoch) / self.warm_up)
 
         adv_perturbation = torch.zeros_like(images, device=images.device).requires_grad_(True)
@@ -130,7 +130,7 @@ class SegmentationTrainer(SuperTrainer):
             grad = grad / grad_norms.view(-1, 1, 1, 1)  # Normalize gradient
 
             with torch.no_grad():
-                adv_perturbation = adv_perturbation + self.alpha * grad
+                adv_perturbation += self.alpha * grad
 
                 pert_norm = torch.norm(adv_perturbation.view(adv_perturbation.shape[0], -1), p=2,
                                        dim=1)
@@ -140,8 +140,6 @@ class SegmentationTrainer(SuperTrainer):
             adv_perturbation.requires_grad_(True)
 
         return (images + adv_perturbation).detach()
-
-
 
     def _log_examples(self, valid_dataloader: DataLoader) -> Tensor:
         images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
