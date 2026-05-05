@@ -6,7 +6,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from core.Datasets.dataset import get_datasets
-from core.SementationTrainer import Trainer
+from core.SementationTrainer import SegmentationTrainer
 from models.Segmentation import SegmentationUNet
 
 torch.manual_seed(42)
@@ -46,7 +46,7 @@ def main(cfg: DictConfig):
         attention=cfg.segmentation.attention,
     ).to(device)
 
-    trainer = Trainer(
+    trainer = SegmentationTrainer(
         train_dataset,
         test_dataset,
         model,

@@ -13,7 +13,7 @@ from tqdm import tqdm
 from core.Trainer import SuperTrainer
 
 
-class Trainer(SuperTrainer):
+class SegmentationTrainer(SuperTrainer):
     def __init__(self,
                  train_dataset: Dataset,
                  valid_dataset: Dataset,
@@ -28,6 +28,14 @@ class Trainer(SuperTrainer):
         self.lr = cfg.segmentation.lr
         self.num_classes = model.out_channels
         self.checkpoint = cfg.segmentation.checkpoint_path
+
+        # parameter for robust training
+        self.robust = cfg.segmentation.robust.use
+        self.epsilon = cfg.segmentation.robust.epsilon
+        self.alpha = cfg.segmentation.robust.alpha
+        self.steps = cfg.segmentation.robust.steps
+        self.start_epoch = cfg.segmentation.robust.start_epoch
+        self.warm_up = cfg.segmentation.robust.warm_up
 
         self.loss_fn = CrossEntropyLoss() # DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
 
@@ -69,12 +77,71 @@ class Trainer(SuperTrainer):
         self.model.train()
 
         for self.epoch in range(1, epochs + 1):
-            self.train_one_epoch(self.train_dataloader, self.optimizer)
-            self.evaluate(self.valid_dataloader, self.device)
+            self.train_one_epoch()
+            self.evaluate()
 
             self.log_samples(images)
 
             self.save_checkpoint()
+
+    def train_one_epoch(self):
+        self.model.train()
+        running_loss = 0
+
+        bar = tqdm(self.train_dataloader, total=len(self.train_dataloader), desc=f"Epoch {self.epoch}")
+        for images, mask in bar:
+            images, mask = images.to(self.device), mask.to(self.device)
+
+            images = self._projected_gradient_descent(images, mask)
+
+            outputs = self.model(images)
+            loss = self.loss_fn(outputs, mask) #.unsqueeze(1)
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            running_loss += loss.detach().item()
+            bar.set_postfix(loss=loss.detach().item())
+
+        self.writer.add_scalar('loss', (running_loss / len(self.train_dataloader)), global_step=self.epoch)
+
+
+    def _projected_gradient_descent(self, images: torch.Tensor, mask: torch.Tensor):
+        if not self.robust:
+            return images
+
+        if self.epoch < self.start_epoch:
+            return images
+
+        eps = self.epsilon
+        if self.epoch < self.start_epoch + self.warm_up:
+            eps = self.epsilon * ((self.epoch - self.start_epoch) / self.warm_up)
+
+        adv_perturbation = torch.zeros_like(images, device=images.device).requires_grad_(True)
+
+        for i in range(self.steps):
+            adv_example = images + adv_perturbation
+            outputs = self.model(adv_example)
+            loss = self.loss_fn(outputs, mask)
+            grad = torch.autograd.grad(loss, adv_perturbation, retain_graph=False, create_graph=False)[0]
+
+            grad_norms = torch.norm(grad.view(grad.shape[0], -1), p=2, dim=1) + 1e-10
+            grad = grad / grad_norms.view(-1, 1, 1, 1)  # Normalize gradient
+
+            with torch.no_grad():
+                adv_perturbation = adv_perturbation + self.alpha * grad
+
+                pert_norm = torch.norm(adv_perturbation.view(adv_perturbation.shape[0], -1), p=2,
+                                       dim=1)
+                scaling_factor = torch.clamp(eps / (pert_norm + 1e-10), max=1.0)
+                adv_perturbation *= scaling_factor.view(-1, 1, 1, 1)
+
+            adv_perturbation.requires_grad_(True)
+
+        return (images + adv_perturbation).detach()
+
+
 
     def _log_examples(self, valid_dataloader: DataLoader) -> Tensor:
         images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
@@ -92,34 +159,14 @@ class Trainer(SuperTrainer):
 
         return images
 
-    def train_one_epoch(self, dataloader: DataLoader, optimizer):
-        self.model.train()
-        running_loss = 0
-
-        bar = tqdm(dataloader, total=len(dataloader), desc=f"Epoch {self.epoch}")
-        for images, mask in bar:
-            images, mask = images.to(self.device), mask.to(self.device)
-
-            outputs = self.model(images)
-            loss = self.loss_fn(outputs, mask) #.unsqueeze(1)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            running_loss += loss.detach().item()
-            bar.set_postfix(loss=loss.detach().item())
-
-        self.writer.add_scalar('loss', (running_loss / len(dataloader)), global_step=self.epoch)
-
     @torch.no_grad()
-    def evaluate(self, dataloader, device):
+    def evaluate(self):
         self.model.eval()
-        conf_matrix = torch.zeros((self.num_classes, self.num_classes), device=device)
+        conf_matrix = torch.zeros((self.num_classes, self.num_classes), device=self.device)
 
         with torch.no_grad():
-            for images, labels in tqdm(dataloader, desc="Evaluating"):
-                images, labels = images.to(device), labels.to(device)
+            for images, labels in tqdm(self.valid_dataloader, desc="Evaluating"):
+                images, labels = images.to(self.device), labels.to(self.device)
 
                 outputs = self.model(images)
                 preds = torch.argmax(outputs, dim=1)

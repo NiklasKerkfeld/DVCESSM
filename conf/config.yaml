@@ -25,20 +25,13 @@ segmentation:
   epochs: 100
   lr: 0.001
   attention: True
-
-gan:
-  checkpoint_path: "./checkpoints/GAN"
-  name: null
-  segmentation_model: ???
-  epochs: 60
-  lr_generator: 0.02
-  lr_adversarial: 0.004
-  lambda_adv: 1.0
-  lambda_seg: 1.0
-  lambda_rec: 0.1
-  lambda_per: 0.01
-  free_rec: 0.1
-  free_per: 0.1
+  robust:
+    use: True
+    alpha: 0.1
+    epsilon: 0.5
+    steps: 10
+    start_epoch: 10
+    warm_up: 10
 
 system:
   log_dir: "./runs"
