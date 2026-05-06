@@ -154,24 +154,6 @@ class SegmentationTrainer(SuperTrainer):
 
         return (images + adv_perturbation).detach()
 
-    def _log_examples(self, valid_dataloader: DataLoader) -> Tensor:
-        images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
-        targets = torch.stack([valid_dataloader.dataset[i][1] for i in range(5)])
-        adv_perturbation = self._projected_gradient_descent(images, targets, eps=self.epsilon)
-
-        if self.image_type == 'mri':
-            image_grid = make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True)
-        else:
-            image_grid = make_grid(images, nrow=5, normalize=True)
-
-        target_grid = make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True)
-
-        self.writer.add_image('images', image_grid)
-        self.writer.add_image('adversarial', adv_perturbation)
-        self.writer.add_image('targets', target_grid)
-
-        return images
-
     @torch.no_grad()
     def evaluate(self):
         self.model.eval()
@@ -209,6 +191,24 @@ class SegmentationTrainer(SuperTrainer):
             self.writer.add_scalar(f'class_{i}/precision', precision[i], global_step=self.epoch)
             self.writer.add_scalar(f'class_{i}/recall', recall[i], global_step=self.epoch)
             self.writer.add_scalar(f'class_{i}/f1', f1[i], global_step=self.epoch)
+
+    def _log_examples(self, valid_dataloader: DataLoader) -> Tensor:
+        images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
+        targets = torch.stack([valid_dataloader.dataset[i][1] for i in range(5)])
+        adv_perturbation = self._projected_gradient_descent(images.to(self.device), targets, eps=self.epsilon)
+
+        if self.image_type == 'mri':
+            image_grid = make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True)
+        else:
+            image_grid = make_grid(images, nrow=5, normalize=True)
+
+        target_grid = make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True)
+
+        self.writer.add_image('images', image_grid)
+        self.writer.add_image('adversarial', adv_perturbation)
+        self.writer.add_image('targets', target_grid)
+
+        return images
 
     @torch.no_grad()
     def log_samples(self, images: torch.Tensor):
