@@ -30,8 +30,8 @@ class CounterfactualGenerator:
         self.diffusion_name = cfg.diffusion.name
         self.segmentation_checkpoint = cfg.segmentation.checkpoint_path
         self.segmentation_name = cfg.segmentation.name
-        self.weight_classifier = cfg.diffusion.weight_classifier
-        self.weight_distance = cfg.diffusion.weight_distance
+        self.weight_classifier = cfg.generation.weight_classifier
+        self.weight_distance = cfg.generation.weight_distance
         self.adaptgrad = AdaptGrad(cfg)
 
         # Initialize TensorBoard

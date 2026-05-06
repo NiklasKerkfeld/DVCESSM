@@ -7,8 +7,8 @@ from torch import nn
 class AdaptGrad(nn.Module):
     def __init__(self, cfg: DictConfig):
         super().__init__()
-        self.N = cfg.diffusion.AdaptGrad.N
-        self.c = cfg.diffusion.AdaptGrad.c
+        self.N = cfg.generation.AdaptGrad.N
+        self.c = cfg.generation.AdaptGrad.c
         x_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) / torch.tensor(cfg.data.dataset.stds))
         x_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) / torch.tensor(cfg.data.dataset.stds))
         self.register_buffer('x_min', x_min[None, :, None, None])

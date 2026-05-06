@@ -102,13 +102,13 @@ def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
     log_dir = f'{cfg.system.log_dir}/Generation'
-    if cfg.gan.name is not None:
-        run_name = cfg.gan.name
+    if cfg.generation.name is not None:
+        run_name = cfg.generation.name
     else:
         nr = len(glob.glob(f"{log_dir}/*"))
         run_name = f"{nr}_counterfactual"
 
-    n = cfg.diffusion.sample_idx
+    n = cfg.generation.sample_idx
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
@@ -134,7 +134,7 @@ def main(cfg: DictConfig):
     generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg, name=run_name)
 
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
-                                                                                 cfg.diffusion.start_fraction)
+                                                                                 cfg.generation.start_fraction)
 
     if cfg.data.image_type == 'mri':
         visualize_mri(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg)
