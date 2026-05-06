@@ -108,11 +108,35 @@ class CounterfactualGenerator:
                          logits,
                          mean,
                          mu_norm,
-                         start_t, 
+                         start_t,
                          t,
                          x)
 
         return x.detach()
+
+    def _calc_g_update(self, x: Tensor, image: Tensor, targets: Tensor, epsilon_pred: Tensor,
+                       t: Tensor):
+        x = x.detach().requires_grad_(True)
+        approx_image = self.engine.image_approximation(x, epsilon_pred, t)
+
+        # Segmentation Loss
+        approx_image_batch = self.adaptgrad(approx_image)
+        logits = self.segmentation_model(approx_image_batch)
+        loss_c = masked_cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
+        grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
+
+        grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
+                                                                                 1) + 1e-8)
+
+        # Distance Loss
+        distance = torch.norm(image - approx_image, p=2)
+        grad_d = torch.autograd.grad(distance, x)[0]
+        grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
+                                                                                 1) + 1e-8)
+
+        g_update = self.weight_classifier * grad_c + self.weight_distance * grad_d
+
+        return g_update, approx_image, grad_c, grad_d, logits
 
     def log(self, approx_image: Tensor, g_update: Tensor, grad_c: Tensor, grad_d: Tensor, logits: Tensor,
             mean: Tensor, mu_norm: Tensor, start_t: int, t: int, x: Tensor):
@@ -141,27 +165,3 @@ class CounterfactualGenerator:
         self.writer.add_image('Process/grad_d',
                               vutils.make_grid(grad_d_visual, normalize=True), log_step)
         self.writer.add_image('Process/prediction', prediction, log_step)
-
-    def _calc_g_update(self, x: Tensor, image: Tensor, targets: Tensor, epsilon_pred: Tensor,
-                       t: Tensor):
-        x = x.detach().requires_grad_(True)
-        approx_image = self.engine.image_approximation(x, epsilon_pred, t)
-
-        # Segmentation Loss
-        approx_image_batch = self.adaptgrad(approx_image)
-        logits = self.segmentation_model(approx_image_batch)
-        loss_c = masked_cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
-        grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
-
-        grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
-                                                                                 1) + 1e-8)
-
-        # Distance Loss
-        distance = torch.norm(image - approx_image, p=1)
-        grad_d = torch.autograd.grad(distance, x)[0]
-        grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
-                                                                                 1) + 1e-8)
-
-        g_update = self.weight_classifier * grad_c + self.weight_distance * grad_d
-
-        return g_update, approx_image, grad_c, grad_d, logits
