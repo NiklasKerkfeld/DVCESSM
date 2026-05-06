@@ -29,7 +29,7 @@ segmentation:
   attention: True
   robust:
     use: True
-    alpha: 0.1
+    alpha: null
     epsilon: 30.0
     steps: 10
     start_epoch: 10

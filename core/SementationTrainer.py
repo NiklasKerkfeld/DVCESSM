@@ -34,8 +34,9 @@ class SegmentationTrainer(SuperTrainer):
         # parameter for robust training
         self.robust = cfg.segmentation.robust.use
         self.epsilon = cfg.segmentation.robust.epsilon
-        self.alpha = cfg.segmentation.robust.alpha
         self.steps = cfg.segmentation.robust.steps
+        self.alpha = cfg.segmentation.robust.alpha
+        self.alpha = 2.5 * (self.epsilon / self.steps) if self.alpha is None else self.alpha
         self.start_epoch = cfg.segmentation.robust.start_epoch
         self.warm_up = cfg.segmentation.robust.warm_up
 
