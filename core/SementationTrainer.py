@@ -199,13 +199,15 @@ class SegmentationTrainer(SuperTrainer):
 
         if self.image_type == 'mri':
             image_grid = make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True)
+            adv_grid = make_grid(adv_perturbation.flatten(0, 1)[:, None], nrow=4, normalize=True)
         else:
             image_grid = make_grid(images, nrow=5, normalize=True)
+            adv_grid = make_grid(adv_perturbation, nrow=5, normalize=True)
 
         target_grid = make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True)
 
         self.writer.add_image('images', image_grid)
-        self.writer.add_image('adversarial', adv_perturbation)
+        self.writer.add_image('adversarial', adv_grid)
         self.writer.add_image('targets', target_grid)
 
         return images
