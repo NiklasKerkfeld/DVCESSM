@@ -195,7 +195,7 @@ class SegmentationTrainer(SuperTrainer):
     def _log_examples(self, valid_dataloader: DataLoader) -> Tensor:
         images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
         targets = torch.stack([valid_dataloader.dataset[i][1] for i in range(5)])
-        adv_perturbation = self._projected_gradient_descent(images.to(self.device), targets, eps=self.epsilon)
+        adv_perturbation = self._projected_gradient_descent(images.to(self.device), targets.to(self.device), eps=self.epsilon)
 
         if self.image_type == 'mri':
             image_grid = make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True)
