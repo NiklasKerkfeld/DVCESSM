@@ -30,7 +30,7 @@ segmentation:
   robust:
     use: True
     alpha: 0.1
-    epsilon: 0.5
+    epsilon: 10.0
     steps: 10
     start_epoch: 10
     warm_up: 10

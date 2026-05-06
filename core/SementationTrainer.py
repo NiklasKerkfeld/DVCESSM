@@ -1,4 +1,6 @@
 import os
+from typing import Optional
+
 from omegaconf import DictConfig
 
 import torch
@@ -37,7 +39,7 @@ class SegmentationTrainer(SuperTrainer):
         self.start_epoch = cfg.segmentation.robust.start_epoch
         self.warm_up = cfg.segmentation.robust.warm_up
 
-        self.loss_fn = CrossEntropyLoss() # DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
+        self.loss_fn = CrossEntropyLoss()  # DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
 
         self.model.to(self.device)
 
@@ -88,14 +90,15 @@ class SegmentationTrainer(SuperTrainer):
         self.model.train()
         running_loss = 0
 
-        bar = tqdm(self.train_dataloader, total=len(self.train_dataloader), desc=f"Epoch {self.epoch}")
+        bar = tqdm(self.train_dataloader, total=len(self.train_dataloader),
+                   desc=f"Epoch {self.epoch}")
         for images, mask in bar:
             images, mask = images.to(self.device), mask.to(self.device)
 
             images = self._projected_gradient_descent(images, mask)
 
             outputs = self.model(images)
-            loss = self.loss_fn(outputs, mask) #.unsqueeze(1)
+            loss = self.loss_fn(outputs, mask)  # .unsqueeze(1)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -104,27 +107,35 @@ class SegmentationTrainer(SuperTrainer):
             running_loss += loss.detach().item()
             bar.set_postfix(loss=loss.detach().item())
 
-        self.writer.add_scalar('loss', (running_loss / len(self.train_dataloader)), global_step=self.epoch)
+        self.writer.add_scalar('loss', (running_loss / len(self.train_dataloader)),
+                               global_step=self.epoch)
 
-
-    def _projected_gradient_descent(self, images: torch.Tensor, mask: torch.Tensor):
+    def _projected_gradient_descent(self,
+                                    images: torch.Tensor,
+                                    mask: torch.Tensor,
+                                    eps: Optional[float] = None):
         if not self.robust:
             return images
 
-        if self.epoch <= self.start_epoch:
+        if self.epoch <= self.start_epoch and eps is None:
             return images
 
-        eps = self.epsilon
-        if self.epoch <= self.start_epoch + self.warm_up:
+        if self.epoch <= self.start_epoch + self.warm_up and eps is None:
             eps = self.epsilon * ((self.epoch - self.start_epoch) / self.warm_up)
+        elif eps is None:
+            eps = self.epsilon
 
-        adv_perturbation = torch.zeros_like(images, device=images.device).requires_grad_(True)
+        random_noise = torch.randn_like(images, device=images.device) * (eps / 2)
+        adv_perturbation = random_noise.requires_grad_(True)
+
+        self.model.eval()
 
         for i in range(self.steps):
             adv_example = images + adv_perturbation
             outputs = self.model(adv_example)
             loss = self.loss_fn(outputs, mask)
-            grad = torch.autograd.grad(loss, adv_perturbation, retain_graph=False, create_graph=False)[0]
+            grad = \
+            torch.autograd.grad(loss, adv_perturbation, retain_graph=False, create_graph=False)[0]
 
             grad_norms = torch.norm(grad.view(grad.shape[0], -1), p=2, dim=1) + 1e-10
             grad = grad / grad_norms.view(-1, 1, 1, 1)  # Normalize gradient
@@ -139,11 +150,14 @@ class SegmentationTrainer(SuperTrainer):
 
             adv_perturbation.requires_grad_(True)
 
+        self.model.train()
+
         return (images + adv_perturbation).detach()
 
     def _log_examples(self, valid_dataloader: DataLoader) -> Tensor:
         images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
         targets = torch.stack([valid_dataloader.dataset[i][1] for i in range(5)])
+        adv_perturbation = self._projected_gradient_descent(images, targets, eps=self.epsilon)
 
         if self.image_type == 'mri':
             image_grid = make_grid(images.flatten(0, 1)[:, None], nrow=4, normalize=True)
@@ -153,6 +167,7 @@ class SegmentationTrainer(SuperTrainer):
         target_grid = make_grid(targets.unsqueeze(1).float(), nrow=5, normalize=True)
 
         self.writer.add_image('images', image_grid)
+        self.writer.add_image('adversarial', adv_perturbation)
         self.writer.add_image('targets', target_grid)
 
         return images
