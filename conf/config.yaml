@@ -15,7 +15,7 @@ generation:
   name: null
   sample_idx: ???
   start_fraction: 0.75 # noise level for CF generation
-  weight_classifier: 0.5
+  weight_classifier: 0.75
   weight_distance: 0.15
   AdaptGrad:
     N: 1
