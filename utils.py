@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn.functional as F
 
@@ -130,13 +132,22 @@ def visualize_seg(seg_map: torch.Tensor):
 
     return palette[seg_map]
 
-def visualize_adaption(adaption: torch.Tensor):
+def visualize_adaption(adaption: torch.Tensor, maximas: Optional[torch.Tensor] = None):
+    """
+
+    :param adaption: change in image (B, C, H, W)
+    :param maximas: maximal change in image (C,)
+    :return:
+    """
     r = torch.relu(adaption)
     g = torch.zeros_like(adaption)
     b = torch.relu(-adaption)
 
     palate = torch.stack([r, g, b], dim=-1)
-    print(f"{palate.shape=}")
+
+    if maximas is not None:
+        palate /= maximas
+
     return palate.permute(0, 1, 4, 2, 3)
 
 

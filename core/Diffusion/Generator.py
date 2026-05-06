@@ -53,17 +53,17 @@ class CounterfactualGenerator:
         self.segmentation_model.load_state_dict(checkpoint['model_state_dict'])
 
     @torch.no_grad()
-    def generate(self, images: Tensor, targets: Tensor, start_fraction: float):
-        prediction_org = self.segmentation_model(images).detach().cpu().argmax(dim=1)
-        counterfactuals = self._generate_counterfactual(images, targets, start_fraction)
-        adaptions = counterfactuals - images
-        prediction_cf = self.segmentation_model(counterfactuals).detach().cpu().argmax(dim=1)
+    def generate(self, image: Tensor, target: Tensor, start_fraction: float):
+        prediction_org = self.segmentation_model(image).detach().cpu().argmax(dim=1)
+        counterfactual = self._generate_counterfactual(image, target, start_fraction)
+        adaptions = counterfactual - image
+        prediction_cf = self.segmentation_model(counterfactual).detach().cpu().argmax(dim=1)
 
         self.writer.close()  # Close writer after generation
-        return counterfactuals.cpu(), adaptions.cpu(), prediction_org.cpu(), prediction_cf.cpu()
+        return counterfactual.cpu(), adaptions.cpu(), prediction_org.cpu(), prediction_cf.cpu()
 
     @torch.no_grad()
-    def _generate_counterfactual(self, image: torch.Tensor, targets: torch.Tensor,
+    def _generate_counterfactual(self, image: torch.Tensor, target: torch.Tensor,
                                  start_fraction: float):
         self.diffusion_model.eval()
         self.segmentation_model.eval()
@@ -89,7 +89,7 @@ class CounterfactualGenerator:
                 g_update, approx_image, grad_c, grad_d, logits = self._calc_g_update(
                     x,
                     image,
-                    targets,
+                    target,
                     epsilon_pred,
                     t_tensor)
 

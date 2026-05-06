@@ -6,8 +6,10 @@ import torch
 
 from omegaconf import DictConfig, OmegaConf
 import torchvision
+from torch import Tensor
 from torchvision.utils import make_grid
 
+from core.Datasets.CelebAMaskDataset import CelebAMaskDataset
 from core.Diffusion.Generator import CounterfactualGenerator
 from core.Datasets.dataset import get_datasets
 from core.Diffusion.Engine import Engine
@@ -16,7 +18,13 @@ from models.Segmentation import SegmentationUNet
 from utils import visualize_seg, visualize_counterfactuals, visualize_adaption
 
 
-def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg):
+def visualize_rgb(dataset: CelebAMaskDataset,
+                  n: int,
+                  counterfactual: Tensor,
+                  adaption: Tensor,
+                  prediction_org: Tensor,
+                  prediction_cf: Tensor,
+                  cfg: DictConfig):
     image, target = dataset[n][0], dataset[n][1]
     image = dataset.denormalize(image)
     counterfactual = dataset.denormalize(counterfactual)
@@ -25,7 +33,14 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
     pred_original = visualize_seg(prediction_org[0]).permute(2, 0, 1)
     pred_counterfactual = visualize_seg(prediction_cf[0]).permute(2, 0, 1)
 
-    adaption_visual = visualize_adaption(adaption)
+    x_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) / torch.tensor(
+        cfg.data.dataset.stds))
+    x_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) / torch.tensor(
+        cfg.data.dataset.stds))
+
+    maximas = torch.maximum(torch.abs(x_min), torch.abs(x_max))
+
+    adaption_visual = visualize_adaption(adaption, maximas)
 
     print(f"{target.shape=}, {pred_original.shape=}, {pred_counterfactual.shape=}")
 
@@ -47,7 +62,7 @@ def visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, predicti
         torchvision.utils.save_image(adaption_visual[0, i],
                                      f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
 
-    adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True))
+    adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True), maximas=torch.max(maximas))
 
     print(f"{image.shape=}, {adaption_visual.shape=}, {counterfactual.shape=}")
     stacked_image = make_grid([
