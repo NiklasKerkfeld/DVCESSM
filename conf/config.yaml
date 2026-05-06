@@ -15,11 +15,11 @@ generation:
   name: null
   sample_idx: ???
   start_fraction: 0.75 # noise level for CF generation
-  weight_classifier: 3.0
-  weight_distance: 0.5
+  weight_classifier: 0.5
+  weight_distance: 0.15
   AdaptGrad:
-    N: 32
-    c: .99999
+    N: 1
+    c: .99
 
 segmentation:
   checkpoint_path: "./checkpoints/Segmentation"
