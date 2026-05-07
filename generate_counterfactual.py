@@ -9,6 +9,7 @@ import torchvision
 from torch import Tensor
 from torchvision.utils import make_grid
 
+from core.Datasets.BraTSDataset import BraTSDataset
 from core.Datasets.CelebAMaskDataset import CelebAMaskDataset
 from core.Diffusion.Generator import CounterfactualGenerator
 from core.Datasets.dataset import get_datasets
@@ -20,6 +21,7 @@ from utils import visualize_seg, visualize_counterfactuals, visualize_adaption
 
 def visualize_rgb(dataset: CelebAMaskDataset,
                   n: int,
+                  run_name: str,
                   counterfactual: Tensor,
                   adaption: Tensor,
                   prediction_org: Tensor,
@@ -44,23 +46,26 @@ def visualize_rgb(dataset: CelebAMaskDataset,
 
     print(f"{target.shape=}, {pred_original.shape=}, {pred_counterfactual.shape=}")
 
-    os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
+    os.makedirs(f"{cfg.system.figures_dir}/{cfg.generation.name}", exist_ok=True)
+
+    with open(f"{cfg.system.figures_dir}/{run_name}/config.txt", "a") as f:
+        f.write(str(cfg))
 
     torchvision.utils.save_image(target,
-                                 f"{cfg.system.figures_dir}/example_{n}/target.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/target.png")
     torchvision.utils.save_image(pred_original,
-                                 f"{cfg.system.figures_dir}/example_{n}/prediction_original.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/prediction_original.png")
     torchvision.utils.save_image(pred_counterfactual,
-                                 f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/prediction_counterfactual.png")
 
     torchvision.utils.save_image(image,
-                                 f"{cfg.system.figures_dir}/example_{n}/original.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/original.png")
     torchvision.utils.save_image(counterfactual[0],
-                                 f"{cfg.system.figures_dir}/example_{n}/counterfactual.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/counterfactual.png")
 
     for i, channel in enumerate(["red", "green", "blue"]):
         torchvision.utils.save_image(adaption_visual[0, i],
-                                     f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
+                                     f"{cfg.system.figures_dir}/{run_name}/adaption_{channel}.png")
 
     adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True), maximas=torch.max(maximas))
 
@@ -75,10 +80,17 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     ], nrow=3)
     print(f"{stacked_image.shape=}")
     torchvision.utils.save_image(stacked_image,
-                                 f"{cfg.system.figures_dir}/example_{n}/comparison.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/comparison.png")
 
 
-def visualize_mri(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg):
+def visualize_mri(dataset: BraTSDataset,
+                  n: int,
+                  run_name: str,
+                  counterfactual: Tensor,
+                  adaption: Tensor,
+                  prediction_org: Tensor,
+                  prediction_cf: Tensor,
+                  cfg: DictConfig):
     image, target = dataset[n][0], dataset[n][1]
 
     target = visualize_seg(target)[0].permute(2, 0, 1)
@@ -88,20 +100,24 @@ def visualize_mri(dataset, n, counterfactual, adaption, prediction_org, predicti
     adaption = visualize_adaption(adaption)
     image, counterfactual = visualize_counterfactuals(image, counterfactual)
 
-    os.makedirs(f"{cfg.system.figures_dir}/example_{n}", exist_ok=True)
-    torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/example_{n}/target.png")
+    os.makedirs(f"{cfg.system.figures_dir}/{run_name}", exist_ok=True)
+
+    with open(f"{cfg.system.figures_dir}/{run_name}/config.txt", "a") as f:
+        f.write(str(cfg))
+
+    torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/{run_name}/target.png")
     torchvision.utils.save_image(pred_original,
-                                 f"{cfg.system.figures_dir}/example_{n}/prediction_original.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/prediction_original.png")
     torchvision.utils.save_image(pred_counterfactual,
-                                 f"{cfg.system.figures_dir}/example_{n}/prediction_counterfactual.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/prediction_counterfactual.png")
 
     for i, channel in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
         torchvision.utils.save_image(image[0, i],
-                                     f"{cfg.system.figures_dir}/example_{n}/original_{channel}.png")
+                                     f"{cfg.system.figures_dir}/{run_name}/original_{channel}.png")
         torchvision.utils.save_image(counterfactual[0, i],
-                                     f"{cfg.system.figures_dir}/example_{n}/counterfactual_{channel}.png")
+                                     f"{cfg.system.figures_dir}/{run_name}/counterfactual_{channel}.png")
         torchvision.utils.save_image(adaption[0, i],
-                                     f"{cfg.system.figures_dir}/example_{n}/adaption_{channel}.png")
+                                     f"{cfg.system.figures_dir}/{run_name}/adaption_{channel}.png")
 
     stacked_image = make_grid(torch.stack([
         image[0],
@@ -109,7 +125,7 @@ def visualize_mri(dataset, n, counterfactual, adaption, prediction_org, predicti
         counterfactual[0]
     ]).flatten(0, 1), nrow=4)
     torchvision.utils.save_image(stacked_image,
-                                 f"{cfg.system.figures_dir}/example_{n}/comparison.png")
+                                 f"{cfg.system.figures_dir}/{run_name}/comparison.png")
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -154,7 +170,7 @@ def main(cfg: DictConfig):
     if cfg.data.image_type == 'mri':
         visualize_mri(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg)
     else:
-        visualize_rgb(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg)
+        visualize_rgb(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf, cfg)
 
 
 if __name__ == '__main__':
