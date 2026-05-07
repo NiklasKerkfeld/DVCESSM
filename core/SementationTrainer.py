@@ -79,7 +79,7 @@ class SegmentationTrainer(SuperTrainer):
 
         self.model.train()
 
-        for self.epoch in range(1, epochs + 1):
+        for self.epoch in range(self.epoch + 1, epochs + 1):
             self.train_one_epoch()
             self.evaluate()
 
