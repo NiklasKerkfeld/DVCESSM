@@ -57,7 +57,11 @@ class CounterfactualGenerator:
         adaptions = counterfactual - image
         prediction_cf = self.segmentation_model(counterfactual).detach().cpu().argmax(dim=1)
 
-        self.writer.close()  # Close writer after generation
+        self.writer.close()
+
+        image = image.cpu()
+        target = target.cpu()
+
         return counterfactual.cpu(), adaptions.cpu(), prediction_org.cpu(), prediction_cf.cpu()
 
     @torch.no_grad()

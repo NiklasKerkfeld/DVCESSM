@@ -168,7 +168,7 @@ def main(cfg: DictConfig):
                                                                                  cfg.generation.start_fraction)
 
     if cfg.data.image_type == 'mri':
-        visualize_mri(dataset, n, counterfactual, adaption, prediction_org, prediction_cf, cfg)
+        visualize_mri(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf, cfg)
     else:
         visualize_rgb(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf, cfg)
 
