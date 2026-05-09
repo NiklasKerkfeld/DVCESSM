@@ -1,5 +1,3 @@
-from typing import Any
-
 import torch
 from omegaconf import DictConfig
 from torch import nn, Tensor
@@ -10,8 +8,8 @@ import torchvision.utils as vutils
 from core.AdaptGrad import AdaptGrad
 from core.Diffusion.Engine import Engine
 
-from models.Losses import masked_cross_entropy
-from utils import visualize_adaption, visualize_seg
+from models.Losses import CounterfactualLoss
+from uitls.utils import visualize_adaption, visualize_seg
 
 
 class CounterfactualGenerator:
@@ -63,15 +61,20 @@ class CounterfactualGenerator:
         return counterfactual.cpu(), adaptions.cpu(), prediction_org.cpu(), prediction_cf.cpu()
 
     @torch.no_grad()
-    def _generate_counterfactual(self, image: torch.Tensor, target: torch.Tensor,
+    def _generate_counterfactual(self,
+                                 image: torch.Tensor,
+                                 target: torch.Tensor,
                                  start_fraction: float):
         self.diffusion_model.eval()
         self.segmentation_model.eval()
 
         image = image.to(self.device)
+        target = target.to(self.device)
         self.segmentation_model.to(self.device)
         self.diffusion_model.to(self.device)
         self.adaptgrad.to(self.device)
+
+        loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)))
 
         start_t = int(self.engine.T * start_fraction)
         t_tensor = torch.full((image.shape[0],), start_t, device=self.device)
@@ -89,7 +92,7 @@ class CounterfactualGenerator:
                 g_update, approx_image, grad_c, grad_d, logits = self._calc_g_update(
                     x,
                     image,
-                    target,
+                    loss_fn,
                     epsilon_pred,
                     t_tensor)
 
@@ -114,7 +117,8 @@ class CounterfactualGenerator:
 
         return x.detach()
 
-    def _calc_g_update(self, x: Tensor, image: Tensor, targets: Tensor, epsilon_pred: Tensor,
+    def _calc_g_update(self, x: Tensor, image: Tensor, loss_fn: CounterfactualLoss,
+                       epsilon_pred: Tensor,
                        t: Tensor):
         x = x.detach().requires_grad_(True)
         approx_image = self.engine.image_approximation(x, epsilon_pred, t)
@@ -122,7 +126,7 @@ class CounterfactualGenerator:
         # Segmentation Loss
         approx_image_batch = self.adaptgrad(approx_image)
         logits = self.segmentation_model(approx_image_batch)
-        loss_c = masked_cross_entropy(logits, targets.repeat((self.adaptgrad.N, 1, 1)))
+        loss_c = loss_fn(logits)
         grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
 
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
@@ -138,7 +142,8 @@ class CounterfactualGenerator:
 
         return g_update, approx_image, grad_c, grad_d, logits
 
-    def log(self, approx_image: Tensor, g_update: Tensor, grad_c: Tensor, grad_d: Tensor, logits: Tensor,
+    def log(self, approx_image: Tensor, g_update: Tensor, grad_c: Tensor, grad_d: Tensor,
+            logits: Tensor,
             mean: Tensor, mu_norm: Tensor, start_t: int, t: int, x: Tensor):
         log_step = start_t - t
         self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),

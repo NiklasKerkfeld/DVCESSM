@@ -13,7 +13,7 @@ from tqdm import tqdm
 from core.Diffusion.Engine import Engine
 from core.Trainer import SuperTrainer
 from models.DiffusionModel import DiffusionModel
-from utils import to_vis
+from uitls.utils import to_vis
 
 
 class Trainer(SuperTrainer):

@@ -5,6 +5,38 @@ from torch import nn
 import torch.nn.functional as F
 
 
+class CounterfactualLoss(nn.Module):
+    def __init__(self,
+                 target: torch.Tensor,
+                 border_width: int = 2,
+                 reduction: Literal['mean', 'sum'] = 'mean'):
+        super(CounterfactualLoss, self).__init__()
+        self.target = target
+        self.border_width = border_width
+        self._set_boarders(target)
+        self.reduction = torch.sum if reduction == 'sum' else torch.mean
+
+    def forward(self, logits: torch.Tensor):
+        mask = (logits.argmax(dim=1) != self.target).float()
+
+        loss = F.cross_entropy(logits, self.target, reduction='none', ignore_index=-1)
+
+        return self.reduction(loss * mask)
+
+    def _set_boarders(self, target: torch.Tensor):
+        k_size = self.border_width + 1
+
+        dilated = F.max_pool2d(target.float(), kernel_size=k_size, stride=1,
+                               padding=self.border_width // 2)
+
+        eroded = -F.max_pool2d(-target.float(), kernel_size=k_size, stride=1,
+                               padding=self.border_width // 2)
+
+        mask = (dilated != eroded)
+
+        self.target[mask] = -1
+
+
 class MultiTaskLoss(nn.Module):
     def __init__(self, n_losses: int):
         super().__init__()
@@ -109,8 +141,31 @@ def capped_cross_entropy(logits, targets, threshold=0.75):
     return (loss * mask).sum()
 
 
+import hydra
+from omegaconf import DictConfig, OmegaConf
+from core.Datasets.dataset import get_datasets
+import matplotlib.pyplot as plt
+
+
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
+def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
+
+    _, dataset = get_datasets(cfg)
+
+    print(f"dataset size: {len(dataset)}")
+
+    target = torch.stack([dataset[1][1]], dim=0)
+
+    loss_fn = CounterfactualLoss(target.repeat(16, 1, 1))
+
+    logits = torch.randn(16, 19, 256, 256)
+    print(loss_fn(logits))
+
+    print(f"{loss_fn.target.min(), loss_fn.target.max()}")
+    plt.imshow(loss_fn.target[0])
+    plt.show()
+
+
 if __name__ == '__main__':
-    loss_fn = MaskedCrossEntropyLoss()
-    logits = torch.randn(4, 5, 128, 128)
-    targets = torch.randint(0, 5, (4, 128, 128))
-    print(loss_fn(logits, targets))
+    main()

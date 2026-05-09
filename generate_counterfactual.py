@@ -16,7 +16,7 @@ from core.Datasets.dataset import get_datasets
 from core.Diffusion.Engine import Engine
 from models.DiffusionModel_new import DiffusionModel
 from models.Segmentation import SegmentationUNet
-from utils import visualize_seg, visualize_counterfactuals, visualize_adaption
+from uitls.utils import visualize_seg, visualize_counterfactuals, visualize_adaption
 
 
 def visualize_rgb(dataset: CelebAMaskDataset,
@@ -147,8 +147,8 @@ def main(cfg: DictConfig):
     _, dataset = get_datasets(cfg)
     print(f"dataset size: {len(dataset)}")
 
-    image = torch.stack([dataset[n][0]], dim=0).to(device)
-    target = torch.stack([dataset[n][1]], dim=0).to(device)
+    image = torch.stack([dataset[n][0]], dim=0)
+    target = torch.stack([dataset[n][1]], dim=0)
 
     segmentation = SegmentationUNet(
         in_channels=cfg.data.image_channels,
@@ -156,11 +156,11 @@ def main(cfg: DictConfig):
         img_width=cfg.data.image_width,
         img_height=cfg.data.image_height,
         attention=cfg.segmentation.attention,
-    ).to(device)
+    )
     diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
-                               cfg.diffusion.time_dim).to(device)
+                               cfg.diffusion.time_dim)
 
-    engine = Engine(cfg, device=device).to(device)
+    engine = Engine(cfg, device=device)
 
     generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg, name=run_name)
 

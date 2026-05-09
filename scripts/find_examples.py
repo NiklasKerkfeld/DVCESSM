@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 from core.Datasets import get_datasets
 from models.Segmentation import SegmentationUNet
-from utils import calc_iou
+from uitls.utils import calc_iou
 
 
 def main():

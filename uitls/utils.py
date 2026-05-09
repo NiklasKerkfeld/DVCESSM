@@ -169,7 +169,6 @@ def gaussian_blur_2d(grad, kernel_size=3, sigma=1.0):
     smoothed_grad = F.conv2d(grad, kernel_2d, groups=grad.shape[1], padding=kernel_size // 2)
     return smoothed_grad
 
-
 if __name__ == '__main__':
     image = torch.randn((1, 4, 224, 224))
     cf1 = torch.randn((1, 4, 224, 224))
