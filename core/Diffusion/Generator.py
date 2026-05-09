@@ -52,15 +52,22 @@ class CounterfactualGenerator:
 
     @torch.no_grad()
     def generate(self, image: Tensor, target: Tensor, start_fraction: float):
+        image = image.to(self.device)
+        target = target.to(self.device)
+
+        self.diffusion_model.eval()
+        self.segmentation_model.eval()
+
+        self.segmentation_model.to(self.device)
+        self.diffusion_model.to(self.device)
+        self.adaptgrad.to(self.device)
+
         prediction_org = self.segmentation_model(image).detach().cpu().argmax(dim=1)
         counterfactual = self._generate_counterfactual(image, target, start_fraction)
         adaptions = counterfactual - image
         prediction_cf = self.segmentation_model(counterfactual).detach().cpu().argmax(dim=1)
 
         self.writer.close()
-
-        image = image.cpu()
-        target = target.cpu()
 
         return counterfactual.cpu(), adaptions.cpu(), prediction_org.cpu(), prediction_cf.cpu()
 
@@ -69,15 +76,6 @@ class CounterfactualGenerator:
                                  image: torch.Tensor,
                                  target: torch.Tensor,
                                  start_fraction: float):
-        self.diffusion_model.eval()
-        self.segmentation_model.eval()
-
-        image = image.to(self.device)
-        target = target.to(self.device)
-        self.segmentation_model.to(self.device)
-        self.diffusion_model.to(self.device)
-        self.adaptgrad.to(self.device)
-
         loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)))
 
         start_t = int(self.engine.T * start_fraction)
