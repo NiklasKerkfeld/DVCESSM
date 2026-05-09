@@ -41,6 +41,8 @@ class Engine(nn.Module):
         self.register_buffer('coeff2', (1 - alphas) / torch.sqrt(1 - alphas_cumprod))
         self.register_buffer('sqrt_beta', torch.sqrt(beta))
 
+        self.to(self.device)
+
     def snr(self, t: torch.Tensor) -> torch.Tensor:
         alphas_comprod = self._extract(self.alphas_cumprod, t, t.shape)
         return alphas_comprod / (1 - alphas_comprod)
