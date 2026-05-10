@@ -15,8 +15,7 @@ def get_datasets(cfg):
         random_state=42
     )
 
-    train_dataset = instantiate(cfg.data.dataset, samples=train_samples)
-    cfg.data.dataset.prob_blur = 0.0
-    test_dataset = instantiate(cfg.data.dataset, samples=test_samples)
+    train_dataset = instantiate(cfg.data.dataset, samples=train_samples, train=True)
+    test_dataset = instantiate(cfg.data.dataset, samples=test_samples, train=False)
 
     return train_dataset, test_dataset

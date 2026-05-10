@@ -16,7 +16,8 @@ class CelebAMaskDataset(Dataset):
                  stds: List[float],
                  prob_blur: float = 0.0,
                  kernel_size: int = 3,
-                 sigma: Union[float, Tuple[float, float]] = (0.0, 3.0)):
+                 sigma: Union[float, Tuple[float, float]] = (0.0, 3.0),
+                 train: bool = True):
         super().__init__()
         self.files = samples
 
@@ -27,7 +28,7 @@ class CelebAMaskDataset(Dataset):
 
         self.augmentations = RandomApply(torch.nn.ModuleList([
             GaussianBlur(kernel_size=kernel_size, sigma=sigma)
-        ]), p=prob_blur) if prob_blur > 0 else None
+        ]), p=prob_blur) if (prob_blur > 0 and train is True) else None
 
     def __len__(self):
         return len(self.files)
