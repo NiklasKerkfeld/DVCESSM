@@ -29,24 +29,24 @@ class CelebAMaskDataset(Dataset):
             GaussianBlur(kernel_size=kernel_size, sigma=sigma)
         ]), p=prob_blur) if prob_blur > 0 else None
 
-        def __len__(self):
-            return len(self.files)
+    def __len__(self):
+        return len(self.files)
 
-        def __getitem__(self, index):
-            data = np.load(self.files[index])
-            image = torch.from_numpy(data['image']).float() / 255.0
-            image = self.normalize(image)
-            label = torch.from_numpy(data["label"]).long().squeeze(0)
+    def __getitem__(self, index):
+        data = np.load(self.files[index])
+        image = torch.from_numpy(data['image']).float() / 255.0
+        image = self.normalize(image)
+        label = torch.from_numpy(data["label"]).long().squeeze(0)
 
-            if self.augmentations is not None:
-                image = self.augmentations(image)
+        if self.augmentations is not None:
+            image = self.augmentations(image)
 
-            return image, label
+        return image, label
 
-        def denormalize(self, image: torch.Tensor) -> torch.Tensor:
-            means = self.means.view(-1, 1, 1).to(image.device)
-            stds = self.stds.view(-1, 1, 1).to(image.device)
-            return (image * stds) + means
+    def denormalize(self, image: torch.Tensor) -> torch.Tensor:
+        means = self.means.view(-1, 1, 1).to(image.device)
+        stds = self.stds.view(-1, 1, 1).to(image.device)
+        return (image * stds) + means
 
 
 if __name__ == "__main__":
