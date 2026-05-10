@@ -15,3 +15,6 @@
     _target_: core.Datasets.CelebAMaskDataset.CelebAMaskDataset
     means: [0.5170, 0.4166, 0.3633]
     stds: [0.2652, 0.2379, 0.2308]
+    prob_blur: 0.25
+    kernel_size: 15
+    sigma: (0.0, 7.0)
