@@ -1,6 +1,7 @@
 defaults:
-  - data: BraTS
+  - data: CelebAMask
   - engine: linear
+  - generation: Diffusion
   - _self_
 
 diffusion:
@@ -10,16 +11,6 @@ diffusion:
   lr: 3e-4
   ema_decay: 0.999
   time_dim: 256
-
-generation:
-  name: null
-  sample_idx: ???
-  start_fraction: 0.5 # noise level for CF generation
-  weight_segmentation: 0.15
-  weight_distance: 0.15
-  AdaptGrad:
-    N: 1
-    c: .99
 
 segmentation:
   checkpoint_path: "./checkpoints/Segmentation"

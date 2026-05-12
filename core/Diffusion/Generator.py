@@ -33,6 +33,7 @@ class CounterfactualGenerator:
         self.segmentation_name = cfg.segmentation.name
         self.weight_segmentation = cfg.generation.weight_segmentation
         self.weight_distance = cfg.generation.weight_distance
+        self.start_fraction = cfg.generation.start_fraction
         self.adaptgrad = AdaptGrad(cfg)
 
         # Initialize TensorBoard
@@ -52,7 +53,7 @@ class CounterfactualGenerator:
         self.segmentation_model.load_state_dict(checkpoint['model_state_dict'])
 
     @torch.no_grad()
-    def generate(self, image: Tensor, target: Tensor, start_fraction: float):
+    def generate(self, image: Tensor, target: Tensor):
         image = image.to(self.device)
         target = target.to(self.device)
 
@@ -64,7 +65,7 @@ class CounterfactualGenerator:
         self.adaptgrad.to(self.device)
 
         prediction_org = self.segmentation_model(image).detach().cpu().argmax(dim=1)
-        counterfactual = self._generate_counterfactual(image, target, start_fraction)
+        counterfactual = self._generate_counterfactual(image, target)
         adaptions = counterfactual - image
         prediction_cf = self.segmentation_model(counterfactual).detach().cpu().argmax(dim=1)
 
@@ -75,11 +76,10 @@ class CounterfactualGenerator:
     @torch.no_grad()
     def _generate_counterfactual(self,
                                  image: torch.Tensor,
-                                 target: torch.Tensor,
-                                 start_fraction: float):
+                                 target: torch.Tensor):
         loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)))
 
-        start_t = int(self.engine.T * start_fraction)
+        start_t = int(self.engine.T * self.start_fraction)
         t_tensor = torch.full((image.shape[0],), start_t, device=self.device)
         x, _ = self.engine.diffuse(image, t_tensor)
 

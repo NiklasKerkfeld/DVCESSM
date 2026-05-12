@@ -9,6 +9,7 @@ import torchvision
 from torch import Tensor
 from torchvision.utils import make_grid
 
+from core.Baseline.Generator import BaselineGenerator
 from core.Datasets.BraTSDataset import BraTSDataset
 from core.Datasets.CelebAMaskDataset import CelebAMaskDataset
 from core.Diffusion.Generator import CounterfactualGenerator
@@ -157,15 +158,20 @@ def main(cfg: DictConfig):
         img_height=cfg.data.image_height,
         attention=cfg.segmentation.attention,
     )
-    diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
-                               cfg.diffusion.time_dim)
 
-    engine = Engine(cfg, device=device)
+    if cfg.generation == 'Diffusion':
+        diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
+                                   cfg.diffusion.time_dim)
 
-    generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg, name=run_name)
+        engine = Engine(cfg, device=device)
 
-    counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target,
-                                                                                 cfg.generation.start_fraction)
+        generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg, name=run_name)
+
+    else:
+        generator = BaselineGenerator(segmentation, device, cfg, name=run_name)
+
+
+    counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target)
 
     if cfg.data.image_type == 'mri':
         visualize_mri(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf, cfg)
