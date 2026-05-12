@@ -1,15 +1,16 @@
+from typing import Tuple, Dict
+
 import torch
+import torchvision.utils as vutils
 from omegaconf import DictConfig
 from torch import nn, Tensor
-from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-import torchvision.utils as vutils
+from tqdm import tqdm
 
 from core.AdaptGrad import AdaptGrad
 from core.Diffusion.Engine import Engine
-
 from models.Losses import CounterfactualLoss
-from uitls.utils import visualize_adaption, visualize_seg
+from uitls.utils import visualize_adaption, visualize_seg, calc_iou
 
 
 class CounterfactualGenerator:
@@ -30,7 +31,7 @@ class CounterfactualGenerator:
         self.diffusion_name = cfg.diffusion.name
         self.segmentation_checkpoint = cfg.segmentation.checkpoint_path
         self.segmentation_name = cfg.segmentation.name
-        self.weight_classifier = cfg.generation.weight_classifier
+        self.weight_segmentation = cfg.generation.weight_segmentation
         self.weight_distance = cfg.generation.weight_distance
         self.adaptgrad = AdaptGrad(cfg)
 
@@ -91,7 +92,7 @@ class CounterfactualGenerator:
             sigma = self.engine.get_sigma(t_tensor, image.shape)
 
             with torch.enable_grad():
-                g_update, approx_image, grad_c, grad_d, logits = self._calc_g_update(
+                g_update, logs_dict = self._calc_g_update(
                     x,
                     image,
                     loss_fn,
@@ -106,28 +107,21 @@ class CounterfactualGenerator:
 
             # --- TensorBoard Logging ---
             if t % 50 == 0:
-                self.log(approx_image,
-                         g_update,
-                         grad_c,
-                         grad_d,
-                         logits,
-                         mean,
-                         mu_norm,
-                         start_t,
-                         t,
-                         x)
+                self.log(x, target, mean, mu_norm, g_update, logs_dict, start_t, t)
 
         return x.detach()
 
     def _calc_g_update(self, x: Tensor, image: Tensor, loss_fn: CounterfactualLoss,
                        epsilon_pred: Tensor,
-                       t: Tensor):
+                       t: Tensor) -> Tuple[Tensor, Dict[str, Tensor]]:
         x = x.detach().requires_grad_(True)
         approx_image = self.engine.image_approximation(x, epsilon_pred, t)
 
         # Segmentation Loss
         approx_image_batch = self.adaptgrad(approx_image)
         logits = self.segmentation_model(approx_image_batch)
+
+        # Loss and Gradients
         loss_c = loss_fn(logits)
         grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
 
@@ -140,30 +134,38 @@ class CounterfactualGenerator:
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
 
-        g_update = self.weight_classifier * grad_c + self.weight_distance * grad_d
+        g_update = self.weight_segmentation * grad_c + self.weight_distance * grad_d
 
-        return g_update, approx_image, grad_c, grad_d, logits
+        return g_update.detach(), {
+            'approx_image': approx_image.detach(),
+            'grad_c': grad_c.detach(),
+            'grad_d': grad_d.detach(),
+            'logits': logits.detach()
+        }
 
-    def log(self, approx_image: Tensor, g_update: Tensor, grad_c: Tensor, grad_d: Tensor,
-            logits: Tensor,
-            mean: Tensor, mu_norm: Tensor, start_t: int, t: int, x: Tensor):
+    def log(self, x: Tensor, target: Tensor, mean: Tensor, mu_norm: Tensor, g_update: Tensor,
+            results: Dict[str, Tensor], start_t: int, t: int):
         log_step = start_t - t
-        self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),
-                              log_step)
-        self.writer.add_image('Process/approx_x_0',
-                              vutils.make_grid(approx_image, normalize=True), log_step)
 
+        # log scalars
+        prediction = torch.argmax(results['logits'][0], dim=0)
+        iou = calc_iou(prediction, target)
+        self.writer.add_scalar('Metrics/IoU', iou, log_step)
         self.writer.add_scalar('Gradients/mean', mean.mean().item(), log_step)
         self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)
         self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)
-        self.writer.add_scalar('Gradients/grad_c', grad_c.abs().mean().item(), log_step)
-        self.writer.add_scalar('Gradients/grad_d', grad_d.abs().mean().item(), log_step)
+        self.writer.add_scalar('Gradients/grad_c', results['grad_c'].abs().mean().item(), log_step)
+        self.writer.add_scalar('Gradients/grad_d', results['grad_d'].abs().mean().item(), log_step)
 
-        prediction = torch.argmax(logits.mean(dim=0, keepdim=True), dim=1)
+        self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),
+                              log_step)
+        self.writer.add_image('Process/approx_x_0',
+                              vutils.make_grid(results['approx_image'], normalize=True), log_step)
+
         prediction = visualize_seg(prediction.detach().cpu())[0].permute(2, 0, 1).float()
-        g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
-        grad_c_visual = visualize_adaption(grad_c.sum(dim=1, keepdim=True))[0, 0]
-        grad_d_visual = visualize_adaption(grad_d.sum(dim=1, keepdim=True))[0, 0]
+        g_visual = visualize_adaption(results['g_update'].sum(dim=1, keepdim=True))[0, 0]
+        grad_c_visual = visualize_adaption(results['grad_c'].sum(dim=1, keepdim=True))[0, 0]
+        grad_d_visual = visualize_adaption(results['grad_d'].sum(dim=1, keepdim=True))[0, 0]
 
         self.writer.add_image('Process/g_update',
                               vutils.make_grid(g_visual, normalize=True), log_step)
