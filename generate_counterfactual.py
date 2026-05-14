@@ -160,7 +160,7 @@ def main(cfg: DictConfig):
     )
     segmentation.load_state_dict(checkpoint['model_state_dict'])
 
-    if cfg.generation == 'Diffusion':
+    if cfg.generation.type == 'Diffusion':
         diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
                                    cfg.diffusion.time_dim)
 
