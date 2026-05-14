@@ -3,6 +3,8 @@ sample_idx: ???
 alpha: 1.0
 lr: 0.01
 steps: 100
+border_width: 2
+use_mask: true
 AdaptGrad:
   N: 1
   c: .99

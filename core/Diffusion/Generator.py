@@ -4,16 +4,15 @@ import torch
 import torchvision.utils as vutils
 from omegaconf import DictConfig
 from torch import nn, Tensor
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from core.AdaptGrad import AdaptGrad
+from core.BaseGenerator import BaseGenerator
 from core.Diffusion.Engine import Engine
 from models.Losses import CounterfactualLoss
 from uitls.utils import visualize_adaption, visualize_seg, calc_iou
 
 
-class CounterfactualGenerator:
+class CounterfactualGenerator(BaseGenerator):
     def __init__(self,
                  segmentation: nn.Module,
                  diffusion_model: nn.Module,
@@ -21,63 +20,23 @@ class CounterfactualGenerator:
                  device: torch.device,
                  cfg: DictConfig,
                  name='counterfactual'):
-        super().__init__()
-        self.segmentation_model = segmentation
+        super().__init__(segmentation, device, cfg, name)
         self.diffusion_model = diffusion_model
         self.engine = engine
-        self.device = device
-        self.cfg = cfg
-        self.diffusion_checkpoint = cfg.diffusion.checkpoint_path
-        self.diffusion_name = cfg.diffusion.name
-        self.segmentation_checkpoint = cfg.segmentation.checkpoint_path
-        self.segmentation_name = cfg.segmentation.name
+
         self.weight_segmentation = cfg.generation.weight_segmentation
         self.weight_distance = cfg.generation.weight_distance
         self.start_fraction = cfg.generation.start_fraction
-        self.adaptgrad = AdaptGrad(cfg)
 
-        # Initialize TensorBoard
-        print(f"logging to {cfg.system.log_dir}/Generation/{name}")
-        self.writer = SummaryWriter(log_dir=f"{cfg.system.log_dir}/Generation/{name}")
-
-        self.load_checkpoint(f"{self.diffusion_checkpoint}/{self.diffusion_name}.pt",
-                             f"{self.segmentation_checkpoint}/{self.segmentation_name}.pt")
-        self.segmentation_model.eval()
-        self.diffusion_model.eval()
-
-    def load_checkpoint(self, diffusion_checkpoint: str, segmentation_checkpoint: str):
-        checkpoint = torch.load(diffusion_checkpoint, map_location=self.device)
-        self.diffusion_model.load_state_dict(checkpoint['model_state_dict'])
-
-        checkpoint = torch.load(segmentation_checkpoint, map_location=self.device)
-        self.segmentation_model.load_state_dict(checkpoint['model_state_dict'])
-
-    @torch.no_grad()
-    def generate(self, image: Tensor, target: Tensor):
-        image = image.to(self.device)
-        target = target.to(self.device)
-
-        self.diffusion_model.eval()
-        self.segmentation_model.eval()
-
-        self.segmentation_model.to(self.device)
-        self.diffusion_model.to(self.device)
-        self.adaptgrad.to(self.device)
-
-        prediction_org = self.segmentation_model(image).detach().cpu().argmax(dim=1)
-        counterfactual = self._generate_counterfactual(image, target)
-        adaptions = counterfactual - image
-        prediction_cf = self.segmentation_model(counterfactual).detach().cpu().argmax(dim=1)
-
-        self.writer.close()
-
-        return counterfactual.cpu(), adaptions.cpu(), prediction_org.cpu(), prediction_cf.cpu()
+        self.diffusion_model.to(self.device).eval()
 
     @torch.no_grad()
     def _generate_counterfactual(self,
                                  image: torch.Tensor,
                                  target: torch.Tensor):
-        loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)))
+        loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)),
+                                     use_mask=self.use_mask,
+                                     border_width=self.border_width)
 
         start_t = int(self.engine.T * self.start_fraction)
         t_tensor = torch.full((image.shape[0],), start_t, device=self.device)
@@ -149,7 +108,7 @@ class CounterfactualGenerator:
 
         # log scalars
         prediction = torch.argmax(results['logits'][0], dim=0)
-        iou = calc_iou(prediction, target)
+        iou = calc_iou(prediction, target, num_classes=self.num_classes)
         self.writer.add_scalar('Metrics/IoU', iou, log_step)
         self.writer.add_scalar('Gradients/mean', mean.mean().item(), log_step)
         self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)

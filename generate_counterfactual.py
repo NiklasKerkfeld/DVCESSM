@@ -45,9 +45,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
 
     adaption_visual = visualize_adaption(adaption, maximas)
 
-    print(f"{target.shape=}, {pred_original.shape=}, {pred_counterfactual.shape=}")
-
-    os.makedirs(f"{cfg.system.figures_dir}/{cfg.generation.name}", exist_ok=True)
+    os.makedirs(f"{cfg.system.figures_dir}/{run_name}", exist_ok=True)
 
     with open(f"{cfg.system.figures_dir}/{run_name}/config.txt", "a") as f:
         f.write(str(cfg))
@@ -70,7 +68,6 @@ def visualize_rgb(dataset: CelebAMaskDataset,
 
     adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True), maximas=torch.max(maximas))
 
-    print(f"{image.shape=}, {adaption_visual.shape=}, {counterfactual.shape=}")
     stacked_image = make_grid([
         image,
         adaption_visual[0, 0],
@@ -79,7 +76,6 @@ def visualize_rgb(dataset: CelebAMaskDataset,
         pred_counterfactual,
         target
     ], nrow=3)
-    print(f"{stacked_image.shape=}")
     torchvision.utils.save_image(stacked_image,
                                  f"{cfg.system.figures_dir}/{run_name}/comparison.png")
 
@@ -158,10 +154,21 @@ def main(cfg: DictConfig):
         img_height=cfg.data.image_height,
         attention=cfg.segmentation.attention,
     )
+    checkpoint = torch.load(
+        f"{cfg.segmentation.checkpoint_path}/{cfg.segmentation.name}.pt",
+        map_location=device
+    )
+    segmentation.load_state_dict(checkpoint['model_state_dict'])
 
     if cfg.generation == 'Diffusion':
         diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
                                    cfg.diffusion.time_dim)
+
+        checkpoint = torch.load(
+            f"{cfg.diffusion.checkpoint_path}/{cfg.diffusion.name}.pt",
+            map_location=device
+        )
+        diffusion.load_state_dict(checkpoint['model_state_dict'])
 
         engine = Engine(cfg, device=device)
 
