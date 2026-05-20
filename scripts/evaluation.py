@@ -10,8 +10,8 @@ from tqdm import tqdm
 from core.Datasets import get_datasets
 from core.GAN.Generator import CounterfactualGenerator
 from models.GAN import Generator, Adversarial
-from models.Segmentation import SegmentationUNet
-from uitls.utils import calculate_iou, visualize_seg, visualize_mri, visualize_adaption
+from src.cfgan_mnist.models.segmentation import SegmentationUNet
+from src.uitls.utils import calculate_iou, visualize_seg, visualize_mri, visualize_adaption
 
 torch.manual_seed(42)
 if torch.cuda.is_available():

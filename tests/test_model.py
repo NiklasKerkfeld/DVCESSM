@@ -1,7 +1,7 @@
 import torch
 
-from models.DiffusionModel import DiffusionModel
-from models.Segmentation import SegmentationUNet
+from src.cfgan_mnist.models.diffusion_model import DiffusionModel
+from src.cfgan_mnist.models.segmentation import SegmentationUNet
 
 
 def test_diffusion_model():

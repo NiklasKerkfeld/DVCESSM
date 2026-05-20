@@ -1,8 +1,8 @@
 import pytest
 import torch
-from core.Diffusion.Engine import Engine
-from core.Diffusion.Trainer import Trainer
-from models.DiffusionModel import DiffusionModel  # Assuming your model class name
+from src.cfgan_mnist.core.Diffusion.engine import Engine
+from src.cfgan_mnist.core.Diffusion.trainer import Trainer
+from src.cfgan_mnist.models.diffusion_model import DiffusionModel  # Assuming your model class name
 
 
 @pytest.fixture

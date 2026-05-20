@@ -1,6 +1,6 @@
 import torch
 import pytest
-from core.Diffusion.Engine import Engine
+from src.cfgan_mnist.core.Diffusion.engine import Engine
 
 
 @pytest.fixture

@@ -3,8 +3,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from core.Datasets import get_datasets
-from models.Segmentation import SegmentationUNet
-from uitls.utils import calc_iou
+from src.cfgan_mnist.models.segmentation import SegmentationUNet
+from src.uitls.utils import calc_iou
 
 
 def main():

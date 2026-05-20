@@ -1,8 +1,8 @@
 # tests/test_generator.py
 import torch
 import pytest
-from core.Diffusion.Generator import CounterfactualGenerator
-from core.Diffusion.Engine import Engine
+from src.cfgan_mnist.core.Diffusion.generator import CounterfactualGenerator
+from src.cfgan_mnist.core.Diffusion.engine import Engine
 
 
 class MockModel(torch.nn.Module):
