@@ -10,10 +10,10 @@ from torch import Tensor
 from torchvision.utils import make_grid
 
 from src.diff_cf.core.baseline.generator import BaselineGenerator
-from src.diff_cf.core.datasets.brats_dataset import BraTSDataset
-from src.diff_cf.core.datasets.celebamask_dataset import CelebAMaskDataset
+from datasets import BraTSDataset
+from datasets.celebamask import CelebAMaskDataset
 from src.diff_cf.core.diffusion.generator import CounterfactualGenerator
-from src.diff_cf.core.datasets.dataset import get_datasets
+from datasets.base import get_datasets
 from src.diff_cf.core.diffusion.engine import Engine
 from src.diff_cf.models.diffusion_model_new import DiffusionModel
 from src.diff_cf.models.segmentation import SegmentationUNet

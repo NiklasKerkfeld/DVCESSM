@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 
-class SuperTrainer:
+class BaseTrainer:
     """
     Abstract class for all Trainer.
     """
@@ -44,6 +44,7 @@ class SuperTrainer:
 
     def save_checkpoint(self) -> None:
         """Saves current state in checkpoint."""
+        raise NotImplementedError
 
     def load_checkpoint(self, checkpoint_path: str) -> None:
         """
@@ -52,6 +53,7 @@ class SuperTrainer:
         Args:
             checkpoint_path: path to checkpoint.
         """
+        raise NotImplementedError
 
     def _visualize_image(self, image: torch.Tensor) -> torch.Tensor:
         if self.image_type == 'mri':

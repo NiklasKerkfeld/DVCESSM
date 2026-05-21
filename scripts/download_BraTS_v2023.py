@@ -9,7 +9,7 @@ import zipfile
 import torch
 from matplotlib import pyplot as plt
 from monai.transforms import Compose, LoadImaged, EnsureChannelFirstd, SpatialPadd, \
-    CenterSpatialCropd, ClipIntensityPercentilesd, NormalizeIntensityd, CastToTyped, ConcatItemsd, \
+    CenterSpatialCropd, ClipIntensityPercentilesd, CastToTyped, ConcatItemsd, \
     CropForegroundd
 from tqdm import tqdm
 
@@ -35,11 +35,8 @@ transforms = Compose([
     CenterSpatialCropd(keys=["image"] + SEGMENTATION, roi_size=(128, 128, -1,),
                        allow_missing_keys=True),
 
-    # scale intensities
-    ClipIntensityPercentilesd(
-        keys=["image"],
-        lower=1, upper=99, channel_wise=True),
-    NormalizeIntensityd(keys=["image"], nonzero=True, channel_wise=True),
+    # remove extreme values
+    ClipIntensityPercentilesd(keys=["image"], lower=1, upper=99, channel_wise=True),
 
     # ensure right format
     CastToTyped(keys=["image", "label"], dtype=(torch.float32, torch.uint8))
@@ -64,18 +61,21 @@ def preprocess():
         image = data['image']
         label = data['label']
 
-        num_slices = image.shape[-1]
+        mean_vals = torch.mean(image, dim=(1, 2, 3)).numpy()
+        std_vals = torch.std(image, dim=(1, 2, 3)).numpy()
 
-        for s in range(num_slices):
+        for s in range(image.shape[-1]):
             slice_image = image[..., s]
             slice_label = label[..., s]
 
             save_path = os.path.join(volume_dir, f"slice{s:03d}.npz")
 
-            np.savez(
+            np.savez_compressed(
                 save_path,
                 image=slice_image,
                 label=slice_label,
+                mean=mean_vals,
+                std=std_vals
             )
 
 
