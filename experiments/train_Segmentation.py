@@ -5,7 +5,7 @@ import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from src.cfgan_mnist.core.Datasets.dataset import get_datasets
+from src.cfgan_mnist.core.datasets.dataset import get_datasets
 from src.cfgan_mnist.core.segmentation_trainer import SegmentationTrainer
 from src.cfgan_mnist.models.segmentation import SegmentationUNet
 

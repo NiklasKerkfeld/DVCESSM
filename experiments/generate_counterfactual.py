@@ -9,15 +9,15 @@ import torchvision
 from torch import Tensor
 from torchvision.utils import make_grid
 
-from src.cfgan_mnist.core.Baseline.generator import BaselineGenerator
-from src.cfgan_mnist.core.Datasets.brats_dataset import BraTSDataset
-from src.cfgan_mnist.core.Datasets.celebamask_dataset import CelebAMaskDataset
-from src.cfgan_mnist.core.Diffusion.generator import CounterfactualGenerator
-from src.cfgan_mnist.core.Datasets.dataset import get_datasets
-from src.cfgan_mnist.core.Diffusion.engine import Engine
-from src.cfgan_mnist.models.diffusion_model_new import DiffusionModel
-from src.cfgan_mnist.models.segmentation import SegmentationUNet
-from src.cfgan_mnist.utils.utils import visualize_seg, visualize_counterfactuals, visualize_adaption
+from src.diff_cf.core.baseline.generator import BaselineGenerator
+from src.diff_cf.core.datasets.brats_dataset import BraTSDataset
+from src.diff_cf.core.datasets.celebamask_dataset import CelebAMaskDataset
+from src.diff_cf.core.diffusion.generator import CounterfactualGenerator
+from src.diff_cf.core.datasets.dataset import get_datasets
+from src.diff_cf.core.diffusion.engine import Engine
+from src.diff_cf.models.diffusion_model_new import DiffusionModel
+from src.diff_cf.models.segmentation import SegmentationUNet
+from src.diff_cf.utils.utils import visualize_seg, visualize_counterfactuals, visualize_adaption
 
 
 def visualize_rgb(dataset: CelebAMaskDataset,

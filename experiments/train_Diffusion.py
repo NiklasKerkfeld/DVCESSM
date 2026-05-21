@@ -5,10 +5,10 @@ import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from src.cfgan_mnist.core.Datasets.dataset import get_datasets
+from src.cfgan_mnist.core.datasets.dataset import get_datasets
 from src.cfgan_mnist.models.diffusion_model_new import DiffusionModel
-from src.cfgan_mnist.core.Diffusion.engine import Engine
-from src.cfgan_mnist.core.Diffusion.trainer import Trainer
+from src.cfgan_mnist.core.diffusion.engine import Engine
+from src.cfgan_mnist.core.diffusion.trainer import Trainer
 
 torch.manual_seed(42)
 if torch.cuda.is_available():

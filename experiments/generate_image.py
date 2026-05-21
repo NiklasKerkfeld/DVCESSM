@@ -7,8 +7,8 @@ from omegaconf import DictConfig
 from torchvision.utils import save_image
 from tqdm import tqdm
 
-from src.cfgan_mnist.core.Datasets.dataset import get_datasets
-from src.cfgan_mnist.core.Diffusion.engine import Engine
+from src.cfgan_mnist.core.datasets.dataset import get_datasets
+from src.cfgan_mnist.core.diffusion.engine import Engine
 from src.cfgan_mnist.models.diffusion_model_new import DiffusionModel
 
 @torch.no_grad()
