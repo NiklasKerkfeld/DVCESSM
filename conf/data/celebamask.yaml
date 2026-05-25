@@ -12,7 +12,7 @@
   max: 1.0
 
   dataset:
-    _target_: core.Datasets.CelebAMaskDataset.CelebAMaskDataset
+    _target_: datasets.celebamask.CelebAMaskDataset
     means: [0.5170, 0.4166, 0.3633]
     stds: [0.2652, 0.2379, 0.2308]
     prob_blur: 0.25

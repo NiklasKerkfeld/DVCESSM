@@ -28,7 +28,8 @@ def lint(session):
         "pylint",
         # This hook forces Pylint to add 'src' to the python path during analysis
         "--init-hook=import sys; sys.path.append('src')",
-        "src/cfgan_mnist"
+        "src/cfgan_mnist",
+        "datasets"
     )
 
 
@@ -48,7 +49,8 @@ def mypy(session):
         "--namespace-packages",
         "--implicit-reexport",  # tensorboard is untyped
         "--allow-untyped-calls",  # tensorboard is untyped
-        "src/cfgan_mnist"
+        "src/cfgan_mnist",
+        "datasets"
     )
 
 
