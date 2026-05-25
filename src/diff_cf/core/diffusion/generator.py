@@ -1,6 +1,6 @@
 """Diffusion based Counterfactual Generator."""
 
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 
 import torch
 import torchvision.utils as vutils
@@ -8,10 +8,11 @@ from omegaconf import DictConfig
 from torch import nn
 from tqdm import tqdm
 
-from cfgan_mnist.core.base_generator import BaseGenerator
-from cfgan_mnist.core.diffusion.engine import Engine
-from cfgan_mnist.models.losses import CounterfactualLoss
-from cfgan_mnist.utils.utils import visualize_adaption, visualize_seg, calc_iou
+from diff_cf.core.base_generator import BaseGenerator
+from diff_cf.core.diffusion.engine import Engine
+from diff_cf.models.losses import CounterfactualLoss
+from diff_cf.utils.cone_projection import cone_projection
+from diff_cf.utils.utils import visualize_adaption, visualize_seg, calc_iou
 
 
 class CounterfactualGenerator(BaseGenerator):
@@ -22,6 +23,7 @@ class CounterfactualGenerator(BaseGenerator):
                  engine: Engine,
                  device: torch.device,
                  cfg: DictConfig,
+                 robust_segmentation: Optional[nn.Module] = None,
                  name: str='counterfactual') -> None:
         """
         Diffusion based Counterfactual Generator.
@@ -42,8 +44,13 @@ class CounterfactualGenerator(BaseGenerator):
         self.weight_segmentation = cfg.generation.weight_segmentation
         self.weight_distance = cfg.generation.weight_distance
         self.start_fraction = cfg.generation.start_fraction
+        self.alpha = cfg.generation.alpha
 
         self.diffusion_model.to(self.device).eval()
+
+        self.robust_segmentation = robust_segmentation
+        if self.robust_segmentation is not None:
+            self.robust_segmentation.to(self.device).eval()
 
     @torch.no_grad()
     def _generate_counterfactual(self,
@@ -99,8 +106,15 @@ class CounterfactualGenerator(BaseGenerator):
         logits = self.segmentation_model(approx_image_batch)
 
         # Loss and Gradients
-        loss_c = loss_fn(logits)
-        grad_c = torch.autograd.grad(loss_c, x, retain_graph=True)[0]
+        loss_seg = loss_fn(logits)
+        grad_c = torch.autograd.grad(loss_seg, x, retain_graph=True)[0]
+
+        if self.robust_segmentation is not None:
+            logits_rob = self.robust_segmentation(approx_image_batch)
+            loss_rob = loss_fn(logits_rob)
+            grad_rob = torch.autograd.grad(loss_rob, x, retain_graph=True)[0]
+
+            grad_c = cone_projection(grad_c, grad_rob, self.alpha)
 
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)

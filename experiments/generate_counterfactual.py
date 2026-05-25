@@ -161,7 +161,25 @@ def main(cfg: DictConfig):
     segmentation.load_state_dict(checkpoint['model_state_dict'])
 
     if cfg.generation.type == 'Diffusion':
-        diffusion = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
+        if cfg.segmentation.robust is not None:
+            robust_model = SegmentationUNet(
+                in_channels=cfg.data.image_channels,
+                out_channels=cfg.data.n_classes,
+                img_width=cfg.data.image_width,
+                img_height=cfg.data.image_height,
+                attention=cfg.segmentation.attention,
+            )
+            checkpoint = torch.load(
+                f"{cfg.segmentation.checkpoint_path}/{cfg.segmentation.robust}.pt",
+                map_location=device
+            )
+            robust_model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            robust_model = None
+
+        diffusion = DiffusionModel(cfg.data.image_channels,
+                                   cfg.data.image_width,
+                                   cfg.data.image_height,
                                    cfg.diffusion.time_dim)
 
         checkpoint = torch.load(
@@ -172,7 +190,13 @@ def main(cfg: DictConfig):
 
         engine = Engine(cfg, device=device)
 
-        generator = CounterfactualGenerator(segmentation, diffusion, engine, device, cfg, name=run_name)
+        generator = CounterfactualGenerator(segmentation,
+                                            diffusion,
+                                            engine,
+                                            device,
+                                            cfg,
+                                            robust_model,
+                                            name=run_name)
 
     else:
         generator = BaselineGenerator(segmentation, device, cfg, name=run_name)

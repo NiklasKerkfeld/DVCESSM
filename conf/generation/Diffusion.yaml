@@ -4,6 +4,8 @@ sample_idx: ???
 start_fraction: 0.5
 weight_segmentation: 0.15
 weight_distance: 0.15
+robust: null
+alpha: 0.471238898
 border_width: 2
 use_mask: true
 AdaptGrad:
