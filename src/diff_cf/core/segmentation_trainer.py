@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-from cfgan_mnist.core.trainer import SuperTrainer
+from diff_cf.core.trainer import SuperTrainer
 
 
 class SegmentationTrainer(SuperTrainer):
