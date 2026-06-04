@@ -155,13 +155,13 @@ def main(cfg: DictConfig):
         attention=cfg.segmentation.attention,
     )
     checkpoint = torch.load(
-        f"{cfg.segmentation.checkpoint_path}/{cfg.segmentation.name}.pt",
+        f"{cfg.segmentation.checkpoint_path}/{cfg.generation.model}.pt",
         map_location=device
     )
     segmentation.load_state_dict(checkpoint['model_state_dict'])
 
     if cfg.generation.type == 'Diffusion':
-        if cfg.segmentation.robust is not None:
+        if cfg.generation.robust is not None:
             robust_model = SegmentationUNet(
                 in_channels=cfg.data.image_channels,
                 out_channels=cfg.data.n_classes,
@@ -170,7 +170,7 @@ def main(cfg: DictConfig):
                 attention=cfg.segmentation.attention,
             )
             checkpoint = torch.load(
-                f"{cfg.segmentation.checkpoint_path}/{cfg.segmentation.robust}.pt",
+                f"{cfg.segmentation.checkpoint_path}/{cfg.generation.robust}.pt",
                 map_location=device
             )
             robust_model.load_state_dict(checkpoint['model_state_dict'])
