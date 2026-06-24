@@ -4,7 +4,7 @@ from typing import Optional, List
 import torch
 from torch import nn
 
-from diff_cf.models.layer import ConvLayer, AttentionBlock, ResidualBlock
+from .layer import ConvLayer, AttentionBlock, ResidualBlock
 
 
 class UpBlock(nn.Module):

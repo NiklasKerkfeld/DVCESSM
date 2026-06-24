@@ -12,10 +12,10 @@ from torch.utils.data import Dataset
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-from diff_cf.core.diffusion.engine import Engine
-from diff_cf.core.trainer import BaseTrainer
-from diff_cf.models.diffusion_model import DiffusionModel
-from diff_cf.utils.utils import to_vis
+from .engine import Engine
+from ..trainer import BaseTrainer
+from ...models.diffusion_model import DiffusionModel
+from ...utils.utils import to_vis
 
 
 class Trainer(BaseTrainer):

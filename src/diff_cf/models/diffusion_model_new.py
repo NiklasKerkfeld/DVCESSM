@@ -6,7 +6,7 @@ from typing import Optional, List
 import torch
 from torch import nn
 
-from diff_cf.models.layer import AttentionBlock
+from .layer import AttentionBlock
 
 
 class DiffusionConvLayer(nn.Module):

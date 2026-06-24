@@ -7,9 +7,9 @@ from torch import nn
 from torch.optim import Adam
 from tqdm import trange
 
-from diff_cf.core.base_generator import BaseGenerator
-from diff_cf.models.losses import CounterfactualLoss
-from diff_cf.utils.utils import calc_iou, visualize_seg
+from ..base_generator import BaseGenerator
+from ...models.losses import CounterfactualLoss
+from ...utils.utils import calc_iou, visualize_seg
 
 
 class BaselineGenerator(BaseGenerator):

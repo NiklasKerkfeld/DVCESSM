@@ -8,11 +8,11 @@ from omegaconf import DictConfig
 from torch import nn
 from tqdm import tqdm
 
-from diff_cf.core.base_generator import BaseGenerator
-from diff_cf.core.diffusion.engine import Engine
-from diff_cf.models.losses import CounterfactualLoss
-from diff_cf.utils.cone_projection import cone_projection
-from diff_cf.utils.utils import visualize_adaption, visualize_seg, calc_iou
+from ..base_generator import BaseGenerator
+from .engine import Engine
+from ...models.losses import CounterfactualLoss
+from ...utils.cone_projection import cone_projection
+from ...utils.utils import visualize_adaption, visualize_seg, calc_iou
 
 
 class CounterfactualGenerator(BaseGenerator):

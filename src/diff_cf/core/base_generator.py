@@ -8,8 +8,8 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
-from diff_cf.utils.adapt_grad import AdaptGrad
-from diff_cf.utils.utils import visualize_seg
+from ..utils.adapt_grad import AdaptGrad
+from ..utils.utils import visualize_seg
 
 
 class BaseGenerator:
