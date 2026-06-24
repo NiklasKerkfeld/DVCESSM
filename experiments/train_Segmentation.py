@@ -5,9 +5,10 @@ import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from src.cfgan_mnist.core.datasets.dataset import get_datasets
-from src.cfgan_mnist.core.segmentation_trainer import SegmentationTrainer
-from src.cfgan_mnist.models.segmentation import SegmentationUNet
+from datasets.base import get_datasets
+from datasets.celebamask import get_ood_datasets
+from src.diff_cf.core.segmentation_trainer import SegmentationTrainer
+from src.diff_cf.models.segmentation import SegmentationUNet
 
 torch.manual_seed(42)
 if torch.cuda.is_available():
@@ -32,7 +33,13 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    train_dataset, test_dataset = get_datasets(cfg)
+    if cfg.segmentation.ood is None:
+        train_dataset, test_dataset = get_datasets(cfg,
+                                                   cfg.segmentation.use_augmentations)
+    else:
+        train_dataset, test_dataset = get_ood_datasets(cfg,
+                                                       cfg.segmentation.ood,
+                                                       cfg.segmentation.use_augmentations)
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
 

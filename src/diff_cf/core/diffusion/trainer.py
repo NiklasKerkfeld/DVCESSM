@@ -13,12 +13,12 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from diff_cf.core.diffusion.engine import Engine
-from diff_cf.core.trainer import SuperTrainer
+from diff_cf.core.trainer import BaseTrainer
 from diff_cf.models.diffusion_model import DiffusionModel
 from diff_cf.utils.utils import to_vis
 
 
-class Trainer(SuperTrainer):
+class Trainer(BaseTrainer):
     """Trainer for the Diffusion model."""
     def __init__(self,
                  dataset: Dataset[Tuple[torch.Tensor, torch.Tensor]],
@@ -35,6 +35,7 @@ class Trainer(SuperTrainer):
         self.lr = cfg.diffusion.lr
         self.accumulation_steps = cfg.data.accumulation_steps
         self.checkpoint = cfg.diffusion.checkpoint_path
+        self.use_target = cfg.diffusion.use_target
 
         # --- EMA Setup ---
         self.ema_decay = cfg.diffusion.get("ema_decay", 0.999)
@@ -112,11 +113,11 @@ class Trainer(SuperTrainer):
                        total=len(self.train_dataloader ),
                        desc=f"Epoch {self.epoch}")
 
-            for i, (x, _) in enumerate(progress_bar):
+            for i, (x, y) in enumerate(progress_bar):
                 x = x.to(self.device)
                 x_t, noise, t = self.engine.sample(x)
 
-                pred = self.model(x_t, t)
+                pred = self.model(x_t, y, t) if self.use_target else self.model(x_t, t)
                 loss = self.loss_fn(pred, noise)
                 loss.backward()
 
