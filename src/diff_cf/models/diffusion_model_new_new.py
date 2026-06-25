@@ -4,8 +4,8 @@ from typing import Optional, List
 import torch
 from torch import nn
 
-from models.diffusion_model_new import DiffusionConvLayer, DownBlock, UpBlock
-from models.layer import AttentionBlock
+from .diffusion_model_new import DiffusionConvLayer, DownBlock, UpBlock
+from .layer import AttentionBlock
 
 
 class DiffusionModel(nn.Module):
