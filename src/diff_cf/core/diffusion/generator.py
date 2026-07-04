@@ -47,9 +47,9 @@ class CounterfactualGenerator(BaseGenerator):
         self.alpha = cfg.generation.alpha
 
         self.z_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) /
-                 torch.tensor(cfg.data.dataset.stds))
+                 torch.tensor(cfg.data.dataset.stds)).to(self.device)
         self.z_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) /
-                 torch.tensor(cfg.data.dataset.stds))
+                 torch.tensor(cfg.data.dataset.stds)).to(self.device)
 
         self.diffusion_model.to(self.device).eval()
 
