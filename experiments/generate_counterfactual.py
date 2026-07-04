@@ -31,6 +31,8 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     image, target = dataset[n][0], dataset[n][1]
     image = dataset.denormalize(image)
     counterfactual = dataset.denormalize(counterfactual[0])
+    print("min: ", counterfactual.min(), "max: ", counterfactual.max())
+    print((counterfactual < 0).float().mean(), (counterfactual > 1).float().mean())
 
     target = visualize_seg(target).permute(2, 0, 1)
     pred_original = visualize_seg(prediction_org[0]).permute(2, 0, 1)
