@@ -68,7 +68,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     os.makedirs(f"{cfg.system.figures_dir}/{run_name}", exist_ok=True)
 
     with open(f"{cfg.system.figures_dir}/{run_name}/config.txt", "a") as f:
-        pickle.dump(cfg, f)
+        f.write(OmegaConf.to_yaml(cfg))
 
     torchvision.utils.save_image(target,
                                  f"{cfg.system.figures_dir}/{run_name}/target.png")
