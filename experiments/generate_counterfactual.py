@@ -41,7 +41,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     print((image < 0).float().mean(), (image > 1).float().mean())
 
     image = dataset.denormalize(image)
-    counterfactual = dataset.denormalize(counterfactual[0])
+    counterfactual = dataset.denormalize(counterfactual)
 
     print("After denormalize:")
     print("Counterfactual:")
@@ -79,7 +79,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
 
     torchvision.utils.save_image(image,
                                  f"{cfg.system.figures_dir}/{run_name}/original.png")
-    torchvision.utils.save_image(counterfactual,
+    torchvision.utils.save_image(counterfactual[0],
                                  f"{cfg.system.figures_dir}/{run_name}/counterfactual.png")
 
     for i, channel in enumerate(["red", "green", "blue"]):
@@ -91,7 +91,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     stacked_image = make_grid([
         image,
         adaption_visual[0, 0],
-        counterfactual,
+        counterfactual[0],
         pred_original,
         pred_counterfactual,
         target
