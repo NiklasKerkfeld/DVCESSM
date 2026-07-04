@@ -92,6 +92,7 @@ class CounterfactualGenerator(BaseGenerator):
                 x = mean
 
             # clamp image in image domain
+            print(f"{x.shape=}\n{self.z_min.shape=}\n{self.z_max.shape=}")
             x = x.clamp(self.z_min, self.z_max)
 
             # --- TensorBoard Logging ---
