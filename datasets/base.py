@@ -90,7 +90,7 @@ class BaseDataset(Dataset):
         m = means.view(-1, *dims).to(image.device)
         s = stds.view(-1, *dims).to(image.device)
 
-        return (image * s) + m
+        return ((image * s) + m).clamp(0.0, 1.0)
 
 
 def get_datasets(cfg: DictConfig,

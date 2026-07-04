@@ -46,6 +46,11 @@ class CounterfactualGenerator(BaseGenerator):
         self.start_fraction = cfg.generation.start_fraction
         self.alpha = cfg.generation.alpha
 
+        self.z_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) /
+                 torch.tensor(cfg.data.dataset.stds))
+        self.z_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) /
+                 torch.tensor(cfg.data.dataset.stds))
+
         self.diffusion_model.to(self.device).eval()
 
         self.robust_segmentation = robust_segmentation
@@ -85,6 +90,9 @@ class CounterfactualGenerator(BaseGenerator):
                 x = mean + sigma * torch.randn_like(image)
             else:
                 x = mean
+
+            # clamp image in image domain
+            x = x.clamp(self.z_min, self.z_max)
 
             # --- TensorBoard Logging ---
             if t % 50 == 0:
