@@ -1,5 +1,6 @@
 import glob
 import os
+import pickle
 
 import hydra
 import torch
@@ -67,7 +68,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     os.makedirs(f"{cfg.system.figures_dir}/{run_name}", exist_ok=True)
 
     with open(f"{cfg.system.figures_dir}/{run_name}/config.txt", "a") as f:
-        f.write(str(cfg))
+        pickle.dump(cfg, f)
 
     torchvision.utils.save_image(target,
                                  f"{cfg.system.figures_dir}/{run_name}/target.png")
