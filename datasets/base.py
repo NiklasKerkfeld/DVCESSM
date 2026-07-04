@@ -1,8 +1,6 @@
 """Function to handle dataset instances."""
 
 import glob
-import os
-from pathlib import Path
 from typing import Tuple, List, Union, Optional
 
 from torchvision.transforms import v2
