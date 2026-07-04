@@ -4,7 +4,7 @@ import torch
 import torchvision.utils as vutils
 from omegaconf import DictConfig
 from torch import nn
-from torch.optim import Adam
+from torch.optim import AdamW
 from tqdm import trange
 
 from ..base_generator import BaseGenerator
@@ -46,7 +46,7 @@ class BaselineGenerator(BaseGenerator):
             counterfactual: Output image.
         """
         parameter = nn.Parameter(torch.zeros_like(image))
-        optimizer = Adam([parameter], lr=self.lr)
+        optimizer = AdamW([parameter], lr=self.lr)
 
         loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)),
                                      use_mask=self.use_mask,
