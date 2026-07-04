@@ -36,14 +36,14 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     print("min: ", counterfactual.min(), "max: ", counterfactual.max())
     print((counterfactual < 0).float().mean(), (counterfactual > 1).float().mean())
 
-    print("\n Image:")
+    print("Image:")
     print("min: ", image.min(), "max: ", image.max())
     print((image < 0).float().mean(), (image > 1).float().mean())
 
     image = dataset.denormalize(image)
-    counterfactual = dataset.denormalize(counterfactual)
+    counterfactual = dataset.denormalize(counterfactual[0])
 
-    print("After denormalize:")
+    print("\nAfter denormalize:")
     print("Counterfactual:")
     print("min: ", counterfactual.min(), "max: ", counterfactual.max())
     print((counterfactual < 0).float().mean(), (counterfactual > 1).float().mean())
@@ -79,7 +79,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
 
     torchvision.utils.save_image(image,
                                  f"{cfg.system.figures_dir}/{run_name}/original.png")
-    torchvision.utils.save_image(counterfactual[0],
+    torchvision.utils.save_image(counterfactual,
                                  f"{cfg.system.figures_dir}/{run_name}/counterfactual.png")
 
     for i, channel in enumerate(["red", "green", "blue"]):
@@ -91,7 +91,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     stacked_image = make_grid([
         image,
         adaption_visual[0, 0],
-        counterfactual[0],
+        counterfactual,
         pred_original,
         pred_counterfactual,
         target
