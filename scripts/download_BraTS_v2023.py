@@ -39,14 +39,14 @@ transforms = Compose([
     ClipIntensityPercentilesd(keys=["image"], lower=1, upper=99, channel_wise=True),
 
     # ensure right format
-    CastToTyped(keys=["image", "label"], dtype=(torch.float32, torch.uint8))
+    CastToTyped(keys=["image", "label"], dtype=(torch.int16, torch.uint8))
 ])
 
 
 def preprocess():
     for sample in tqdm(glob.glob('./data/BraTS/V2024/training_data1_v2/*'), desc="preprocessing"):
         print(sample)
-        name = sample.split('/')[-1]
+        name = Path(sample).name
 
         volume_dir = f"./data/BraTS/preprocessed/{name}"
         os.makedirs(volume_dir, exist_ok=True)
