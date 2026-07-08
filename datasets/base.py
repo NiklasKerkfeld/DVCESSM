@@ -21,10 +21,8 @@ class BaseDataset(Dataset):
                  prob_blur: float = 0.0,
                  kernel_size: int = 3,
                  sigma: Union[float, Tuple[float, float]] = (0.0, 3.0),
-                 use_augmentations: bool = True,
-                 scale_factor: float = 1.0) -> None:
+                 use_augmentations: bool = True) -> None:
         self.files = samples
-        self.scale_factor = scale_factor
 
         self.means: Optional[torch.Tensor] = None
         self.stds: Optional[torch.Tensor] = None
@@ -40,7 +38,7 @@ class BaseDataset(Dataset):
     def _load(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Loads the raw file and returns (image, label) tensors."""
         data = np.load(self.files[index])
-        image = torch.from_numpy(data["image"]).float() / self.scale_factor
+        image = torch.from_numpy(data["image"]).float()
         label = torch.from_numpy(data["label"]).long().squeeze(0)
 
         if self._normalize_transform is None:

@@ -21,7 +21,7 @@ class CelebAMaskDataset(BaseDataset):
                  kernel_size: int = 3,
                  sigma: Union[float, Tuple[float, float]] = (0.0, 3.0),
                  use_augmentations: bool = True):
-        super().__init__(samples, prob_blur, kernel_size, sigma, use_augmentations, 255.0)
+        super().__init__(samples, prob_blur, kernel_size, sigma, use_augmentations)
         self.means = torch.tensor(means)
         self.stds = torch.tensor(stds)
 
