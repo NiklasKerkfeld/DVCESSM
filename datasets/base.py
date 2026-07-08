@@ -79,14 +79,27 @@ class BaseDataset(Dataset):
 
     def denormalize(self, image: torch.Tensor, index: Optional[int] = None) -> torch.Tensor:
         """
-        Reverses normalization. If an index is provided, it checks for
-        per-sample stats. Otherwise, it falls back to global stats.
+        Reverses normalization for both single images (C, H, W) and batches (B, C, H, W).
+        If an index is provided, it checks for per-sample stats. Otherwise,
+        it falls back to global stats.
         """
+        # Assuming self._stats(index) returns tensors of shape (C,)
         means, stds = self._stats(index)
 
-        dims = [1] * (image.dim() - 1)
-        m = means.view(-1, *dims).to(image.device)
-        s = stds.view(-1, *dims).to(image.device)
+        # Send stats to the correct device
+        means = means.to(image.device)
+        stds = stds.to(image.device)
+
+        # Dynamically match shapes for broadcasting
+        if image.dim() == 4:  # Batch case: (B, C, H, W)
+            m = means.view(1, -1, 1, 1)
+            s = stds.view(1, -1, 1, 1)
+        elif image.dim() == 3:  # Single image case: (C, H, W)
+            m = means.view(-1, 1, 1)
+            s = stds.view(-1, 1, 1)
+        else:
+            raise ValueError(
+                f"Unexpected image tensor shape: {image.shape}. Expected 3 or 4 dimensions.")
 
         return ((image * s) + m).clamp(0.0, 1.0)
 
