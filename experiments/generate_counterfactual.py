@@ -52,9 +52,9 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     print("min: ", image.min(), "max: ", image.max())
     print((image < 0).float().mean(), (image > 1).float().mean())
 
-    target = visualize_seg(target).permute(2, 0, 1)
-    pred_original = visualize_seg(prediction_org[0]).permute(2, 0, 1)
-    pred_counterfactual = visualize_seg(prediction_cf[0]).permute(2, 0, 1)
+    target = visualize_seg(target)
+    pred_original = visualize_seg(prediction_org[0])
+    pred_counterfactual = visualize_seg(prediction_cf[0])
 
     x_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) / torch.tensor(
         cfg.data.dataset.stds))
@@ -110,9 +110,9 @@ def visualize_mri(dataset: BraTSDataset,
                   cfg: DictConfig):
     image, target = dataset[n][0], dataset[n][1]
 
-    target = visualize_seg(target)[0].permute(2, 0, 1)
-    pred_original = visualize_seg(prediction_org)[0].permute(2, 0, 1)
-    pred_counterfactual = visualize_seg(prediction_cf)[0].permute(2, 0, 1)
+    target = visualize_seg(target)[0]
+    pred_original = visualize_seg(prediction_org)[0]
+    pred_counterfactual = visualize_seg(prediction_cf)[0]
 
     adaption = visualize_adaption(adaption)
     image, counterfactual = visualize_counterfactuals(image, counterfactual)

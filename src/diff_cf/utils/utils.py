@@ -116,7 +116,7 @@ def visualize_seg(seg_map: torch.Tensor) -> torch.Tensor:
         [.25, 1., 0.]  # Class 27
     ], dtype=torch.float32)
 
-    return palette[seg_map]
+    return palette[seg_map].permute(2, 0, 1)
 
 
 def visualize_adaption(adaption: torch.Tensor,
