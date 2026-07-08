@@ -61,8 +61,8 @@ def preprocess():
         image = data['image']
         label = data['label']
 
-        mean_vals = torch.mean(image, dim=(1, 2, 3)).numpy()
-        std_vals = torch.std(image, dim=(1, 2, 3)).numpy()
+        mean_vals = torch.mean(image.float(), dim=(1, 2, 3)).numpy()
+        std_vals = torch.std(image.float(), dim=(1, 2, 3)).numpy()
 
         for s in range(image.shape[-1]):
             slice_image = image[..., s].numpy()
