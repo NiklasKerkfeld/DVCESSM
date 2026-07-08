@@ -87,11 +87,7 @@ def main():
 
     filepath = Path('./data/BraTS/BraTS2024-BraTS-GLI-TrainingData.zip')
     if not filepath.is_file():
-        get(
-            syn,
-            "syn60086071",
-            file_options=FileOptions(download_location='./data/BraTS')
-        )
+        syn.get("syn60086071", downloadLocation='./data/BraTS')
 
         print(f"Download complete!")
 
