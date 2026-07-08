@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from monai.transforms import Compose, LoadImaged, EnsureChannelFirstd, SpatialPadd, \
     CenterSpatialCropd, ClipIntensityPercentilesd, CastToTyped, ConcatItemsd, \
     CropForegroundd
-from synapseclient.operations import get
+from synapseclient.operations import get, FileOptions
 from tqdm import tqdm
 
 KEYS = ["T1", "T1ce", "T2", "FLAIR"]
@@ -87,7 +87,11 @@ def main():
 
     filepath = Path('./data/BraTS/BraTS2024-BraTS-GLI-TrainingData.zip')
     if not filepath.is_file():
-        get(syn, "syn60086071", downloadLocation='./data/BraTS')
+        get(
+            syn,
+            "syn60086071",
+            file_options=FileOptions(download_location='./data/BraTS')
+        )
 
         print(f"Download complete!")
 
