@@ -41,7 +41,7 @@ class DiffusionModel(nn.Module):
         self.width = width
         self.height = height
         self.use_prior = use_prior
-        self.num_classes = num_classes if use_prior else 0
+        self.num_prior_channels = num_classes if use_prior else 0
         self.nums_features = nums_features
 
         half_dim = self.time_dim // 2
@@ -56,43 +56,27 @@ class DiffusionModel(nn.Module):
         )
 
         # --- FIRST CONVOLUTION ---
-        in_ch = channels + self.num_classes
-        self.conv1 = DiffusionConvLayer(in_ch, self.nums_features[0], kernel_size=3, padding=1)
+        self.conv1 = DiffusionConvLayer(channels + self.num_prior_channels, self.nums_features[0], kernel_size=3, padding=1)
 
         # --- STAGE 1: Downsample & Expand (64 -> 128) ---
-        if self.use_prior:
-            self.down1 = DiffusionConvLayer(self.nums_features[0], self.nums_features[0], kernel_size=3, padding=1, stride=2)
-            self.block1a = DownBlock(self.nums_features[0] + self.num_classes, self.nums_features[1], self.time_dim)
-        else:
-            self.down1 = DiffusionConvLayer(self.nums_features[0], self.nums_features[1], kernel_size=3, padding=1, stride=2)
-            self.block1a = DownBlock(self.nums_features[1], self.nums_features[1], self.time_dim)
+        self.down1 = DiffusionConvLayer(self.nums_features[0], self.nums_features[0], kernel_size=3, padding=1, stride=2)
+        self.block1a = DownBlock(self.nums_features[0] + self.num_prior_channels, self.nums_features[1], self.time_dim)
+
         self.block1b = DownBlock(self.nums_features[1], self.nums_features[1], self.time_dim)
 
         # --- STAGE 2: Downsample & Expand (128 -> 256) ---
-        if self.use_prior:
-            self.down2 = DiffusionConvLayer(self.nums_features[1], self.nums_features[1], kernel_size=3, padding=1, stride=2)
-            self.block2a = DownBlock(self.nums_features[1] + self.num_classes, self.nums_features[2], self.time_dim)
-        else:
-            self.down2 = DiffusionConvLayer(self.nums_features[1], self.nums_features[2], kernel_size=3, padding=1, stride=2)
-            self.block2a = DownBlock(self.nums_features[2], self.nums_features[2], self.time_dim)
+        self.down2 = DiffusionConvLayer(self.nums_features[1], self.nums_features[1], kernel_size=3, padding=1, stride=2)
+        self.block2a = DownBlock(self.nums_features[1] + self.num_prior_channels, self.nums_features[2], self.time_dim)
         self.block2b = DownBlock(self.nums_features[2], self.nums_features[2], self.time_dim)
 
         # --- STAGE 3: Downsample & Expand (256 -> 512) ---
-        if self.use_prior:
-            self.down3 = DiffusionConvLayer(self.nums_features[2], self.nums_features[2], kernel_size=3, padding=1, stride=2)
-            self.block3a = DownBlock(self.nums_features[2] + self.num_classes, self.nums_features[3], self.time_dim)
-        else:
-            self.down3 = DiffusionConvLayer(self.nums_features[2], self.nums_features[3], kernel_size=3, padding=1, stride=2)
-            self.block3a = DownBlock(self.nums_features[3], self.nums_features[3], self.time_dim)
+        self.down3 = DiffusionConvLayer(self.nums_features[2], self.nums_features[2], kernel_size=3, padding=1, stride=2)
+        self.block3a = DownBlock(self.nums_features[2] + self.num_prior_channels, self.nums_features[3], self.time_dim)
         self.block3b = DownBlock(self.nums_features[3], self.nums_features[3], self.time_dim)
 
         # --- STAGE 4: Downsample & Expand (512 -> 1024) ---
-        if self.use_prior:
-            self.down4 = DiffusionConvLayer(self.nums_features[3], self.nums_features[3], kernel_size=3, padding=1, stride=2)
-            self.block4a = DownBlock(self.nums_features[3] + self.num_classes, self.nums_features[4], self.time_dim)
-        else:
-            self.down4 = DiffusionConvLayer(self.nums_features[3], self.nums_features[4], kernel_size=3, padding=1, stride=2)
-            self.block4a = DownBlock(self.nums_features[4], self.nums_features[4], self.time_dim)
+        self.down4 = DiffusionConvLayer(self.nums_features[3], self.nums_features[3], kernel_size=3, padding=1, stride=2)
+        self.block4a = DownBlock(self.nums_features[3] + self.num_prior_channels, self.nums_features[4], self.time_dim)
         self.block4b = DownBlock(self.nums_features[4], self.nums_features[4], self.time_dim)
 
         # --- MIDDLE STAGE ---
@@ -100,15 +84,15 @@ class DiffusionModel(nn.Module):
         self.middel_att = AttentionBlock(self.nums_features[4], self.width // 16, self.height // 16)
 
         # --- DECODER STAGES ---
-        self.up1 = UpBlock(self.nums_features[4] + self.num_classes, self.nums_features[4], self.nums_features[3], self.time_dim)
+        self.up1 = UpBlock(self.nums_features[4] + self.num_prior_channels, self.nums_features[4], self.nums_features[3], self.time_dim)
         self.up1_att = AttentionBlock(self.nums_features[3], self.width // 8, self.height // 8)
 
-        self.up2 = UpBlock(self.nums_features[3] + self.num_classes, self.nums_features[3], self.nums_features[2], self.time_dim)
+        self.up2 = UpBlock(self.nums_features[3] + self.num_prior_channels, self.nums_features[3], self.nums_features[2], self.time_dim)
         self.up2_att = AttentionBlock(self.nums_features[2], self.width // 4, self.height // 4)
 
-        self.up3 = UpBlock(self.nums_features[2] + self.num_classes, self.nums_features[2], self.nums_features[1], self.time_dim)
-        self.up4 = UpBlock(self.nums_features[1] + self.num_classes, self.nums_features[1], self.nums_features[0], self.time_dim)
-        self.up5 = UpBlock(self.nums_features[0] + self.num_classes, self.nums_features[0], self.nums_features[0], self.time_dim, scale_factor=1.0)
+        self.up3 = UpBlock(self.nums_features[2] + self.num_prior_channels, self.nums_features[2], self.nums_features[1], self.time_dim)
+        self.up4 = UpBlock(self.nums_features[1] + self.num_prior_channels, self.nums_features[1], self.nums_features[0], self.time_dim)
+        self.up5 = UpBlock(self.nums_features[0] + self.num_prior_channels, self.nums_features[0], self.nums_features[0], self.time_dim, scale_factor=1.0)
 
         self.final_conv = DiffusionConvLayer(self.nums_features[0], channels, kernel_size=3,
                                              padding=1, activation=nn.Identity(), apply_norm=False)
@@ -128,7 +112,7 @@ class DiffusionModel(nn.Module):
 
         # Optional: Prepare target prior mask
         if self.use_prior:
-            t_h1 = F.one_hot(target, num_classes=self.num_classes).permute(0, 3, 1, 2).float()
+            t_h1 = F.one_hot(target, num_classes=self.num_prior_channels).permute(0, 3, 1, 2).float()
             x = torch.concat((t_h1, x), dim=1)
 
         # First convolution

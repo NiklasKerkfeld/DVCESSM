@@ -6,7 +6,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 from datasets.base import get_datasets
-from src.diff_cf.models.diffusion_model_new_new import DiffusionModel
+from src.diff_cf.models.diffusion_model_final import DiffusionModel
 from src.diff_cf.core.diffusion.engine import Engine
 from src.diff_cf.core.diffusion.trainer import Trainer
 
@@ -33,10 +33,12 @@ def main(cfg: DictConfig):
 
     dataset, _ = get_datasets(cfg)
 
-    model = DiffusionModel(cfg.data.image_channels,
-                           cfg.data.image_width,
-                           cfg.data.image_height,
-                           cfg.diffusion.time_dim)
+    model = DiffusionModel(channels=cfg.data.image_channels,
+                           width=cfg.data.image_width,
+                           height=cfg.data.image_height,
+                           time_dim=cfg.diffusion.time_dim,
+                           use_prior=cfg.diffusion.use_target,
+                           num_classes=cfg.data.num_prior_channels)
     engine = Engine(cfg, device=device)
 
     trainer = Trainer(
