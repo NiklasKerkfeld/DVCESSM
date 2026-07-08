@@ -33,7 +33,9 @@ def main(cfg: DictConfig):
 
     dataset, _ = get_datasets(cfg)
 
-    model = DiffusionModel(cfg.data.image_channels, cfg.data.image_width, cfg.data.image_height,
+    model = DiffusionModel(cfg.data.image_channels,
+                           cfg.data.image_width,
+                           cfg.data.image_height,
                            cfg.diffusion.time_dim)
     engine = Engine(cfg, device=device)
 
