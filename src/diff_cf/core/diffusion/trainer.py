@@ -248,5 +248,6 @@ class Trainer(BaseTrainer):
                       x_0_recon: torch.Tensor,
                       x_t: torch.Tensor) -> None:
 
-        images = [self._visualize_image(x) for x in x_0_recon] + [self._visualize_image(x) for x in x_t]
-        self._log_images(images, f"Visual_Check/T_{t}")
+        x_t = [self._visualize_image(x) for x in x_t]
+        x_0 = [self._visualize_image(x) for x in x_0_recon]
+        self._log_images(x_t + x_0, f"Visual_Check/T_{t}")
