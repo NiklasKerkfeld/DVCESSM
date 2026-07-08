@@ -205,7 +205,8 @@ class Trainer(BaseTrainer):
         self.model.train()
 
     @torch.no_grad()
-    def _visualize_one_step(self, images: torch.Tensor,
+    def _visualize_one_step(self,
+                            images: torch.Tensor,
                             use_ema: bool = True,
                             targets: Optional[torch.Tensor] = None) -> None:
         """
@@ -238,14 +239,14 @@ class Trainer(BaseTrainer):
 
             x_0_recon = self.engine.image_approximation(x_t, epsilon_pred, t_tensor)
 
-            self._log_one_step(self.epoch, t, x_0_recon, x_t)
+            self._log_one_step(t, x_0_recon, x_t)
 
         self.model.train()
 
-    def _log_one_step(self, epoch: int,
+    def _log_one_step(self,
                       t: int,
                       x_0_recon: torch.Tensor,
                       x_t: torch.Tensor) -> None:
-        comparison = torch.cat([to_vis(x_t), to_vis(x_0_recon)], dim=0)
-        grid = make_grid(self._visualize_image(comparison), nrow=4)
-        self.writer.add_image(f"Visual_Check/T_{t}", grid, epoch)
+
+        images = [self._visualize_image(x) for x in x_0_recon] + [self._visualize_image(x) for x in x_t]
+        self._log_images(images, f"Visual_Check/T_{t}")
