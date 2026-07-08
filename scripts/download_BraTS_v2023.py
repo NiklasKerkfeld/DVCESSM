@@ -1,16 +1,16 @@
 import glob
-from pathlib import Path
 import os
+import zipfile
+from pathlib import Path
 
 import numpy as np
 import synapseclient
-import zipfile
-
 import torch
 from matplotlib import pyplot as plt
 from monai.transforms import Compose, LoadImaged, EnsureChannelFirstd, SpatialPadd, \
     CenterSpatialCropd, ClipIntensityPercentilesd, CastToTyped, ConcatItemsd, \
     CropForegroundd
+from synapseclient.operations import get
 from tqdm import tqdm
 
 KEYS = ["T1", "T1ce", "T2", "FLAIR"]
@@ -65,8 +65,8 @@ def preprocess():
         std_vals = torch.std(image, dim=(1, 2, 3)).numpy()
 
         for s in range(image.shape[-1]):
-            slice_image = image[..., s]
-            slice_label = label[..., s]
+            slice_image = image[..., s].numpy()
+            slice_label = label[..., s].numpy()
 
             save_path = os.path.join(volume_dir, f"slice{s:03d}.npz")
 
@@ -87,7 +87,7 @@ def main():
 
     filepath = Path('./data/BraTS/BraTS2024-BraTS-GLI-TrainingData.zip')
     if not filepath.is_file():
-        syn.get(entity='syn60086071', downloadLocation='./data/BraTS')
+        get(syn, "syn60086071", downloadLocation='./data/BraTS')
 
         print(f"Download complete!")
 
