@@ -38,7 +38,7 @@ def main(cfg: DictConfig):
                            height=cfg.data.image_height,
                            time_dim=cfg.diffusion.time_dim,
                            use_prior=cfg.diffusion.use_target,
-                           num_classes=cfg.data.num_prior_channels)
+                           num_classes=cfg.data.n_classes)
     engine = Engine(cfg, device=device)
 
     trainer = Trainer(
