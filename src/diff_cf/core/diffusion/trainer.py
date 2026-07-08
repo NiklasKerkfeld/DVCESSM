@@ -117,7 +117,7 @@ class Trainer(BaseTrainer):
                 x = x.to(self.device)
                 x_t, noise, t = self.engine.sample(x)
 
-                pred = self.model(x_t, y, t) if self.use_target else self.model(x_t, t)
+                pred = self.model(x_t, t, y) if self.use_target else self.model(x_t, t)
                 loss = self.loss_fn(pred, noise)
                 loss.backward()
 
