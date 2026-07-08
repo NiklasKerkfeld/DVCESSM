@@ -2,7 +2,7 @@
 
 import copy
 import os
-from typing import Tuple
+from typing import Tuple, Optional
 
 import torch
 from omegaconf import DictConfig
@@ -15,11 +15,12 @@ from tqdm import tqdm
 from .engine import Engine
 from ..trainer import BaseTrainer
 from ...models.diffusion_model_final import DiffusionModel
-from ...utils.utils import to_vis
+from ...utils.utils import to_vis, visualize_seg
 
 
 class Trainer(BaseTrainer):
     """Trainer for the Diffusion model."""
+
     def __init__(self,
                  dataset: Dataset[Tuple[torch.Tensor, torch.Tensor]],
                  model: DiffusionModel,
@@ -102,6 +103,10 @@ class Trainer(BaseTrainer):
             None
         """
         samples = torch.stack([self.dataset[i][0] for i in range(4)])
+        sample_targets = torch.stack([self.dataset[i][1] for i in range(4)])
+
+        self._log_images(self._visualize_image(samples), "samples/images")
+        self._log_images(visualize_seg(sample_targets), "samples/targets")
 
         self.model.train()
 
@@ -110,8 +115,8 @@ class Trainer(BaseTrainer):
             self.optimizer.zero_grad()
 
             progress_bar = tqdm(self.train_dataloader,
-                       total=len(self.train_dataloader ),
-                       desc=f"Epoch {self.epoch}")
+                                total=len(self.train_dataloader),
+                                desc=f"Epoch {self.epoch}")
 
             for i, (x, y) in enumerate(progress_bar):
                 x = x.to(self.device)
@@ -136,8 +141,8 @@ class Trainer(BaseTrainer):
 
             # visualization
             self.writer.add_scalar("loss", torch.mean(losses), self.epoch)
-            self._visualize_one_step(samples)
-            self._visualize_sampling()
+            self._visualize_one_step(samples, targets=sample_targets)
+            self._visualize_sampling(targets=sample_targets)
             self.writer.flush()
 
             self.save_checkpoint()
@@ -146,11 +151,14 @@ class Trainer(BaseTrainer):
         print("Training complete and logs flushed.")
 
     @torch.no_grad()
-    def generate_image(self, batch_size: int = 1, use_ema: bool = True) -> torch.Tensor:
+    def generate_image(self, batch_size: int = 1,
+                       use_ema: bool = True,
+                       targets: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Generates images.
         Args:
             batch_size: number of images.
+            targets: tensor with targets if model was trained with prior targets
             use_ema: use ema model
 
         Returns:
@@ -160,13 +168,20 @@ class Trainer(BaseTrainer):
         model.eval()
 
         images = torch.randn(batch_size, model.channels, model.width, model.height).to(self.device)
+
+        if self.use_target:
+            targets = targets.to(self.device)
+
         model.to(self.device)
 
         for t in reversed(range(self.engine.T)):
             t_tensor = torch.full((images.shape[0],), t, device=self.device)
-            epsilon_pred = model(images, t_tensor)
+            if self.use_target:
+                epsilon_pred = model(images, t_tensor, targets)
+            else:
+                epsilon_pred = model(images, t_tensor)
 
-            # calculate mean of image at t-1
+                # calculate mean of image at t-1
             mean = self.engine.reverse(images, epsilon_pred, t_tensor)
 
             if t > 0:
@@ -179,23 +194,29 @@ class Trainer(BaseTrainer):
         return images.detach()
 
     @torch.no_grad()
-    def _visualize_sampling(self, use_ema: bool = True) -> None:
+    def _visualize_sampling(self, use_ema: bool = True,
+                            targets: Optional[torch.Tensor] = None) -> None:
         self.model.eval()
 
-        samples = self.generate_image(batch_size=4, use_ema=use_ema)
+        samples = self.generate_image(batch_size=4, use_ema=use_ema, targets=targets)
         grid = make_grid(self._visualize_image(samples), nrow=4)
         self.writer.add_image("Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
 
     @torch.no_grad()
-    def _visualize_one_step(self, images: torch.Tensor, use_ema: bool = True) -> None:
+    def _visualize_one_step(self, images: torch.Tensor,
+                            use_ema: bool = True,
+                            targets: Optional[torch.Tensor] = None) -> None:
         """
         fixed_images: A batch of clean images (x0) normalized to [-1, 1].
         """
         model = self.ema_model if use_ema else self.model
         model.eval()
         images = images.to(self.device)
+
+        if self.use_target:
+            targets = targets.to(self.device)
 
         check_steps = [
             int(self.engine.T * 0.1),
@@ -210,7 +231,10 @@ class Trainer(BaseTrainer):
             t_tensor = torch.full((images.shape[0],), t, device=self.device)
             x_t, _ = self.engine.diffuse(images, t_tensor)
 
-            epsilon_pred = model(x_t, t_tensor)
+            if self.use_target:
+                epsilon_pred = model(images, t_tensor, targets)
+            else:
+                epsilon_pred = model(images, t_tensor)
 
             x_0_recon = self.engine.image_approximation(x_t, epsilon_pred, t_tensor)
 
@@ -218,7 +242,10 @@ class Trainer(BaseTrainer):
 
         self.model.train()
 
-    def _log_one_step(self, epoch: int, t: int, x_0_recon: torch.Tensor, x_t: torch.Tensor) -> None:
+    def _log_one_step(self, epoch: int,
+                      t: int,
+                      x_0_recon: torch.Tensor,
+                      x_t: torch.Tensor) -> None:
         comparison = torch.cat([to_vis(x_t), to_vis(x_0_recon)], dim=0)
         grid = make_grid(self._visualize_image(comparison), nrow=4)
         self.writer.add_image(f"Visual_Check/T_{t}", grid, epoch)

@@ -5,6 +5,7 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchvision.utils import make_grid
 
 
 class BaseTrainer:
@@ -60,3 +61,7 @@ class BaseTrainer:
             return image[:, 0, None]
 
         return self.dataset.denormalize(image)
+
+    def _log_images(self, images: torch.Tensor, label: str):
+        grid = make_grid(images, nrow=4)
+        self.writer.add_image(label, grid, global_step=self.epoch)
