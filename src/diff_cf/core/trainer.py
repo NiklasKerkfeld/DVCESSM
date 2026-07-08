@@ -63,5 +63,6 @@ class BaseTrainer:
         return self.dataset.denormalize(image)
 
     def _log_images(self, images: torch.Tensor | List[torch.Tensor], label: str):
+        print(f"{label}: {images[0].shape} {images[0].dtype}")
         grid = make_grid(images, nrow=4)
         self.writer.add_image(label, grid, global_step=self.epoch)
