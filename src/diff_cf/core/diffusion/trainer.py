@@ -105,8 +105,8 @@ class Trainer(BaseTrainer):
         samples = torch.stack([self.dataset[i][0] for i in range(4)])
         sample_targets = torch.stack([self.dataset[i][1] for i in range(4)])
 
-        self._log_images(self._visualize_image(samples), "samples/images")
-        self._log_images(visualize_seg(sample_targets), "samples/targets")
+        self._log_images([self._visualize_image(s) for s in samples], "samples/images")
+        self._log_images([visualize_seg(st) for st in sample_targets], "samples/targets")
 
         self.model.train()
 
