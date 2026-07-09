@@ -99,7 +99,7 @@ class BaseDataset(Dataset):
             raise ValueError(
                 f"Unexpected image tensor shape: {image.shape}. Expected 3 or 4 dimensions.")
 
-        return ((image * s) + m).clamp(0.0, 1.0)
+        return (image * s) + m
 
 
 def get_datasets(cfg: DictConfig,
