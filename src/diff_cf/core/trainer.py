@@ -68,10 +68,10 @@ class BaseTrainer:
         """
         if self.image_type == 'mri':
             image = self.dataset.denormalize(image, index)
-            return make_grid(image[:, None], nrow=2)
+            return make_grid(image[:, None], nrow=2, normalize=True)
 
         return self.dataset.denormalize(image, index)
 
     def _log_images(self, images: torch.Tensor | List[torch.Tensor], label: str):
-        grid = make_grid(images, nrow=4)
+        grid = make_grid(images, nrow=4, normalize=True)
         self.writer.add_image(label, grid, global_step=self.epoch)
