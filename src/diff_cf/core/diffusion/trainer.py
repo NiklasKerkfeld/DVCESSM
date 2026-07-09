@@ -114,6 +114,9 @@ class Trainer(BaseTrainer):
             losses = torch.zeros((len(self.train_dataloader),))
             self.optimizer.zero_grad()
 
+            epoch_t_loss = torch.zeros(self.engine.T, device=self.device)
+            epoch_t_counts = torch.zeros(self.engine.T, device=self.device)
+
             progress_bar = tqdm(self.train_dataloader,
                                 total=len(self.train_dataloader),
                                 desc=f"Epoch {self.epoch}")
@@ -131,6 +134,13 @@ class Trainer(BaseTrainer):
                 loss = self.loss_fn(pred, noise)
                 loss.backward()
 
+                # Track unreduced loss per timestep
+                with torch.no_grad():
+                    per_sample_loss = (pred - noise).pow(2).mean(dim=list(range(1, pred.ndim)))
+                    epoch_t_loss.index_add_(0, t, per_sample_loss)
+                    epoch_t_counts.index_add_(0, t, torch.ones_like(t, dtype=torch.float,
+                                                                    device=self.device))
+
                 if (i + 1) % self.accumulation_steps == 0:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
@@ -140,6 +150,21 @@ class Trainer(BaseTrainer):
                 losses[i] = loss.detach().item()
 
             # visualization
+            num_bins = 10
+            bin_size = self.engine.T // num_bins
+            for b in range(num_bins):
+                start = b * bin_size
+                end = (b + 1) * bin_size if b < num_bins - 1 else self.engine.T
+
+                # Filter only for timesteps that were actually hit during this epoch
+                visited_mask = epoch_t_counts[start:end] > 0
+                if visited_mask.any():
+                    # Calculate mean loss for this specific interval bin
+                    bin_loss = (epoch_t_loss[start:end][visited_mask] / epoch_t_counts[start:end][
+                        visited_mask]).mean()
+                    self.writer.add_scalar(f"Loss/loss_by_t/T_{start}_to_{end}", bin_loss.item(),
+                                           self.epoch)
+
             self.writer.add_scalar("loss", torch.mean(losses), self.epoch)
             self._visualize_one_step(samples, targets=sample_targets)
             self._visualize_sampling(targets=sample_targets)
