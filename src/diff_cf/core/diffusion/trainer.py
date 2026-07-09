@@ -15,7 +15,7 @@ from tqdm import tqdm
 from .engine import Engine
 from ..trainer import BaseTrainer
 from ...models.diffusion_model_final import DiffusionModel
-from ...utils.utils import to_vis, visualize_seg
+from ...utils.utils import visualize_seg
 
 
 class Trainer(BaseTrainer):

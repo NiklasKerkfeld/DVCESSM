@@ -6,8 +6,6 @@ from prettytable import PrettyTable
 from torch import nn
 
 import torch
-import torch.nn.functional as F
-
 
 def calc_iou(labels: torch.Tensor, preds: torch.Tensor, num_classes: int = 5) -> float:
     """
@@ -38,25 +36,6 @@ def calc_iou(labels: torch.Tensor, preds: torch.Tensor, num_classes: int = 5) ->
     iou = tp[present_classes] / denominator[present_classes]
 
     return iou.mean().item()
-
-
-def to_vis(x: torch.Tensor) -> torch.Tensor:
-    """Maps z-score image back to image."""
-    return torch.clamp((x + 1) / 2, 0.0, 1.0)
-
-
-def visualize_mri(image: torch.Tensor) -> torch.Tensor:
-    """
-    Converts mri images into rgb images.
-
-    Args:
-        image: image tensor of shape (B, S, H, W)
-        image tensor of shape (B, S, 3, H, W)
-    """
-    img_min = torch.amin(image, (2, 3))[:, :, None, None]
-    img_max = torch.amax(image, (2, 3))[:, :, None, None]
-    image = (image - img_min) / (img_max - img_min)
-    return image[:, :, None].repeat(1, 1, 3, 1, 1)
 
 
 def visualize_counterfactuals(image: torch.Tensor, *args: torch.Tensor) -> Tuple[torch.Tensor, ...]:
@@ -141,33 +120,6 @@ def visualize_adaption(adaption: torch.Tensor,
         palate /= maximas
 
     return palate.permute(0, 1, 4, 2, 3)
-
-
-def gaussian_blur_2d(grad: torch.Tensor,
-                     kernel_size: int = 3,
-                     sigma: float = 1.0) -> torch.Tensor:
-    """
-    Applies a Gaussian blur to a 4D gradient tensor (B, C, H, W).
-
-    Args:
-        grad: gradient tensor (B, C, H, W)
-        kernel_size: kernel size
-        sigma: standard deviation
-    """
-    # Create a 1D Gaussian kernel
-    x = torch.arange(-kernel_size // 2 + 1, kernel_size // 2 + 1, dtype=grad.dtype,
-                     device=grad.device)
-    gauss = torch.exp(-x ** 2 / (2 * sigma ** 2))
-    gauss = gauss / gauss.sum()
-
-    # Expand to 2D
-    kernel_2d = gauss[:, None] * gauss[None, :]
-    kernel_2d = kernel_2d.expand(grad.shape[1], 1, kernel_size, kernel_size)
-
-    # Apply as a depthwise convolution to keep channels separate
-    # pylint: disable=not-callable
-    smoothed_grad = F.conv2d(grad, kernel_2d, groups=grad.shape[1], padding=kernel_size // 2)
-    return smoothed_grad
 
 
 def count_parameters(model: nn.Module) -> int:

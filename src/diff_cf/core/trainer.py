@@ -57,8 +57,18 @@ class BaseTrainer:
         raise NotImplementedError
 
     def _visualize_image(self, image: torch.Tensor) -> torch.Tensor:
+        """
+        Converts the images so they can be displayed.
+
+        Args:
+            image: image of shape (C, H, W).
+
+        Returns:
+
+        """
         if self.image_type == 'mri':
-            return image[:, 0, None]
+            image = self.dataset.denormalize(image)
+            return make_grid(image[:, None, :, :], nrow=2)
 
         return self.dataset.denormalize(image)
 
