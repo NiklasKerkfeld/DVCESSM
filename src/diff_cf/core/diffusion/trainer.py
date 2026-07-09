@@ -105,7 +105,7 @@ class Trainer(BaseTrainer):
         samples = torch.stack([self.dataset[i][0] for i in range(4)])
         sample_targets = torch.stack([self.dataset[i][1] for i in range(4)])
 
-        self._log_images([self._visualize_image(s) for s in samples], "samples/images")
+        self._log_images([self._visualize_image(s, i) for i, s in enumerate(samples)], "samples/images")
         self._log_images([visualize_seg(st) for st in sample_targets], "samples/targets")
 
         self.model.train()
@@ -194,12 +194,13 @@ class Trainer(BaseTrainer):
         return images.detach()
 
     @torch.no_grad()
-    def _visualize_sampling(self, use_ema: bool = True,
+    def _visualize_sampling(self,
+                            use_ema: bool = True,
                             targets: Optional[torch.Tensor] = None) -> None:
         self.model.eval()
 
         samples = self.generate_image(batch_size=4, use_ema=use_ema, targets=targets)
-        grid = make_grid(self._visualize_image(samples), nrow=4)
+        grid = make_grid([self._visualize_image(s, i) for i, s in enumerate(samples)], nrow=4)
         self.writer.add_image("Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
@@ -248,6 +249,6 @@ class Trainer(BaseTrainer):
                       x_0_recon: torch.Tensor,
                       x_t: torch.Tensor) -> None:
 
-        x_t = [self._visualize_image(x) for x in x_t]
-        x_0 = [self._visualize_image(x) for x in x_0_recon]
+        x_t = [self._visualize_image(x, i) for i, x in enumerate(x_t)]
+        x_0 = [self._visualize_image(x, i) for i, x in enumerate(x_0_recon)]
         self._log_images(x_t + x_0, f"Visual_Check/T_{t}")

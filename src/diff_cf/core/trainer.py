@@ -1,5 +1,5 @@
 """Abstract class for all Trainer."""
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 import torch
 from omegaconf import DictConfig
@@ -56,21 +56,21 @@ class BaseTrainer:
         """
         raise NotImplementedError
 
-    def _visualize_image(self, image: torch.Tensor) -> torch.Tensor:
+    def _visualize_image(self, image: torch.Tensor, index: Optional[int] = None) -> torch.Tensor:
         """
         Converts the images so they can be displayed.
 
         Args:
-            image: image of shape (C, H, W).
+            images: images of shape (C, H, W)
 
         Returns:
 
         """
         if self.image_type == 'mri':
-            image = self.dataset.denormalize(image)
-            return make_grid(image[:, None, :, :], nrow=2)
+            image = self.dataset.denormalize(image, index)
+            return make_grid(image[:, None], nrow=2)
 
-        return self.dataset.denormalize(image)
+        return self.dataset.denormalize(image, index)
 
     def _log_images(self, images: torch.Tensor | List[torch.Tensor], label: str):
         grid = make_grid(images, nrow=4)
