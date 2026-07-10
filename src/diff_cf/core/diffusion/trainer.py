@@ -1,6 +1,7 @@
 """Trainer for the Diffusion model."""
 
 import copy
+import math
 import os
 from typing import Tuple, Optional
 
@@ -8,6 +9,7 @@ import torch
 from omegaconf import DictConfig
 from torch import nn
 from torch.optim import Adam
+from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import Dataset
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -34,15 +36,16 @@ class Trainer(BaseTrainer):
         self.model = model
         self.engine = engine
         self.lr = cfg.diffusion.lr
+        self.gamma = cfg.diffusion.gamma
         self.accumulation_steps = cfg.data.accumulation_steps
         self.checkpoint = cfg.diffusion.checkpoint_path
         self.use_target = cfg.diffusion.use_target
 
         # --- get data range ---
         self.z_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) /
-                 torch.tensor(cfg.data.dataset.stds)).view(3, 1, 1).to(self.device)
+                      torch.tensor(cfg.data.dataset.stds)).view(3, 1, 1).to(self.device)
         self.z_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) /
-                 torch.tensor(cfg.data.dataset.stds)).view(3, 1, 1).to(self.device)
+                      torch.tensor(cfg.data.dataset.stds)).view(3, 1, 1).to(self.device)
 
         # --- EMA Setup ---
         self.ema_decay = cfg.diffusion.get("ema_decay", 0.999)
@@ -56,6 +59,18 @@ class Trainer(BaseTrainer):
 
         self.loss_fn = nn.MSELoss()
         self.optimizer = Adam(self.model.parameters(), lr=self.lr)
+
+        self.num_warmup_steps = cfg.diffusion.warm_up
+        total_training_steps = cfg.diffusion.epochs * len(self.train_dataloader) // self.accumulation_steps
+
+        def lr_lambda(current_step: int):
+            if current_step < self.num_warmup_steps:
+                return float(current_step) / float(max(1, self.num_warmup_steps))
+            progress = float(current_step - self.num_warmup_steps) / float(
+                max(1, total_training_steps - self.num_warmup_steps))
+            return max(0.1, 0.5 * (1.0 + math.cos(math.pi * progress)))
+
+        self.scheduler = LambdaLR(self.optimizer, lr_lambda=lr_lambda)
 
     @torch.no_grad()
     def update_ema(self) -> None:
@@ -74,6 +89,8 @@ class Trainer(BaseTrainer):
             'model_state_dict': self.model.state_dict(),
             'ema_model_state_dict': self.ema_model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
+            'step': self.step,
             'rng_state': torch.get_rng_state(),
             'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
         }
@@ -93,6 +110,11 @@ class Trainer(BaseTrainer):
         self.ema_model.load_state_dict(checkpoint['ema_model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
+        if 'scheduler_state_dict' in checkpoint:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        if 'step' in checkpoint:
+            self.step = checkpoint['ema_step']
+
         if 'rng_state' in checkpoint:
             torch.set_rng_state(checkpoint['rng_state'].cpu())
         if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
@@ -111,7 +133,8 @@ class Trainer(BaseTrainer):
         samples = torch.stack([self.dataset[i][0] for i in range(4)])
         sample_targets = torch.stack([self.dataset[i][1] for i in range(4)])
 
-        self._log_images([self._visualize_image(s, i) for i, s in enumerate(samples)], "samples/images")
+        self._log_images([self._visualize_image(s, i) for i, s in enumerate(samples)],
+                         "samples/images")
         self._log_images([visualize_seg(st) for st in sample_targets], "samples/targets")
 
         self.model.train()
@@ -122,6 +145,7 @@ class Trainer(BaseTrainer):
 
             epoch_t_loss = torch.zeros(self.engine.T, device=self.device)
             epoch_t_counts = torch.zeros(self.engine.T, device=self.device)
+            epoch_grad_norms = []
 
             progress_bar = tqdm(self.train_dataloader,
                                 total=len(self.train_dataloader),
@@ -129,7 +153,7 @@ class Trainer(BaseTrainer):
 
             for i, (x, y) in enumerate(progress_bar):
                 x = x.to(self.device)
-                x_t, noise, t = self.engine.sample(x)
+                x_t, noise, t, snr = self.engine.sample(x)
 
                 if self.use_target:
                     y = y.to(self.device)
@@ -137,18 +161,26 @@ class Trainer(BaseTrainer):
                 else:
                     pred = self.model(x_t, t)
 
-                loss = self.loss_fn(pred, noise)
+                per_sample_loss = (pred - noise).pow(2).mean(dim=list(range(1, pred.ndim)))
+                snr_weight = torch.minimum(snr, torch.full_like(snr, self.gamma)) / snr
+
+                loss = (per_sample_loss * snr_weight).mean()
                 loss.backward()
 
                 # Track unreduced loss per timestep
                 with torch.no_grad():
-                    per_sample_loss = (pred - noise).pow(2).mean(dim=list(range(1, pred.ndim)))
                     epoch_t_loss.index_add_(0, t, per_sample_loss)
                     epoch_t_counts.index_add_(0, t, torch.ones_like(t, dtype=torch.float,
                                                                     device=self.device))
 
                 if (i + 1) % self.accumulation_steps == 0:
+                    # tracking grad norm
+                    grad_norm = nn.utils.clip_grad_norm_(self.model.parameters(),
+                                                         max_norm=float('inf'))
+                    epoch_grad_norms.append(grad_norm.item())
+
                     self.optimizer.step()
+                    self.scheduler.step()
                     self.optimizer.zero_grad()
                     self.update_ema()
 
@@ -171,7 +203,13 @@ class Trainer(BaseTrainer):
                     self.writer.add_scalar(f"Loss/loss_by_t/T_{start}_to_{end}", bin_loss.item(),
                                            self.epoch)
 
-            self.writer.add_scalar("loss", torch.mean(losses), self.epoch)
+            self.writer.add_scalar("Loss/loss", torch.mean(losses), self.epoch)
+
+            current_lr = self.optimizer.param_groups[0]['lr']
+            self.writer.add_scalar("Train/learning_rate", current_lr, self.epoch)
+            self.writer.add_scalar("Train/gradient_norm",
+                                   sum(epoch_grad_norms) / len(epoch_grad_norms), self.epoch)
+
             self._visualize_one_step(samples, targets=sample_targets)
             self._visualize_sampling(targets=sample_targets)
             self.writer.flush()
@@ -231,18 +269,7 @@ class Trainer(BaseTrainer):
         self.model.eval()
 
         samples = self.generate_image(batch_size=4, use_ema=use_ema, targets=targets)
-        print("Samples before:")
-        print(f"\tmean: {samples[0].mean().item():.4f}")
-        print(f"\tstd: {samples[0].std().item():.4f}")
-        print(f"\tmin: {samples[0].min().item():.4f}")
-        print(f"\tmax: {samples[0].max().item():.4f}\n")
-
         samples = [self._visualize_image(s, i) for i, s in enumerate(samples)]
-        print("Samples after:")
-        print(f"\tmean: {samples[0].mean().item():.4f}")
-        print(f"\tstd: {samples[0].std().item():.4f}")
-        print(f"\tmin: {samples[0].min().item():.4f}")
-        print(f"\tmax: {samples[0].max().item():.4f}\n")
         grid = make_grid(samples, nrow=4, normalize=True, value_range=(0, 255))
         self.writer.add_image("Visual_Check/samples", grid, self.epoch)
 
@@ -274,7 +301,7 @@ class Trainer(BaseTrainer):
 
         for t in check_steps:
             t_tensor = torch.full((images.shape[0],), t, device=self.device)
-            x_t, _ = self.engine.diffuse(images, t_tensor)
+            x_t, _, _ = self.engine.diffuse(images, t_tensor)
 
             if self.use_target:
                 epsilon_pred = model(images, t_tensor, targets)

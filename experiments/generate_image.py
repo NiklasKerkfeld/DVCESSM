@@ -76,7 +76,7 @@ def main(cfg: DictConfig):
     if True:
         T = 500
         image, _ = dataset[0]
-        image, _ = engine.diffuse(image, torch.tensor([T]))
+        image, _, _ = engine.diffuse(image, torch.tensor([T]))
         import matplotlib.pyplot as plt
         plt.imshow(image.permute(1, 2, 0))
         plt.axis('off')

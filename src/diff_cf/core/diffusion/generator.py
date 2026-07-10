@@ -67,7 +67,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         start_t = int(self.engine.T * self.start_fraction)
         t_tensor = torch.full((image.shape[0],), start_t, device=self.device)
-        x, _ = self.engine.diffuse(image, t_tensor)
+        x, _, _ = self.engine.diffuse(image, t_tensor)
 
         for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)

@@ -81,7 +81,7 @@ class Engine(nn.Module):
         out = a.gather(-1, t)
         return out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
 
-    def sample(self, images: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def sample(self, images: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Samples an image at random timestep t.
         Args:
@@ -94,10 +94,10 @@ class Engine(nn.Module):
         """
         t = torch.randint(0, self.T, (images.shape[0],), device=self.device)
 
-        noised_images, noise = self.diffuse(images, t)
-        return noised_images, noise, t
+        noised_images, noise, snr = self.diffuse(images, t)
+        return noised_images, noise, t, snr
 
-    def diffuse(self, images: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def diffuse(self, images: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Diffuses in given image (batch) at timestep t.
         Args:
@@ -119,7 +119,12 @@ class Engine(nn.Module):
         # add noise based on t to image
         noised = sqrt_alpha_hat * images + sqrt_one_minus_alpha_hat * noise
 
-        return noised, noise
+        # Calculate SNR directly from the extracted components before they are expanded spatially
+        # We can extract them as shape (batch_size,) or just flatten/mean the ratio
+        # But a cleaner way is calculating it per-sample:
+        snr = self.alphas_cumprod[t] / (1.0 - self.alphas_cumprod[t])
+
+        return noised, noise, snr
 
     def reverse(self,
                 images: torch.Tensor,
