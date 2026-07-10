@@ -113,7 +113,7 @@ class Trainer(BaseTrainer):
         if 'scheduler_state_dict' in checkpoint:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         if 'step' in checkpoint:
-            self.step = checkpoint['ema_step']
+            self.step = checkpoint['step']
 
         if 'rng_state' in checkpoint:
             torch.set_rng_state(checkpoint['rng_state'].cpu())
@@ -205,10 +205,12 @@ class Trainer(BaseTrainer):
 
             self.writer.add_scalar("Loss/loss", torch.mean(losses), self.epoch)
 
-            current_lr = self.optimizer.param_groups[0]['lr']
-            self.writer.add_scalar("Train/learning_rate", current_lr, self.epoch)
+            self.writer.add_scalar("Train/learning_rate",
+                                   self.optimizer.param_groups[0]['lr'],
+                                   self.epoch)
             self.writer.add_scalar("Train/gradient_norm",
-                                   sum(epoch_grad_norms) / len(epoch_grad_norms), self.epoch)
+                                   sum(epoch_grad_norms) / len(epoch_grad_norms),
+                                   self.epoch)
 
             self._visualize_one_step(samples, targets=sample_targets)
             self._visualize_sampling(targets=sample_targets)
