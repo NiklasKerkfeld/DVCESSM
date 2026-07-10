@@ -225,7 +225,12 @@ class Trainer(BaseTrainer):
         self.model.eval()
 
         samples = self.generate_image(batch_size=4, use_ema=use_ema, targets=targets)
-        grid = make_grid([self._visualize_image(s, i) for i, s in enumerate(samples)], nrow=4)
+        samples = [self._visualize_image(s, i) for i, s in enumerate(samples)]
+        print("Samples:")
+        print(f"\tmean: {samples[0].mean().item():.4f}")
+        print(f"\tmin: {samples[0].min().item():.4f}")
+        print(f"\tmax: {samples[0].max().item():.4f}")
+        grid = make_grid(samples, nrow=4)
         self.writer.add_image("Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
