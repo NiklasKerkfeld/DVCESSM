@@ -243,7 +243,7 @@ class Trainer(BaseTrainer):
         print(f"\tstd: {samples[0].std().item():.4f}")
         print(f"\tmin: {samples[0].min().item():.4f}")
         print(f"\tmax: {samples[0].max().item():.4f}\n")
-        grid = make_grid(samples, nrow=4)
+        grid = make_grid(samples, nrow=4, normalize=True, value_range=(0, 255))
         self.writer.add_image("Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
