@@ -38,6 +38,12 @@ class Trainer(BaseTrainer):
         self.checkpoint = cfg.diffusion.checkpoint_path
         self.use_target = cfg.diffusion.use_target
 
+        # --- get data range ---
+        self.z_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) /
+                 torch.tensor(cfg.data.dataset.stds)).view(3, 1, 1).to(self.device)
+        self.z_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) /
+                 torch.tensor(cfg.data.dataset.stds)).view(3, 1, 1).to(self.device)
+
         # --- EMA Setup ---
         self.ema_decay = cfg.diffusion.get("ema_decay", 0.999)
         self.ema_model = copy.deepcopy(self.model)
@@ -192,7 +198,7 @@ class Trainer(BaseTrainer):
         model = self.ema_model if use_ema else self.model
         model.eval()
 
-        images = torch.randn(batch_size, model.channels, model.width, model.height).to(self.device)
+        x = torch.randn(batch_size, model.channels, model.width, model.height).to(self.device)
 
         if self.use_target:
             targets = targets.to(self.device)
@@ -200,23 +206,25 @@ class Trainer(BaseTrainer):
         model.to(self.device)
 
         for t in reversed(range(self.engine.T)):
-            t_tensor = torch.full((images.shape[0],), t, device=self.device)
+            t_tensor = torch.full((x.shape[0],), t, device=self.device)
             if self.use_target:
-                epsilon_pred = model(images, t_tensor, targets)
+                epsilon_pred = model(x, t_tensor, targets)
             else:
-                epsilon_pred = model(images, t_tensor)
+                epsilon_pred = model(x, t_tensor)
 
                 # calculate mean of image at t-1
-            mean = self.engine.reverse(images, epsilon_pred, t_tensor)
+            mean = self.engine.reverse(x, epsilon_pred, t_tensor)
 
             if t > 0:
-                noise = torch.randn_like(images)
-                sigma = self.engine.get_sigma(t_tensor, images.shape)
-                images = mean + sigma * noise
+                noise = torch.randn_like(x)
+                sigma = self.engine.get_sigma(t_tensor, x.shape)
+                x = mean + sigma * noise
             else:
-                images = mean
+                x = mean
 
-        return images.detach()
+            x = x.clamp(self.z_min, self.z_max)
+
+        return x.detach()
 
     @torch.no_grad()
     def _visualize_sampling(self,
@@ -225,11 +233,18 @@ class Trainer(BaseTrainer):
         self.model.eval()
 
         samples = self.generate_image(batch_size=4, use_ema=use_ema, targets=targets)
-        samples = [self._visualize_image(s, i) for i, s in enumerate(samples)]
-        print("Samples:")
+        print("Samples before:")
         print(f"\tmean: {samples[0].mean().item():.4f}")
+        print(f"\tstd: {samples[0].std().item():.4f}")
         print(f"\tmin: {samples[0].min().item():.4f}")
-        print(f"\tmax: {samples[0].max().item():.4f}")
+        print(f"\tmax: {samples[0].max().item():.4f}\n")
+
+        samples = [self._visualize_image(s, i) for i, s in enumerate(samples)]
+        print("Samples after:")
+        print(f"\tmean: {samples[0].mean().item():.4f}")
+        print(f"\tstd: {samples[0].std().item():.4f}")
+        print(f"\tmin: {samples[0].min().item():.4f}")
+        print(f"\tmax: {samples[0].max().item():.4f}\n")
         grid = make_grid(samples, nrow=4)
         self.writer.add_image("Visual_Check/samples", grid, self.epoch)
 
