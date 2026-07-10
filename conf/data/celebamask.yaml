@@ -13,8 +13,8 @@
 
   dataset:
     _target_: datasets.celebamask.CelebAMaskDataset
-    means: [131.35527639 105.74096873  92.14054272]
-    stds: [76.84347721 69.50841492 68.22302474]
+    means: [131.35527639, 105.74096873,  92.14054272]
+    stds: [76.84347721, 69.50841492, 68.22302474]
     prob_blur: 0.25
     kernel_size: 15
     sigma: [0.1, 7.0]
