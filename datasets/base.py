@@ -33,13 +33,13 @@ class BaseDataset(Dataset):
             self.augmentations = v2.Compose([
                 v2.RandomApply(
                     torch.nn.ModuleList([v2.GaussianBlur(
-                        kernel_size=cfg.segmentation.blur.kernel,
-                        sigma=cfg.segmentation.blur.sigma)]),
-                    p=cfg.segmentation.blur.p),
+                        kernel_size=cfg.segmentation.augmentations.blur.kernel,
+                        sigma=(cfg.segmentation.augmentations.blur.sigma_min, cfg.segmentation.augmentations.blur.sigma_max))]),
+                    p=cfg.segmentation.augmentations.blur.p),
                 v2.RandomApply(
                     torch.nn.ModuleList([v2.GaussianNoise(
-                        sigma=cfg.segmentation.noise.sigma)]),
-                    p=cfg.segmentation.noise.p)
+                        sigma=(cfg.segmentation.augmentations.noise.sigma_min, cfg.segmentation.augmentations.noise.sigma_max))]),
+                    p=cfg.segmentation.augmentations.noise.p)
             ])
 
     def __len__(self) -> int:
