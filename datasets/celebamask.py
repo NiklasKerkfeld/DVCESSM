@@ -13,6 +13,7 @@ from datasets.base import BaseDataset
 
 class CelebAMaskDataset(BaseDataset):
     """Dataset class for CelebAMask dataset."""
+
     def __init__(self,
                  samples: List[str],
                  cfg: DictConfig,
@@ -56,11 +57,15 @@ def get_ood_datasets(cfg: DictConfig, attribute: str, use_augmentations: bool = 
 
     positive_dataset = instantiate(cfg.data.dataset,
                                    samples=positives,
-                                   use_augmentations=use_augmentations)
+                                   cfg=cfg,
+                                   augmentations=use_augmentations,
+                                   _recursive_=False)
 
     negative_dataset = instantiate(cfg.data.dataset,
                                    samples=negatives,
-                                   use_augmentations=False)
+                                   cfg=cfg,
+                                   augmentations=False,
+                                   _recursive_=False)
 
     return positive_dataset, negative_dataset
 
@@ -72,7 +77,7 @@ if __name__ == "__main__":
     with initialize(version_base=None, config_path="../conf"):
         cfg = compose(config_name="config")
 
-    attribute = "heavy_makeup"
+    attribute = "Male"
 
     positive_dataset, negative_dataset = get_ood_datasets(cfg, attribute, use_augmentations=False)
 
@@ -87,8 +92,7 @@ if __name__ == "__main__":
         image, label = positive_dataset[i]
         image = positive_dataset.denormalize(image)
 
-        ax.imshow(image.permute(1, 2, 0))
-        # ax.set_title(f"Positive #{i}")
+        ax.imshow(image.permute(1, 2, 0) / 255.0)
         ax.axis('off')
 
     for i in range(min(15, len(negative_dataset))):
@@ -96,8 +100,7 @@ if __name__ == "__main__":
         image, label = negative_dataset[i]
         image = negative_dataset.denormalize(image)
 
-        ax.imshow(image.permute(1, 2, 0))
-        # ax.set_title(f"Negative #{i}")
+        ax.imshow(image.permute(1, 2, 0) / 255.0)
         ax.axis('off')
 
     fig.text(0.5, 0.95, "Positive Examples", ha="center", va="center", fontsize=14,

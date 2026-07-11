@@ -34,8 +34,7 @@ def main(cfg: DictConfig):
     print(f"using device: {device}")
 
     if cfg.segmentation.ood is None:
-        train_dataset, test_dataset = get_datasets(cfg,
-                                                   cfg.segmentation.use_augmentations)
+        train_dataset, test_dataset = get_datasets(cfg, cfg.segmentation.use_augmentations)
     else:
         train_dataset, test_dataset = get_ood_datasets(cfg,
                                                        cfg.segmentation.ood,
