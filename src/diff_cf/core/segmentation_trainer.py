@@ -293,7 +293,7 @@ class SegmentationTrainer(BaseTrainer):
         self.model.eval()
 
         out = self.model(images.to(self.device)).cpu()
-        pred = torch.argmax(out, dim=1).unsqueeze(1)
+        pred = torch.argmax(out, dim=1)
 
         self.writer.add_image(
             'predictions',
