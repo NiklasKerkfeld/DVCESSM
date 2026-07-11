@@ -259,7 +259,7 @@ class SegmentationTrainer(BaseTrainer):
             batch of example images (B, C, H, W).
         """
         images = torch.stack([valid_dataloader.dataset[i][0] for i in range(5)])
-        targets = torch.stack([valid_dataloader.dataset[i][1] for i in range(5)]).unsqueeze(1)
+        targets = torch.stack([valid_dataloader.dataset[i][1] for i in range(5)])
         adv_perturbation = self._projected_gradient_descent(images.to(self.device),
                                                             targets.to(self.device),
                                                             eps=self.epsilon)
@@ -271,7 +271,7 @@ class SegmentationTrainer(BaseTrainer):
             image_grid = make_grid(images, nrow=5, normalize=True)
             adv_grid = make_grid(adv_perturbation, nrow=5, normalize=True)
 
-        target_grid = make_grid([visualize_seg(t) for t in targets], nrow=5, normalize=True)
+        target_grid = make_grid([visualize_seg(t) for t in targets.unsqueeze(1)], nrow=5, normalize=True)
 
         self.writer.add_image('images', image_grid)
         self.writer.add_image('adversarial', adv_grid)
