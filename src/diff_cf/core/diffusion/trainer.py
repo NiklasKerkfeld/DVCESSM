@@ -42,10 +42,10 @@ class Trainer(BaseTrainer):
         self.use_target = cfg.diffusion.use_target
 
         # --- get data range ---
-        self.z_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) /
-                      torch.tensor(cfg.data.dataset.stds)).view(3, 1, 1).to(self.device)
-        self.z_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) /
-                      torch.tensor(cfg.data.dataset.stds)).view(3, 1, 1).to(self.device)
+        self.z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
+                      torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
+        self.z_max = ((cfg.data.max - torch.tensor(cfg.data.means)) /
+                      torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
 
         # --- EMA Setup ---
         self.ema_decay = cfg.diffusion.get("ema_decay", 0.999)
