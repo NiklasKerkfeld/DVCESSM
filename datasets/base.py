@@ -24,23 +24,21 @@ class BaseDataset(Dataset):
                  ) -> None:
         self.files = samples
 
+        # parameter augmentations
+        self.augmentations = augmentations
+        self.blur_p = cfg.segmentation.augmentations.blur.p
+        self.blur_sigma = [cfg.segmentation.augmentations.blur.sigma_min,
+                           cfg.segmentation.augmentations.blur.sigma_max]
+        self.blur_kernel = cfg.segmentation.augmentations.blur.kernel
+        self.noise_p = cfg.segmentation.augmentations.noise.p
+        self.noise_sigma = [cfg.segmentation.augmentations.noise.sigma_min,
+                            cfg.segmentation.augmentations.noise.sigma_max]
+
+
         self.means: Optional[torch.Tensor] = None
         self.stds: Optional[torch.Tensor] = None
         self._normalize_transform: Optional[v2.Transform] = None
 
-        self.augmentations = v2.Identity()
-        if augmentations:
-            self.augmentations = v2.Compose([
-                v2.RandomApply(
-                    torch.nn.ModuleList([v2.GaussianBlur(
-                        kernel_size=cfg.segmentation.augmentations.blur.kernel,
-                        sigma=(cfg.segmentation.augmentations.blur.sigma_min, cfg.segmentation.augmentations.blur.sigma_max))]),
-                    p=cfg.segmentation.augmentations.blur.p),
-                v2.RandomApply(
-                    torch.nn.ModuleList([v2.GaussianNoise(
-                        sigma=(cfg.segmentation.augmentations.noise.sigma_min, cfg.segmentation.augmentations.noise.sigma_max))]),
-                    p=cfg.segmentation.augmentations.noise.p)
-            ])
 
     def __len__(self) -> int:
         return len(self.files)
@@ -58,7 +56,15 @@ class BaseDataset(Dataset):
         else:
             image = self._normalize_transform(image)
 
-        image = self.augmentations(image)
+        if self.augmentations:
+            if torch.rand((1,)) > self.blur_p:
+                image = v2.functional.gaussian_blur(image, self.blur_kernel, self.blur_sigma)
+            if torch.rand((1,)) > self.noise_p:
+                image = v2.functional.gaussian_noise(
+                    image,
+                    sigma=torch.empty(1).uniform_(self.noise_sigma[0], self.noise_sigma[1]).item(),
+                    clip=False
+                )
 
         return image, label
 
