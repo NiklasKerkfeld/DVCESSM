@@ -181,7 +181,7 @@ class CounterfactualGenerator(BaseGenerator):
         self.writer.add_image('Process/approx_x_0',
                               vutils.make_grid(results['approx_image'], normalize=True), log_step)
 
-        prediction = visualize_seg(prediction.detach().cpu()).permute(2, 0, 1).float()
+        prediction = visualize_seg(prediction.detach().cpu()).float()
         g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
         grad_c_visual = visualize_adaption(results['grad_c'].sum(dim=1, keepdim=True))[0, 0]
         grad_d_visual = visualize_adaption(results['grad_d'].sum(dim=1, keepdim=True))[0, 0]
