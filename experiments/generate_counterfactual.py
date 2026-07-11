@@ -40,8 +40,8 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     print("min: ", image.min(), "max: ", image.max())
     print((image < 0).float().mean(), (image > 1).float().mean())
 
-    image = dataset.denormalize(image)
-    counterfactual = dataset.denormalize(counterfactual[0])
+    image = dataset.denormalize(image) / 255.0
+    counterfactual = dataset.denormalize(counterfactual[0])  / 255.0
 
     print("\nAfter denormalize:")
     print("Counterfactual:")
