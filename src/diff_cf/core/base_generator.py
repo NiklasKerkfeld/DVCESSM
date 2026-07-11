@@ -64,7 +64,7 @@ class BaseGenerator:
         """
         self.writer.add_image('Image', vutils.make_grid(image[0], normalize=True), 0)
         self.writer.add_image('Target',
-                              visualize_seg(target.detach().cpu())[0].float(),
+                              visualize_seg(target[0].detach().cpu()).float(),
                               0)
 
         image, target = image.to(self.device), target.to(self.device)
