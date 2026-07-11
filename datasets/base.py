@@ -1,8 +1,9 @@
 """Function to handle dataset instances."""
 
 import glob
-from typing import Tuple, List, Union, Optional
+from typing import Tuple, List, Optional
 
+import hydra
 from torchvision.transforms import v2
 
 import numpy as np
@@ -10,7 +11,7 @@ import numpy as np
 import torch
 
 from hydra.utils import instantiate
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 
@@ -18,19 +19,28 @@ from torch.utils.data import Dataset
 class BaseDataset(Dataset):
     def __init__(self,
                  samples: List[str],
-                 prob_blur: float = 0.0,
-                 kernel_size: int = 3,
-                 sigma: Union[float, Tuple[float, float]] = (0.0, 3.0),
-                 use_augmentations: bool = True) -> None:
+                 cfg: DictConfig,
+                 augmentations: bool = False,
+                 ) -> None:
         self.files = samples
 
         self.means: Optional[torch.Tensor] = None
         self.stds: Optional[torch.Tensor] = None
         self._normalize_transform: Optional[v2.Transform] = None
 
-        self.augmentations = v2.RandomApply(torch.nn.ModuleList([
-            v2.GaussianBlur(kernel_size=kernel_size, sigma=sigma)
-        ]), p=prob_blur) if (prob_blur > 0 and use_augmentations is True) else v2.Identity()
+        self.augmentations = v2.Identity()
+        if augmentations:
+            self.augmentations = v2.Compose([
+                v2.RandomApply(
+                    torch.nn.ModuleList([v2.GaussianBlur(
+                        kernel_size=cfg.segmentation.blur.kernel,
+                        sigma=cfg.segmentation.blur.sigma)]),
+                    p=cfg.segmentation.blur.p),
+                v2.RandomApply(
+                    torch.nn.ModuleList([v2.GaussianNoise(
+                        sigma=cfg.segmentation.noise.sigma)]),
+                    p=cfg.segmentation.noise.p)
+            ])
 
     def __len__(self) -> int:
         return len(self.files)
@@ -117,11 +127,28 @@ def get_datasets(cfg: DictConfig,
 
     train_dataset = instantiate(cfg.data.dataset,
                                 samples=train_samples,
-                                use_augmentations=use_augmentations)
+                                cfg=cfg,
+                                augmentations=use_augmentations,
+                                _recursive_=False)
 
     test_dataset = instantiate(cfg.data.dataset,
                                samples=test_samples,
-                               use_augmentations=False)
+                               cfg=cfg,
+                               augmentations=False,
+                               _recursive_=False)
 
     return train_dataset, test_dataset
+
+
+@hydra.main(version_base=None, config_path="./../conf", config_name="config")
+def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
+
+    train_dataset, test_dataset = get_datasets(cfg)
+    print(len(train_dataset))
+    print(len(test_dataset))
+
+
+if __name__ == "__main__":
+    main()
 

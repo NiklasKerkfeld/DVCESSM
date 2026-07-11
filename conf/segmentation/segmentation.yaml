@@ -1,0 +1,24 @@
+segmentation:
+  checkpoint_path: "./checkpoints/Segmentation"
+  name: null
+  epochs: 100
+  lr: 0.001
+  attention: True
+  ood: null
+  augmentations:
+    blur:
+      p: 0.2
+      sigma_min: 0.1
+      sigma_max: 7.0
+      kernel: 7
+    noise:
+      p: 0.2
+      sigma_min: 0.1
+      sigma_max: 1.0
+  robust:
+    use: True
+    alpha: null
+    epsilon: 30.0
+    steps: 10
+    start_epoch: 10
+    warm_up: 10

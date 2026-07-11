@@ -15,17 +15,13 @@ class CelebAMaskDataset(BaseDataset):
     """Dataset class for CelebAMask dataset."""
     def __init__(self,
                  samples: List[str],
-                 means: List[float],
-                 stds: List[float],
-                 prob_blur: float = 0.0,
-                 kernel_size: int = 3,
-                 sigma: Union[float, Tuple[float, float]] = (0.0, 3.0),
-                 use_augmentations: bool = True):
-        super().__init__(samples, prob_blur, kernel_size, sigma, use_augmentations)
-        self.means = torch.tensor(means)
-        self.stds = torch.tensor(stds)
+                 cfg: DictConfig,
+                 augmentations: bool = False):
+        super().__init__(samples, cfg, augmentations)
+        self.means = torch.tensor(cfg.data.means)
+        self.stds = torch.tensor(cfg.data.stds)
 
-        self._normalize_transform = v2.Normalize(mean=means, std=stds)
+        self._normalize_transform = v2.Normalize(mean=self.means, std=self.stds)
 
 
 def get_ood_datasets(cfg: DictConfig, attribute: str, use_augmentations: bool = False) -> Tuple[
