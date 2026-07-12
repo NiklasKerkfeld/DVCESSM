@@ -24,10 +24,10 @@ class AdaptGrad(nn.Module):
         super().__init__()
         self.N = cfg.generation.AdaptGrad.N     # pylint: disable=invalid-name
         self.c = cfg.generation.AdaptGrad.c
-        x_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) /
-                 torch.tensor(cfg.data.dataset.stds))
-        x_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) /
-                 torch.tensor(cfg.data.dataset.stds))
+        x_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
+                 torch.tensor(cfg.data.stds))
+        x_max = ((cfg.data.max - torch.tensor(cfg.data.means)) /
+                 torch.tensor(cfg.data.stds))
         self.register_buffer('x_min', x_min[None, :, None, None])
         self.register_buffer('x_max', x_max[None, :, None, None])
         self.register_buffer('denominator', torch.sqrt(torch.tensor(2.0)) * erfinv(self.c))
