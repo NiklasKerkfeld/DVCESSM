@@ -7,9 +7,9 @@ from omegaconf import DictConfig
 from torchvision.utils import save_image
 from tqdm import tqdm
 
-from src.cfgan_mnist.core.datasets.dataset import get_datasets
-from src.cfgan_mnist.core.diffusion.engine import Engine
-from src.cfgan_mnist.models.diffusion_model_new import DiffusionModel
+from datasets.base import get_datasets
+from diff_cf.core.diffusion.engine import Engine
+from diff_cf.models.diffusion_model_new import DiffusionModel
 
 @torch.no_grad()
 def reconstruct_image(model, engine, image: torch.Tensor, T: int, device: torch.device = torch.device("cpu")):

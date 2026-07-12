@@ -1,6 +1,7 @@
 """Baseline Generator class."""
 
 import torch
+import torch.nn.functional as F
 import torchvision.utils as vutils
 from omegaconf import DictConfig
 from torch import nn
@@ -33,6 +34,12 @@ class BaselineGenerator(BaseGenerator):
         super().__init__(segmentation_model, device, cfg, name)
         self.lr = cfg.generation.lr
         self.steps = cfg.generation.steps
+        self.alpha = cfg.generation.alpha
+        self.beta = cfg.generation.beta
+
+        self.filter = torch.tensor([[[-1 / 8, -1 / 8, -1 / 8],
+                                     [-1/8, 1, -1/8],
+                                     [-1/8, -1/8, -1/8]]])
 
     def _generate_counterfactual(self, image: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
@@ -52,6 +59,8 @@ class BaselineGenerator(BaseGenerator):
                                      use_mask=self.use_mask,
                                      border_width=self.border_width)
 
+
+
         N = parameter.numel() // 3  # pylint: disable=invalid-name
 
         with torch.enable_grad():
@@ -62,17 +71,31 @@ class BaselineGenerator(BaseGenerator):
                 counterfactual = image + parameter
                 cost = (1 / N) * torch.norm(parameter, p=2)
 
+                smoothness = torch.abs(F.conv2d(parameter,
+                                                self.filter.repeat(image.shape[1],
+                                                                   1,
+                                                                   1,
+                                                                   1),
+                                                groups=image.shape[1])).mean()
+
                 image_batch = self.adaptgrad(counterfactual)
                 output = self.segmentation_model(image_batch)
                 loss = loss_fn(output)
-                loss = loss + self.cfg.generation.alpha * cost
+
+                loss = loss + self.alpha * cost + self.beta * smoothness
 
                 loss.backward()
                 optimizer.step()
 
                 # --- TensorBoard Logging ---
                 if t % 25 == 0 or t == self.steps - 1:
-                    self.log(counterfactual, target, output, loss.item(), cost.item(), t)
+                    self.log(counterfactual,
+                             target,
+                             output,
+                             loss.item(),
+                             cost.item(),
+                             smoothness.item(),
+                             t)
 
                 progress_bar.set_description(f"loss: {loss.detach().cpu().item():.4f}")
 
@@ -84,6 +107,7 @@ class BaselineGenerator(BaseGenerator):
             output: torch.Tensor,
             loss: float,
             cost: float,
+            smoothness: float,
             t: int) -> None:
         """
         Logs process on tensorboard.
@@ -94,6 +118,7 @@ class BaselineGenerator(BaseGenerator):
             output: current output of the segmentation model.
             loss: current loss.
             cost: current cost of the adaption.
+            smoothness: current smoothness loss
             t: current step of the process
 
         Returns:
@@ -105,9 +130,10 @@ class BaselineGenerator(BaseGenerator):
 
         self.writer.add_scalar('Metrics/loss', loss, t)
         self.writer.add_scalar('Metrics/cost', cost, t)
+        self.writer.add_scalar('Metrics/smoothness', smoothness, t)
         self.writer.add_scalar('Metrics/IoU', iou, t)
 
         self.writer.add_image('Counterfactual',
                               vutils.make_grid(counterfactual, normalize=True), t)
         self.writer.add_image('Prediction',
-                              visualize_seg(prediction.detach().cpu()).permute(2, 0, 1).float(), t)
+                              visualize_seg(prediction.detach().cpu()).float(), t)

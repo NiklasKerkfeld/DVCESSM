@@ -1,7 +1,9 @@
 type: Baseline
 name: null
 sample_idx: ???
+model: ???
 alpha: 1.0
+beta: 1.0
 lr: 0.01
 steps: 100
 border_width: 2
