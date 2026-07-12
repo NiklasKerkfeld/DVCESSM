@@ -59,7 +59,7 @@ class BaselineGenerator(BaseGenerator):
                                      use_mask=self.use_mask,
                                      border_width=self.border_width)
 
-
+        s_filter = self.filter.repeat(image.shape[1], 1, 1, 1).to(self.device)
 
         N = parameter.numel() // 3  # pylint: disable=invalid-name
 
@@ -72,10 +72,7 @@ class BaselineGenerator(BaseGenerator):
                 cost = (1 / N) * torch.norm(parameter, p=2)
 
                 smoothness = torch.abs(F.conv2d(parameter,
-                                                self.filter.repeat(image.shape[1],
-                                                                   1,
-                                                                   1,
-                                                                   1),
+                                                s_filter,
                                                 groups=image.shape[1])).mean()
 
                 image_batch = self.adaptgrad(counterfactual)
