@@ -56,10 +56,10 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     pred_original = visualize_seg(prediction_org[0])
     pred_counterfactual = visualize_seg(prediction_cf[0])
 
-    x_min = ((cfg.data.min - torch.tensor(cfg.data.dataset.means)) / torch.tensor(
-        cfg.data.dataset.stds))
-    x_max = ((cfg.data.max - torch.tensor(cfg.data.dataset.means)) / torch.tensor(
-        cfg.data.dataset.stds))
+    x_min = ((cfg.data.min - torch.tensor(cfg.data.means)) / torch.tensor(
+        cfg.data.stds))
+    x_max = ((cfg.data.max - torch.tensor(cfg.data.means)) / torch.tensor(
+        cfg.data.stds))
 
     maximas = torch.maximum(torch.abs(x_min), torch.abs(x_max))
 
