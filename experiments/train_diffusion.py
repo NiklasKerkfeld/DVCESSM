@@ -37,6 +37,7 @@ def main(cfg: DictConfig):
                            width=cfg.data.image_width,
                            height=cfg.data.image_height,
                            time_dim=cfg.diffusion.time_dim,
+                           nums_features=cfg.diffusion.nums_features,
                            use_prior=cfg.diffusion.use_target,
                            num_classes=cfg.data.n_classes)
     engine = Engine(cfg, device=device)

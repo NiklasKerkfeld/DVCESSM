@@ -6,4 +6,5 @@ gamma: 5.0
 warm_up: 500
 ema_decay: 0.999
 time_dim: 256
+nums_features: [128, 256, 512, 1024, 2048]
 use_target: False

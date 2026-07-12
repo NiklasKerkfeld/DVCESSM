@@ -260,7 +260,7 @@ class Trainer(BaseTrainer):
                 sigma = self.engine.get_sigma(t_tensor, x.shape)
                 x = mean + sigma * noise
             else:
-                x = mean.clamp(self.z_min, self.z_max)
+                x = mean
 
         return x.detach()
 
