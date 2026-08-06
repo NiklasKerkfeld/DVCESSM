@@ -67,6 +67,8 @@ def get_ood_datasets(cfg: DictConfig, attribute: str, use_augmentations: bool = 
                                    augmentations=False,
                                    _recursive_=False)
 
+    print(f"Created a positive dataset with {len(positive_dataset)} samples and a negative dataset with {len(negative_dataset)} samples")
+
     return positive_dataset, negative_dataset
 
 

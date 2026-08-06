@@ -143,6 +143,9 @@ def get_datasets(cfg: DictConfig,
                                augmentations=False,
                                _recursive_=False)
 
+    print(f"Created a training dataset with {len(train_dataset)} samples and a test dataset with {len(test_dataset)} samples")
+
+
     return train_dataset, test_dataset
 
 
