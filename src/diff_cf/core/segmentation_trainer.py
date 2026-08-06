@@ -290,12 +290,18 @@ class SegmentationTrainer(BaseTrainer):
         Returns:
             None
         """
-        self.model.eval()
-
-        out = self.model(images.to(self.device)).cpu()
-        pred = torch.argmax(out, dim=1)
+        pred = self.predict(images)
 
         self.writer.add_image(
             'predictions',
             make_grid([visualize_seg(p) for p in pred], nrow=5, normalize=True),
             global_step=self.epoch)
+
+    @torch.no_grad()
+    def predict(self, images: torch.Tensor):
+        self.model.eval()
+
+        out = self.model(images.to(self.device)).cpu()
+        pred = torch.argmax(out, dim=1)
+
+        return pred
