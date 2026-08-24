@@ -15,7 +15,7 @@ from datasets.celebamask import CelebAMaskDataset
 from diff_cf.core.diffusion.generator import CounterfactualGenerator
 from datasets.base import get_datasets
 from diff_cf.core.diffusion.engine import Engine
-from diff_cf.models.diffusion_model_new import DiffusionModel
+from diff_cf.models.diffusion_model_final import DiffusionModel
 from diff_cf.models.segmentation import SegmentationUNet
 from diff_cf.utils.utils import visualize_seg, visualize_counterfactuals, visualize_adaption
 

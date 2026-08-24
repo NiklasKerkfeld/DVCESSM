@@ -180,8 +180,6 @@ class CounterfactualGenerator(BaseGenerator):
         # Scale max_sigma inversely with signal magnitude
         sigma = self.max_sigma * (1.0 - sqrt_alpha_bar)
 
-        print(f"{t[0]}: {sigma}")
-
         if sigma < 0.2:
             return grad
 
