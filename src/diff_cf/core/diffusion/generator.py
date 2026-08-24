@@ -47,6 +47,8 @@ class CounterfactualGenerator(BaseGenerator):
         self.start_fraction = cfg.generation.start_fraction
         self.alpha = cfg.generation.alpha
         self.step_size = cfg.generation.approximation_step_size
+        if not self.step_size:
+            self.step_size = int("inf")
 
         self.z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
                  torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
