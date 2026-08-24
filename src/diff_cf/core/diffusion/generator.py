@@ -71,7 +71,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)
-            epsilon_pred = self._pred_epsilon(x, t_tensor, steps=1)
+            epsilon_pred = self._pred_epsilon(x, t_tensor, t, steps=1)
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
 
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
@@ -100,12 +100,8 @@ class CounterfactualGenerator(BaseGenerator):
 
         return x.detach()
 
-    def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor, steps: int = 1) -> torch.Tensor:
-        if steps == 1:
-            return self.diffusion_model(x, t_tensor).detach()
-
-        current_t = int(t_tensor[0].item())
-        if current_t == 0:
+    def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor, current_t: int, steps: int = 1) -> torch.Tensor:
+        if steps == 1 or current_t == 0:
             return self.diffusion_model(x, t_tensor).detach()
 
         stride = max(1, current_t // steps)
