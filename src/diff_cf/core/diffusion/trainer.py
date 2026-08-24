@@ -271,7 +271,13 @@ class Trainer(BaseTrainer):
             current_step = step if i > 0 else (self.engine.T - 1 - time_steps[1] if len(time_steps) > 1 else 1)
 
             # calculate output at target timestep
-            x = self.engine.reverse(x, epsilon_pred, t_tensor, steps=current_step)
+            mean = self.engine.reverse(x, epsilon_pred, t_tensor, steps=current_step)
+
+            if t != 0:
+                sigma = self.engine.get_sigma(t_tensor, mean.shape)
+                x = mean + sigma * torch.randn_like(mean)
+            else:
+                x = mean
 
             if t % 50 == 0:
                 image = (self._visualize_image(x) / 256.0).clamp(0.0, 1.0)

@@ -147,27 +147,13 @@ class Engine(nn.Module):
             coeff1 = self._extract(self.coeff1, t, images.shape)
             coeff2 = self._extract(self.coeff2, t, images.shape)
 
-            mean = coeff1 * (images - coeff2 * epsilon_pred)
-
-            noise = torch.randn_like(mean)
-            sigma = self.get_sigma(t, mean.shape)
-
-            return mean + sigma * noise
+            return coeff1 * (images - coeff2 * epsilon_pred)
 
         x0_pred = self.image_approximation(images, epsilon_pred, t)
         target_t = (t - steps).clamp(min=0)
 
-        sqrt_alpha_hat = self._extract(
-            self.sqrt_alphas_cumprod,
-            target_t,
-            images.shape
-        )
-
-        sqrt_one_minus_alpha_hat = self._extract(
-            self.sqrt_one_minus_alphas_cumprod,
-            target_t,
-            images.shape
-        )
+        sqrt_alpha_hat = self._extract(self.sqrt_alphas_cumprod, target_t, images.shape)
+        sqrt_one_minus_alpha_hat = self._extract(self.sqrt_one_minus_alphas_cumprod, target_t, images.shape)
 
         return sqrt_alpha_hat * x0_pred + sqrt_one_minus_alpha_hat * epsilon_pred
 
