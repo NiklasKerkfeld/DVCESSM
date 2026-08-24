@@ -129,7 +129,8 @@ class Engine(nn.Module):
     def reverse(self,
                 images: torch.Tensor,
                 epsilon_pred: torch.Tensor,
-                t: torch.Tensor) -> torch.Tensor:
+                t: torch.Tensor,
+                steps: int = 1) -> torch.Tensor:
         """
         Reversed the diffusion process.
 
@@ -137,16 +138,41 @@ class Engine(nn.Module):
             images: noised image (batch) at timestep t (B, C, H, W).
             epsilon_pred: predicted noise (B, C, H, W).
             t: timestep.
+            steps: number of steps to make
 
         Returns:
             denoised image: imaged reversed by one timestep.
         """
-        coeff1 = self._extract(self.coeff1, t, images.shape)
-        coeff2 = self._extract(self.coeff2, t, images.shape)
+        if steps == 1:
+            coeff1 = self._extract(self.coeff1, t, images.shape)
+            coeff2 = self._extract(self.coeff2, t, images.shape)
 
-        mean = coeff1 * (images - coeff2 * epsilon_pred)
+            mean = coeff1 * (images - coeff2 * epsilon_pred)
 
-        return mean
+            return mean
+
+        target_t = (t - steps).clamp(min=0)
+        x0_pred = self.image_approximation(images, epsilon_pred, t)
+
+        alpha_target = self._extract(
+            self.alphas_cumprod,
+            target_t,
+            images.shape
+        )
+
+        valid_target = (target_t >= 0).reshape(
+            target_t.shape[0],
+            *((1,) * (len(images.shape) - 1))
+        )
+
+        alpha_target = torch.where(
+            valid_target,
+            alpha_target,
+            torch.ones_like(alpha_target)
+        )
+
+        return torch.sqrt(alpha_target) * x0_pred + torch.sqrt(1.0 - alpha_target) * epsilon_pred
+
 
     def image_approximation(self,
                             x_t: torch.Tensor,

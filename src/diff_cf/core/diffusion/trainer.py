@@ -6,6 +6,7 @@ import os
 from typing import Tuple, Optional
 
 import torch
+from matplotlib import pyplot as plt
 from omegaconf import DictConfig
 from torch import nn
 from torch.optim import Adam
@@ -61,7 +62,7 @@ class Trainer(BaseTrainer):
         self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
         self.num_warmup_steps = cfg.diffusion.warm_up
-        total_training_steps = cfg.diffusion.epochs * len(self.train_dataloader) // self.accumulation_steps
+        total_training_steps = (cfg.diffusion.epochs * len(self.train_dataloader)) // self.accumulation_steps
 
         def lr_lambda(current_step: int):
             if current_step < self.num_warmup_steps:
@@ -75,8 +76,8 @@ class Trainer(BaseTrainer):
     @torch.no_grad()
     def update_ema(self) -> None:
         """Step the EMA weights."""
-        self.step += 1
-        current_decay = min(self.ema_decay, (1 + self.step) / (10 + self.step))
+        ema_step = self.step // self.accumulation_steps
+        current_decay = min(self.ema_decay, (1 + ema_step) / (10 + ema_step))
 
         for ema_param, param in zip(self.ema_model.parameters(), self.model.parameters()):
             ema_param.data.mul_(current_decay).add_(param.data, alpha=1 - current_decay)
@@ -103,7 +104,7 @@ class Trainer(BaseTrainer):
         Args:
             checkpoint_path: path to checkpoint.
         """
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
         self.epoch = checkpoint["epoch"]
         self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -138,11 +139,10 @@ class Trainer(BaseTrainer):
         self._log_images([visualize_seg(st) for st in sample_targets], "samples/targets")
 
         self.model.train()
+        self.optimizer.zero_grad()
 
         for self.epoch in range(self.epoch + 1, epochs + 1):
             losses = torch.zeros((len(self.train_dataloader),))
-            self.optimizer.zero_grad()
-
             epoch_t_loss = torch.zeros(self.engine.T, device=self.device)
             epoch_t_counts = torch.zeros(self.engine.T, device=self.device)
             epoch_grad_norms = []
@@ -152,6 +152,7 @@ class Trainer(BaseTrainer):
                                 desc=f"Epoch {self.epoch}")
 
             for i, (x, y) in enumerate(progress_bar):
+                self.step += 1
                 x = x.to(self.device)
                 x_t, noise, t, snr = self.engine.sample(x)
 
@@ -173,7 +174,7 @@ class Trainer(BaseTrainer):
                     epoch_t_counts.index_add_(0, t, torch.ones_like(t, dtype=torch.float,
                                                                     device=self.device))
 
-                if (i + 1) % self.accumulation_steps == 0:
+                if self.step % self.accumulation_steps == 0:
                     # tracking grad norm
                     grad_norm = nn.utils.clip_grad_norm_(self.model.parameters(),
                                                          max_norm=float('inf'))
@@ -221,16 +222,22 @@ class Trainer(BaseTrainer):
         self.writer.close()
         print("Training complete and logs flushed.")
 
-    @torch.no_grad()
-    def generate_image(self, batch_size: int = 1,
+    @torch.inference_mode()
+    def generate_image(self,
+                       batch_size: int = 1,
                        use_ema: bool = True,
-                       targets: Optional[torch.Tensor] = None) -> torch.Tensor:
+                       targets: Optional[torch.Tensor] = None,
+                       show_progress: bool = False,
+                       step:int = 1) -> torch.Tensor:
         """
         Generates images.
         Args:
             batch_size: number of images.
             targets: tensor with targets if model was trained with prior targets
             use_ema: use ema model
+            show_progress: shows results every 50 steps
+            step: number of steps taken at once in reverse diffusion process
+
 
         Returns:
             images: generated images (B, C, H, W).
@@ -245,22 +252,35 @@ class Trainer(BaseTrainer):
 
         model.to(self.device)
 
-        for t in reversed(range(self.engine.T)):
+        time_steps = reversed(range(0, self.engine.T, step))
+
+        if show_progress:
+            time_steps = tqdm(time_steps, desc="Generating images", total=self.engine.T // step,
+                              leave=False)
+
+        for t in time_steps:
             t_tensor = torch.full((x.shape[0],), t, device=self.device)
             if self.use_target:
                 epsilon_pred = model(x, t_tensor, targets)
             else:
                 epsilon_pred = model(x, t_tensor)
 
-                # calculate mean of image at t-1
-            mean = self.engine.reverse(x, epsilon_pred, t_tensor)
+            # calculate mean of image at t-1
+            mean = self.engine.reverse(x, epsilon_pred, t_tensor, steps=step)
 
             if t > 0:
                 noise = torch.randn_like(x)
                 sigma = self.engine.get_sigma(t_tensor, x.shape)
                 x = mean + sigma * noise
             else:
-                x = mean
+                x = mean.clamp(self.z_min, self.z_max)
+
+            if t % 50 == 0:
+                image = (self._visualize_image(x) / 256.0).clamp(0.0, 1.0)
+                plt.imshow(image[0].permute(1, 2, 0).cpu().numpy())
+                plt.title(f"Step {t}")
+                plt.axis('off')
+                plt.show()
 
         return x.detach()
 
