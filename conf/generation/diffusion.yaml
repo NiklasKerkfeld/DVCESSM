@@ -3,7 +3,7 @@ name: null
 sample_idx: ???
 seed: 42
 start_fraction: 0.5
-approximation_step_size: 25
+approximation_step_size: 100
 weight_segmentation: 0.1
 weight_distance: 0.15
 model: ???
@@ -12,5 +12,5 @@ alpha: 0.471238898
 border_width: 2
 use_mask: true
 AdaptGrad:
-  N: 30
+  N: 1
   c: .99
