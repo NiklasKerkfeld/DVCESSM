@@ -102,7 +102,8 @@ class CounterfactualGenerator(BaseGenerator):
         return x.detach()
 
     def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor, current_t: int, steps: int = 1) -> torch.Tensor:
-        if steps == 1 or current_t == 0:
+        # Avoid numerical instability near t=0 where sqrt(1 - alpha_bar) -> 0
+        if steps <= 1 or current_t <= 20:
             return self.diffusion_model(x, t_tensor).detach()
 
         stride = max(1, current_t // steps)
@@ -111,10 +112,22 @@ class CounterfactualGenerator(BaseGenerator):
             time_steps.insert(0, current_t)
 
         x_curr = x.clone()
-        for i, t in enumerate(time_steps):
+        for t in time_steps:
             t_curr_tensor = torch.full((x.shape[0],), t, device=self.device)
             epsilon_pred = self.diffusion_model(x_curr, t_curr_tensor).detach()
-            x_curr = self.engine.reverse(x_curr, epsilon_pred, t_curr_tensor, steps=stride)
+
+            # Deterministically move x_curr towards estimated x_0 to avoid noise accumulation
+            if t > 0:
+                x_curr = self.engine.image_approximation(x_curr, epsilon_pred, t_curr_tensor)
+                # Re-diffuse deterministically to the next lower timestep if not at 0
+                next_t = max(0, t - stride)
+                if next_t > 0:
+                    next_t_tensor = torch.full((x.shape[0],), next_t, device=self.device)
+                    sqrt_alpha_bar = self.engine._extract(self.engine.sqrt_alphas_cumprod, next_t_tensor, x.shape)
+                    sqrt_one_minus_alpha_bar = self.engine._extract(self.engine.sqrt_one_minus_alphas_cumprod, next_t_tensor, x.shape)
+                    x_curr = sqrt_alpha_bar * x_curr + sqrt_one_minus_alpha_bar * epsilon_pred
+            else:
+                x_curr = self.engine.image_approximation(x_curr, epsilon_pred, t_curr_tensor)
 
         return self.engine.epsilon_approximation(x, x_curr, t_tensor).detach()
 
