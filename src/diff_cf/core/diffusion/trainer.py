@@ -228,7 +228,7 @@ class Trainer(BaseTrainer):
                        use_ema: bool = True,
                        targets: Optional[torch.Tensor] = None,
                        show_progress: bool = False,
-                       step:int = 1) -> torch.Tensor:
+                       step: int = 1) -> torch.Tensor:
         """
         Generates images.
         Args:
@@ -252,28 +252,37 @@ class Trainer(BaseTrainer):
 
         model.to(self.device)
 
-        time_steps = reversed(range(0, self.engine.T, step))
+        time_steps = list(reversed(range(0, self.engine.T, step)))
+        if time_steps[0] != self.engine.T - 1:
+            time_steps.insert(0, self.engine.T - 1)
 
+        progress_steps = time_steps
         if show_progress:
-            time_steps = tqdm(time_steps, desc="Generating images", total=self.engine.T // step,
-                              leave=False)
+            progress_steps = tqdm(time_steps, desc="Generating images", total=len(time_steps),
+                                  leave=False)
 
-        for t in time_steps:
+        for i, t in enumerate(progress_steps):
             t_tensor = torch.full((x.shape[0],), t, device=self.device)
             if self.use_target:
                 epsilon_pred = model(x, t_tensor, targets)
             else:
                 epsilon_pred = model(x, t_tensor)
 
-            # calculate mean of image at t-1
-            mean = self.engine.reverse(x, epsilon_pred, t_tensor, steps=step)
+            current_step = step if i > 0 else (self.engine.T - 1 - time_steps[1] if len(time_steps) > 1 else 1)
+            next_t = t - current_step
 
-            if t > 0:
+            # calculate output at target timestep
+            x_next = self.engine.reverse(x, epsilon_pred, t_tensor, steps=current_step)
+
+            if step == 1 and t > 0:
                 noise = torch.randn_like(x)
                 sigma = self.engine.get_sigma(t_tensor, x.shape)
-                x = mean + sigma * noise
+                x = x_next + sigma * noise
             else:
-                x = mean.clamp(self.z_min, self.z_max)
+                x = x_next
+
+            if next_t <= 0:
+                x = x.clamp(self.z_min, self.z_max)
 
             if t % 50 == 0:
                 image = (self._visualize_image(x) / 256.0).clamp(0.0, 1.0)

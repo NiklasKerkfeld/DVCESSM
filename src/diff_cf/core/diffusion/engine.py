@@ -151,18 +151,19 @@ class Engine(nn.Module):
 
             return mean
 
-        target_t = (t - steps).clamp(min=0)
+        target_t_raw = t - steps
+        valid_target = (target_t_raw >= 0).reshape(
+            t.shape[0],
+            *((1,) * (len(images.shape) - 1))
+        )
+        target_t = target_t_raw.clamp(min=0)
+
         x0_pred = self.image_approximation(images, epsilon_pred, t)
 
         alpha_target = self._extract(
             self.alphas_cumprod,
             target_t,
             images.shape
-        )
-
-        valid_target = (target_t >= 0).reshape(
-            target_t.shape[0],
-            *((1,) * (len(images.shape) - 1))
         )
 
         alpha_target = torch.where(
