@@ -76,9 +76,6 @@ class CounterfactualGenerator(BaseGenerator):
             epsilon_pred = self._pred_epsilon(x, t_tensor)
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
 
-            mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
-            sigma = self.engine.get_sigma(t_tensor, image.shape)
-
             with torch.enable_grad():
                 g_update, logs_dict = self._calc_g_update(
                     x,
@@ -87,7 +84,10 @@ class CounterfactualGenerator(BaseGenerator):
                     epsilon_pred,
                     t_tensor)
 
+            mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
+
             if t > 0:
+                sigma = self.engine.get_sigma(t_tensor, image.shape)
                 mean = mean - (sigma ** 2 * mu_norm * g_update)
                 x = mean + sigma * torch.randn_like(image)
             else:
@@ -103,7 +103,29 @@ class CounterfactualGenerator(BaseGenerator):
         return x.detach()
 
     def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor) -> torch.Tensor:
-        return self.diffusion_model(x, t_tensor).detach()
+        t_val = t_tensor[0].item()
+
+        # Fallback for single-step approximation or at t=0
+        if self.approximation_steps <= 1 or t_val == 0:
+            return self.diffusion_model(x, t_tensor).detach()
+
+        # Generate evenly spaced sub-timesteps from t down to 0
+        num_steps = min(t_val, self.approximation_steps)
+        time_steps = torch.linspace(int(t_val), 0, steps=int(num_steps + 1), dtype=torch.long,
+                                    device=x.device)
+
+        curr_x = x.clone()
+        for i in range(len(time_steps) - 1):
+            sub_t = time_steps[i]
+            next_t = time_steps[i + 1]
+            step_size = (sub_t - next_t).item()
+
+            sub_t_tensor = torch.full((x.shape[0],), int(sub_t), device=x.device, dtype=torch.long)
+            eps = self.diffusion_model(curr_x, sub_t_tensor).detach()
+            curr_x = self.engine.reverse(curr_x, eps, sub_t_tensor, steps=step_size)
+
+        x_0_approx = curr_x
+        return self.engine.epsilon_approximation(x, x_0_approx, t_tensor)
 
 
     def _calc_g_update(self,
