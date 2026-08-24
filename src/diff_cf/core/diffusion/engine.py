@@ -149,7 +149,10 @@ class Engine(nn.Module):
 
             mean = coeff1 * (images - coeff2 * epsilon_pred)
 
-            return mean
+            noise = torch.randn_like(mean)
+            sigma = self.get_sigma(t, mean.shape)
+
+            return mean + sigma * noise
 
         target_t_raw = t - steps
         valid_target = (target_t_raw >= 0).reshape(
@@ -194,6 +197,11 @@ class Engine(nn.Module):
         sqrt_alpha_hat = self._extract(self.sqrt_alphas_cumprod, t, x_t.shape)
 
         return (x_t - sqrt_one_minus_alpha_hat * epsilon_pred) / sqrt_alpha_hat
+
+    def epsilon_approximation(self, x_t: torch.Tensor, x_0: torch.Tensor, t_tensor: torch.Tensor) -> torch.Tensor:
+        sqrt_alpha_bar = self._extract(self.engine.sqrt_alphas_cumprod, t_tensor, x_t.shape)
+        sqrt_one_minus_alpha_bar = self._extract(self.engine.sqrt_one_minus_alphas_cumprod, t_tensor, x_t.shape)
+        return (x_t - sqrt_alpha_bar * x_0) / sqrt_one_minus_alpha_bar
 
     def get_sigma(self, t: torch.Tensor, shape: torch.Size) -> torch.Tensor:
         """

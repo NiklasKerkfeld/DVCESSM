@@ -269,20 +269,9 @@ class Trainer(BaseTrainer):
                 epsilon_pred = model(x, t_tensor)
 
             current_step = step if i > 0 else (self.engine.T - 1 - time_steps[1] if len(time_steps) > 1 else 1)
-            next_t = t - current_step
 
             # calculate output at target timestep
-            x_next = self.engine.reverse(x, epsilon_pred, t_tensor, steps=current_step)
-
-            if step == 1 and t > 0:
-                noise = torch.randn_like(x)
-                sigma = self.engine.get_sigma(t_tensor, x.shape)
-                x = x_next + sigma * noise
-            else:
-                x = x_next
-
-            if next_t <= 0:
-                x = x.clamp(self.z_min, self.z_max)
+            x = self.engine.reverse(x, epsilon_pred, t_tensor, steps=current_step)
 
             if t % 50 == 0:
                 image = (self._visualize_image(x) / 256.0).clamp(0.0, 1.0)
@@ -291,7 +280,7 @@ class Trainer(BaseTrainer):
                 plt.axis('off')
                 plt.show()
 
-        return x.detach()
+        return x.detach().clamp(self.z_min, self.z_max)
 
     @torch.no_grad()
     def _visualize_sampling(self,
