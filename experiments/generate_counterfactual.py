@@ -40,7 +40,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     print((image < 0).float().mean(), (image > 1).float().mean())
 
     image = dataset.denormalize(image) / 255.0
-    counterfactual = dataset.denormalize(counterfactual[0])  / 255.0
+    counterfactual = dataset.denormalize(counterfactual[0]) / 255.0
 
     print("\nAfter denormalize:")
     print("Counterfactual:")
@@ -85,7 +85,8 @@ def visualize_rgb(dataset: CelebAMaskDataset,
         torchvision.utils.save_image(adaption_visual[0, i],
                                      f"{cfg.system.figures_dir}/{run_name}/adaption_{channel}.png")
 
-    adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True), maximas=torch.max(maximas))
+    adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True),
+                                         maximas=torch.max(maximas))
 
     stacked_image = make_grid([
         image,
@@ -195,10 +196,13 @@ def main(cfg: DictConfig):
         else:
             robust_model = None
 
-        diffusion = DiffusionModel(cfg.data.image_channels,
-                                   cfg.data.image_width,
-                                   cfg.data.image_height,
-                                   cfg.diffusion.time_dim)
+        diffusion = DiffusionModel(channels=cfg.data.image_channels,
+                                   width=cfg.data.image_width,
+                                   height=cfg.data.image_height,
+                                   time_dim=cfg.diffusion.time_dim,
+                                   nums_features=cfg.diffusion.nums_features,
+                                   use_prior=cfg.diffusion.use_target,
+                                   num_classes=cfg.data.n_classes)
 
         checkpoint = torch.load(
             f"{cfg.diffusion.checkpoint_path}/{cfg.diffusion.name}.pt",
@@ -219,13 +223,14 @@ def main(cfg: DictConfig):
     else:
         generator = BaselineGenerator(segmentation, device, cfg, name=run_name)
 
-
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target)
 
     if cfg.data.image_type == 'mri':
-        visualize_mri(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf, cfg)
+        visualize_mri(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf,
+                      cfg)
     else:
-        visualize_rgb(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf, cfg)
+        visualize_rgb(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf,
+                      cfg)
 
 
 if __name__ == '__main__':
