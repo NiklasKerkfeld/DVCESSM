@@ -8,7 +8,7 @@ from omegaconf import DictConfig, OmegaConf
 from datasets.base import get_datasets
 from datasets.celebamask import get_ood_datasets
 from src.diff_cf.core.segmentation_trainer import SegmentationTrainer
-from src.diff_cf.models.segmentation import SegmentationUNet
+from monai.networks.nets import BasicUNet
 
 torch.manual_seed(42)
 if torch.cuda.is_available():
@@ -44,12 +44,11 @@ def main(cfg: DictConfig):
 
     print(train_dataset[0][0].shape)
 
-    model = SegmentationUNet(
+    # Replace original model with MONAI BasicUNet
+    model = BasicUNet(
+        spatial_dims=2,  # Set to 2 for 2D image data (defaults to 3)
         in_channels=cfg.data.image_channels,
         out_channels=cfg.data.n_classes,
-        img_width=cfg.data.image_width,
-        img_height=cfg.data.image_height,
-        attention=cfg.segmentation.attention,
     ).to(device)
 
     trainer = SegmentationTrainer(
