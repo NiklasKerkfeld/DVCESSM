@@ -6,7 +6,7 @@ import torch
 import torchvision.utils as vutils
 from omegaconf import DictConfig
 from torch import nn
-from torch.utils.hipify.hipify_python import InputError
+import torchvision.transforms.functional as F
 from tqdm import tqdm
 
 from ..base_generator import BaseGenerator
@@ -46,6 +46,7 @@ class CounterfactualGenerator(BaseGenerator):
         self.weight_distance = cfg.generation.weight_distance
         self.start_fraction = cfg.generation.start_fraction
         self.alpha = cfg.generation.alpha
+        self.max_sigma = cfg.generation.GradSmoothing.max_sigma
         self.step_size = cfg.generation.approximation_step_size
         if not self.step_size:
             self.step_size = int("inf")
@@ -171,6 +172,24 @@ class CounterfactualGenerator(BaseGenerator):
             'grad_d': grad_d.detach(),
             'logits': logits.detach()
         }
+
+    def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+        # Extract sqrt(alpha_bar_t) from engine (value in [0, 1])
+        sqrt_alpha_bar = self.engine.sqrt_alphas_cumprod[t[0]].item()
+
+        # Scale max_sigma inversely with signal magnitude:
+        # High noise (sqrt_alpha_bar ~ 0) -> max_sigma (2.5)
+        # Low noise  (sqrt_alpha_bar ~ 1) -> min_sigma (0.0)
+        sigma = self.max_sigma * (1.0 - sqrt_alpha_bar)
+
+        if sigma < 0.2:
+            return grad
+
+        kernel_size = int(4 * sigma + 1)
+        if kernel_size % 2 == 0:
+            kernel_size += 1
+
+        return F.gaussian_blur(grad, kernel_size=[kernel_size, kernel_size], sigma=[sigma, sigma])
 
     def log(self, x: torch.Tensor,
             target: torch.Tensor,
