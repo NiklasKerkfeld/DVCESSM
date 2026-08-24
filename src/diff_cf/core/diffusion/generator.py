@@ -100,6 +100,15 @@ class CounterfactualGenerator(BaseGenerator):
 
         return x.detach()
 
+    def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor, steps: int = 1) -> torch.Tensor:
+        if steps == 1:
+         return self.diffusion_model(x, t_tensor).detach()
+
+        else:
+            # TODO: implement that here the epsilon (change on image in step t) is approximates in multiple steps.
+            raise NotImplementedError
+
+
     def _calc_g_update(self,
                        x: torch.Tensor,
                        image: torch.Tensor,
