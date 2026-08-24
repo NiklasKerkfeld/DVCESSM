@@ -71,7 +71,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)
-            epsilon_pred = self.diffusion_model(x, t_tensor).detach()
+            epsilon_pred = self._pred_epsilon(x, t_tensor, steps=1)
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
 
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
@@ -102,12 +102,36 @@ class CounterfactualGenerator(BaseGenerator):
 
     def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor, steps: int = 1) -> torch.Tensor:
         if steps == 1:
-         return self.diffusion_model(x, t_tensor).detach()
+            return self.diffusion_model(x, t_tensor).detach()
 
-        else:
-            # TODO: implement that here the epsilon (change on image in step t) is approximates in multiple steps.
-            raise NotImplementedError
+        current_t = int(t_tensor[0].item())
+        if current_t == 0:
+            return self.diffusion_model(x, t_tensor).detach()
 
+        stride = max(1, current_t // steps)
+        timesteps = list(range(current_t, 0, -stride))
+        if timesteps[-1] != 0:
+            timesteps.append(0)
+
+        x_curr = x.clone()
+        for i in range(len(timesteps) - 1):
+            t_curr = timesteps[i]
+            t_curr_tensor = torch.full((x.shape[0],), t_curr, device=self.device)
+            eps_pred = self.diffusion_model(x_curr, t_curr_tensor).detach()
+            mean = self.engine.reverse(x_curr, eps_pred, t_curr_tensor)
+
+            if timesteps[i + 1] > 0:
+                sigma = self.engine.get_sigma(t_curr_tensor, x.shape)
+                x_curr = mean + sigma * torch.randn_like(x_curr)
+            else:
+                x_curr = mean
+
+        # Infer equivalent epsilon_pred such that engine.image_approximation(x, epsilon_pred, t_tensor) == x_curr
+        sqrt_alpha_bar = self.engine._extract(self.engine.sqrt_alphas_cumprod, t_tensor, x.shape)
+        sqrt_one_minus_alpha_bar = self.engine._extract(self.engine.sqrt_one_minus_alphas_cumprod, t_tensor, x.shape)
+        epsilon_effective = (x - sqrt_alpha_bar * x_curr) / sqrt_one_minus_alpha_bar
+
+        return epsilon_effective.detach()
 
     def _calc_g_update(self,
                        x: torch.Tensor,
