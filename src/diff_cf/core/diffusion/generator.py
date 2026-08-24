@@ -46,7 +46,7 @@ class CounterfactualGenerator(BaseGenerator):
         self.weight_distance = cfg.generation.weight_distance
         self.start_fraction = cfg.generation.start_fraction
         self.alpha = cfg.generation.alpha
-        self.approximation_steps = cfg.generation.approximation_steps
+        self.step_size = cfg.generation.approximation_steps
 
         self.z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
                  torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
@@ -105,24 +105,24 @@ class CounterfactualGenerator(BaseGenerator):
     def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor) -> torch.Tensor:
         t_val = t_tensor[0].item()
 
-        # Fallback for single-step approximation or at t=0
-        if self.approximation_steps <= 1 or t_val == 0:
+        # Return standard 1-step prediction at t=0 or when t is smaller than the step size
+        if t_val == 0 or t_val <= self.step_size:
             return self.diffusion_model(x, t_tensor).detach()
 
-        # Generate evenly spaced sub-timesteps from t down to 0
-        num_steps = min(t_val, self.approximation_steps)
-        time_steps = torch.linspace(int(t_val), 0, steps=int(num_steps + 1), dtype=torch.long,
-                                    device=x.device)
+        # Build sub-timesteps from current t down to 0 with fixed stride
+        time_steps = list(range(int(t_val), 0, -self.step_size))
+        if time_steps[-1] != 0:
+            time_steps.append(0)
 
         curr_x = x.clone()
         for i in range(len(time_steps) - 1):
             sub_t = time_steps[i]
             next_t = time_steps[i + 1]
-            step_size = (sub_t - next_t).item()
+            delta_t = sub_t - next_t
 
-            sub_t_tensor = torch.full((x.shape[0],), int(sub_t), device=x.device, dtype=torch.long)
+            sub_t_tensor = torch.full((x.shape[0],), sub_t, device=x.device, dtype=torch.long)
             eps = self.diffusion_model(curr_x, sub_t_tensor).detach()
-            curr_x = self.engine.reverse(curr_x, eps, sub_t_tensor, steps=step_size)
+            curr_x = self.engine.reverse(curr_x, eps, sub_t_tensor, steps=delta_t)
 
         x_0_approx = curr_x
         return self.engine.epsilon_approximation(x, x_0_approx, t_tensor)
