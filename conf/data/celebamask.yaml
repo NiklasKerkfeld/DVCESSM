@@ -6,7 +6,7 @@
   image_height: 256
   batch_size: 8
   accumulation_steps: 4
-  num_workers: 32
+  num_workers: 1
   image_type: rgb
   min: 0
   max: 255
