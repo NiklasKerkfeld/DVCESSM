@@ -2,6 +2,7 @@ import glob
 import os
 import hydra
 import torch
+from monai.networks.nets import BasicUNet
 
 from omegaconf import DictConfig, OmegaConf
 import torchvision
@@ -165,13 +166,12 @@ def main(cfg: DictConfig):
     image = torch.stack([dataset[n][0]], dim=0)
     target = torch.stack([dataset[n][1]], dim=0)
 
-    segmentation = SegmentationUNet(
+    segmentation = BasicUNet(
+        spatial_dims=2,  # Set to 2 for 2D image data (defaults to 3)
         in_channels=cfg.data.image_channels,
         out_channels=cfg.data.n_classes,
-        img_width=cfg.data.image_width,
-        img_height=cfg.data.image_height,
-        attention=cfg.segmentation.attention,
     )
+
     checkpoint = torch.load(
         f"{cfg.segmentation.checkpoint_path}/{cfg.generation.model}.pt",
         map_location=device

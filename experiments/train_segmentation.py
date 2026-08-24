@@ -44,7 +44,6 @@ def main(cfg: DictConfig):
 
     print(train_dataset[0][0].shape)
 
-    # Replace original model with MONAI BasicUNet
     model = BasicUNet(
         spatial_dims=2,  # Set to 2 for 2D image data (defaults to 3)
         in_channels=cfg.data.image_channels,
