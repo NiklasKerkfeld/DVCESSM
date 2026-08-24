@@ -103,18 +103,19 @@ class CounterfactualGenerator(BaseGenerator):
         return x.detach()
 
     def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor, t: int, step_size: int= -1) -> torch.Tensor:
-        x_curr = x.clone()
-
         if step_size <= 0:
-            return self.diffusion_model(x_curr, t_tensor).detach()
+            return self.diffusion_model(x, t_tensor).detach()
 
-        while t > 0:
-            epsilon_pred = self.diffusion_model(x_curr, t_tensor).detach()
+        x_curr = x.clone()
+        curr_t = t
+        curr_t_tensor = t_tensor
 
-            x_curr = self.engine.reverse(x_curr, epsilon_pred, t_tensor, step_size)
+        while curr_t > 0:
+            epsilon_pred = self.diffusion_model(x_curr, curr_t_tensor).detach()
+            x_curr = self.engine.reverse(x_curr, epsilon_pred, curr_t_tensor, step_size)
 
-            t = max(0, t - step_size)
-            t_tensor = torch.full((x.shape[0],), t, device=self.device)
+            curr_t = max(0, curr_t - step_size)
+            t_tensor = torch.full((x.shape[0],), curr_t, device=self.device)
 
         return self.engine.epsilon_approximation(x, x_curr, t_tensor).detach()
 
