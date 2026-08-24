@@ -141,7 +141,7 @@ class Engine(nn.Module):
             steps: number of steps to make
 
         Returns:
-            denoised image: imaged reversed by one timestep.
+            denoised image: imaged reversed by {steps} steps.
         """
         if steps == 1:
             coeff1 = self._extract(self.coeff1, t, images.shape)
@@ -154,29 +154,22 @@ class Engine(nn.Module):
 
             return mean + sigma * noise
 
-        target_t_raw = t - steps
-        valid_target = (target_t_raw >= 0).reshape(
-            t.shape[0],
-            *((1,) * (len(images.shape) - 1))
-        )
-        target_t = target_t_raw.clamp(min=0)
-
         x0_pred = self.image_approximation(images, epsilon_pred, t)
+        target_t = (t - steps).clamp(min=0)
 
-        alpha_target = self._extract(
-            self.alphas_cumprod,
+        sqrt_alpha_hat = self._extract(
+            self.sqrt_alphas_cumprod,
             target_t,
             images.shape
         )
 
-        alpha_target = torch.where(
-            valid_target,
-            alpha_target,
-            torch.ones_like(alpha_target)
+        sqrt_one_minus_alpha_hat = self._extract(
+            self.sqrt_one_minus_alphas_cumprod,
+            target_t,
+            images.shape
         )
 
-        return torch.sqrt(alpha_target) * x0_pred + torch.sqrt(1.0 - alpha_target) * epsilon_pred
-
+        return sqrt_alpha_hat * x0_pred + sqrt_one_minus_alpha_hat * epsilon_pred
 
     def image_approximation(self,
                             x_t: torch.Tensor,
@@ -198,7 +191,10 @@ class Engine(nn.Module):
 
         return (x_t - sqrt_one_minus_alpha_hat * epsilon_pred) / sqrt_alpha_hat
 
-    def epsilon_approximation(self, x_t: torch.Tensor, x_0: torch.Tensor, t_tensor: torch.Tensor) -> torch.Tensor:
+    def epsilon_approximation(self, x_t: torch.Tensor,
+                              x_0: torch.Tensor,
+                              t_tensor: torch.Tensor) -> torch.Tensor:
+
         sqrt_alpha_bar = self._extract(self.sqrt_alphas_cumprod, t_tensor, x_t.shape)
         sqrt_one_minus_alpha_bar = self._extract(self.sqrt_one_minus_alphas_cumprod, t_tensor, x_t.shape)
         return (x_t - sqrt_alpha_bar * x_0) / sqrt_one_minus_alpha_bar

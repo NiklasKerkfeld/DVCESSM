@@ -1,11 +1,12 @@
 """Diffusion based Counterfactual Generator."""
 
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, Optional, List
 
 import torch
 import torchvision.utils as vutils
 from omegaconf import DictConfig
 from torch import nn
+from torch.utils.hipify.hipify_python import InputError
 from tqdm import tqdm
 
 from ..base_generator import BaseGenerator
@@ -72,7 +73,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)
-            epsilon_pred = self._pred_epsilon(x, t_tensor, t, steps=self.approximation_steps)
+            epsilon_pred = self._pred_epsilon(x, t_tensor, t, step_size=self.approximation_steps)
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
 
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
@@ -101,35 +102,22 @@ class CounterfactualGenerator(BaseGenerator):
 
         return x.detach()
 
-    def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor, current_t: int, steps: int = 1) -> torch.Tensor:
-        # Avoid numerical instability near t=0 where sqrt(1 - alpha_bar) -> 0
-        if steps <= 1 or current_t <= 20:
-            return self.diffusion_model(x, t_tensor).detach()
-
-        stride = max(1, current_t // steps)
-        time_steps = list(reversed(range(0, current_t, stride)))
-        if time_steps[0] != current_t:
-            time_steps.insert(0, current_t)
-
+    def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor, t: int, step_size: int= -1) -> torch.Tensor:
         x_curr = x.clone()
-        for t in time_steps:
-            t_curr_tensor = torch.full((x.shape[0],), t, device=self.device)
-            epsilon_pred = self.diffusion_model(x_curr, t_curr_tensor).detach()
 
-            # Deterministically move x_curr towards estimated x_0 to avoid noise accumulation
-            if t > 0:
-                x_curr = self.engine.image_approximation(x_curr, epsilon_pred, t_curr_tensor)
-                # Re-diffuse deterministically to the next lower timestep if not at 0
-                next_t = max(0, t - stride)
-                if next_t > 0:
-                    next_t_tensor = torch.full((x.shape[0],), next_t, device=self.device)
-                    sqrt_alpha_bar = self.engine._extract(self.engine.sqrt_alphas_cumprod, next_t_tensor, x.shape)
-                    sqrt_one_minus_alpha_bar = self.engine._extract(self.engine.sqrt_one_minus_alphas_cumprod, next_t_tensor, x.shape)
-                    x_curr = sqrt_alpha_bar * x_curr + sqrt_one_minus_alpha_bar * epsilon_pred
-            else:
-                x_curr = self.engine.image_approximation(x_curr, epsilon_pred, t_curr_tensor)
+        if step_size <= 0:
+            return self.diffusion_model(x_curr, t_tensor).detach()
+
+        while t > 0:
+            epsilon_pred = self.diffusion_model(x_curr, t_tensor).detach()
+
+            x_curr = self.engine.reverse(x_curr, epsilon_pred, t_tensor, step_size)
+
+            t = max(0, t - step_size)
+            t_tensor = torch.full((x.shape[0],), t, device=self.device)
 
         return self.engine.epsilon_approximation(x, x_curr, t_tensor).detach()
+
 
     def _calc_g_update(self,
                        x: torch.Tensor,
