@@ -45,6 +45,7 @@ class CounterfactualGenerator(BaseGenerator):
         self.weight_distance = cfg.generation.weight_distance
         self.start_fraction = cfg.generation.start_fraction
         self.alpha = cfg.generation.alpha
+        self.approximation_steps = cfg.generation.approximation_steps
 
         self.z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
                  torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
@@ -71,7 +72,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)
-            epsilon_pred = self._pred_epsilon(x, t_tensor, t, steps=1)
+            epsilon_pred = self._pred_epsilon(x, t_tensor, t, steps=self.approximation_steps)
             mean = self.engine.reverse(x, epsilon_pred, t_tensor)
 
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
