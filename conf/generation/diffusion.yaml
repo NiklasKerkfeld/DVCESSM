@@ -15,4 +15,4 @@ AdaptGrad:
   N: 1
   c: .99
 GradSmoothing:
-  max_sigma: 2.5
+  max_sigma: 3.5
