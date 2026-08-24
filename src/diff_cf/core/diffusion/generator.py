@@ -147,6 +147,7 @@ class CounterfactualGenerator(BaseGenerator):
         # Loss and Gradients
         loss_seg = loss_fn(logits)
         grad_c = torch.autograd.grad(loss_seg, x, retain_graph=True)[0]
+        grad_c = self._apply_dynamic_smoothing(grad_c, t)
 
         if self.robust_segmentation is not None:
             logits_rob = self.robust_segmentation(approx_image_batch)
