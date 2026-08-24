@@ -175,13 +175,12 @@ class CounterfactualGenerator(BaseGenerator):
         }
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        # Extract sqrt(alpha_bar_t) from engine (value in [0, 1])
         sqrt_alpha_bar = self.engine.sqrt_alphas_cumprod[t[0]].item()
 
-        # Scale max_sigma inversely with signal magnitude:
-        # High noise (sqrt_alpha_bar ~ 0) -> max_sigma (2.5)
-        # Low noise  (sqrt_alpha_bar ~ 1) -> min_sigma (0.0)
+        # Scale max_sigma inversely with signal magnitude
         sigma = self.max_sigma * (1.0 - sqrt_alpha_bar)
+
+        print(f"{t[0]}: {sigma}")
 
         if sigma < 0.2:
             return grad
