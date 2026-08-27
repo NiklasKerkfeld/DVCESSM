@@ -1,13 +1,13 @@
 """Dataset class for CelebAMask dataset."""
 
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Optional
 
 from omegaconf import DictConfig
 from torchvision.transforms import v2
 import torch
 
-from base import BaseDataset, get_datasets
+from base import BaseDataset
 
 
 class CelebAMaskDataset(BaseDataset):

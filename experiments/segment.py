@@ -33,12 +33,13 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    if cfg.segmentation.ood is None:
-        train_dataset, test_dataset = get_datasets(cfg, cfg.segmentation.use_augmentations)
-    else:
-        train_dataset, test_dataset = get_ood_datasets(cfg,
-                                                       cfg.segmentation.ood,
-                                                       cfg.segmentation.use_augmentations)
+    train_dataset, test_dataset = get_datasets(cfg, cfg.segmentation.augmentations.enable)
+    if cfg.segmentation.ood.enable:
+        train_dataset.set_attribute(cfg.segmentation.ood.attribute,
+                                    use_positive=cfg.segmentation.ood.train_on_positive)
+        test_dataset.set_attribute(cfg.segmentation.ood.attribute,
+                                   use_positive=~cfg.segmentation.ood.train_on_positive)
+
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
 
@@ -71,13 +72,14 @@ def main(cfg: DictConfig):
         iou = calc_iou(target, pred, num_classes=cfg.data.n_classes)
         f1, precision, recall = calc_f1_score(target, pred, num_classes=cfg.data.n_classes)
 
-        path = f"{cfg.system.figures_dir}/segmentation/image_{i}"
-        os.makedirs(f"{cfg.system.figures_dir}/segmentation/image_{i}", exist_ok=True)
+        file = Path(test_dataset.get_filepath(i)).stem
+        path = f"{cfg.system.figures_dir}/segmentation/{file}"
+        os.makedirs(f"{cfg.system.figures_dir}/segmentation/{file}", exist_ok=True)
 
         save_image(visualize_seg(pred[0]), f"{path}/prediction.png")
         save_image(visualize_seg(target), f"{path}/target.png")
         save_image(test_dataset.denormalize(image, i) / 256, f"{path}/image.png")
-        results.append({'path': f"image_{i}",
+        results.append({'file': f"{file}",
                         'iou': iou,
                         'f1': f1,
                         'precision': precision,

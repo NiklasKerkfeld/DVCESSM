@@ -54,6 +54,18 @@ class BaseDataset(Dataset):
         self.use_positive = use_positive
         self.files = self._filter_samples(self.all_samples)
 
+    def get_filepath(self, index: int) -> str:
+        """Returns the raw file path for a given index."""
+        return self.files[index]
+
+    def find_index(self, path_or_stem: str) -> Optional[int]:
+        """Finds the dataset index for a given file path or stem. Returns None if not present."""
+        target_stem = Path(path_or_stem).stem
+        for idx, file_path in enumerate(self.files):
+            if Path(file_path).stem == target_stem:
+                return idx
+        return None
+
     def __len__(self) -> int:
         return len(self.files)
 
