@@ -76,7 +76,7 @@ def main(cfg: DictConfig):
         save_image(visualize_seg(pred[0]), f"{path}/prediction.png")
         save_image(visualize_seg(target), f"{path}/target.png")
         save_image(test_dataset.denormalize(image, i) / 256, f"{path}/image.png")
-        results.append({'path': path, 'iou': iou})
+        results.append({'path': f"image_{i}", 'iou': iou})
 
     pd.DataFrame(results, columns=['path', 'iou']).to_csv(
         f"{cfg.system.figures_dir}/segmentation/results.csv", index=False)
