@@ -37,7 +37,7 @@ def main(cfg: DictConfig):
         train_dataset.set_attribute(cfg.segmentation.ood.attribute,
                                     use_positive=cfg.segmentation.ood.train_on_positive)
         test_dataset.set_attribute(cfg.segmentation.ood.attribute,
-                                   use_positive=~cfg.segmentation.ood.train_on_positive)
+                                   use_positive=not cfg.segmentation.ood.train_on_positive)
 
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
