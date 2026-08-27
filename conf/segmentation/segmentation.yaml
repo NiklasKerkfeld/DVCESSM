@@ -1,6 +1,6 @@
 checkpoint_path: "./checkpoints/Segmentation"
 name: null
-epochs: 100
+epochs: 50
 lr: 0.001
 attention: True
 ood: null
