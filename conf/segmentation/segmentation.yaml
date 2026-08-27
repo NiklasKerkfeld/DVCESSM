@@ -5,7 +5,7 @@ lr: 0.001
 attention: True
 ood:
   enable: True
-  attribute: male
+  attribute: Male
   train_on_positive: True
 augmentations:
   enable: True
