@@ -71,14 +71,15 @@ def main(cfg: DictConfig):
         iou = calc_iou(target, pred, num_classes=cfg.data.n_classes)
         f1, precision, recall = calc_f1_score(target, pred, num_classes=cfg.data.n_classes)
 
-        file = Path(test_dataset.get_filepath(i)).stem
+        path = Path(test_dataset.get_filepath(i))
+        file = path.stem
         path = f"{cfg.system.figures_dir}/segmentation/{file}"
         os.makedirs(f"{cfg.system.figures_dir}/segmentation/{file}", exist_ok=True)
 
         save_image(visualize_seg(pred[0]), f"{path}/prediction.png")
         save_image(visualize_seg(target), f"{path}/target.png")
         save_image(test_dataset.denormalize(image, i) / 256, f"{path}/image.png")
-        results.append({'file': f"{file}",
+        results.append({'path': path,
                         'iou': iou,
                         'f1': f1,
                         'precision': precision,
