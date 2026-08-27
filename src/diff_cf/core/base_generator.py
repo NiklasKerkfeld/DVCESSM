@@ -72,7 +72,7 @@ class BaseGenerator:
         self.adaptgrad.to(self.device)
 
         pred_org = self.segmentation_model(image).detach().cpu().argmax(dim=1)
-        self.writer.add_image('Prediction', vutils.make_grid(image[0], normalize=True), 0)
+        self.writer.add_image('Prediction', visualize_seg(pred_org[0].detach().cpu()).float(), 0)
 
         counterfactual = self._generate_counterfactual(image, target)
         adaptions = counterfactual - image
