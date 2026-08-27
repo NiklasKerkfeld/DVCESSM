@@ -10,7 +10,6 @@ from diff_cf.core.baseline.generator import BaselineGenerator
 from diff_cf.core.diffusion.engine import Engine
 from diff_cf.core.diffusion.generator import CounterfactualGenerator
 from diff_cf.models.diffusion_model_final import DiffusionModel
-from diff_cf.models.segmentation import SegmentationUNet
 from experiments.utils import visualize_mri, visualize_rgb
 
 
@@ -50,12 +49,10 @@ def main(cfg: DictConfig):
 
     if cfg.generation.type == 'Diffusion':
         if cfg.generation.robust is not None:
-            robust_model = SegmentationUNet(
+            robust_model = BasicUNet(
+                spatial_dims=2,  # Set to 2 for 2D image data (defaults to 3)
                 in_channels=cfg.data.image_channels,
                 out_channels=cfg.data.n_classes,
-                img_width=cfg.data.image_width,
-                img_height=cfg.data.image_height,
-                attention=cfg.segmentation.attention,
             )
             checkpoint = torch.load(
                 f"{cfg.segmentation.checkpoint_path}/{cfg.generation.robust}.pt",
