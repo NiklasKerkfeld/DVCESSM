@@ -12,8 +12,8 @@ from tqdm import tqdm
 from datasets.base import get_datasets
 from datasets.celebamask import get_ood_datasets
 from diff_cf.core.segmentation_trainer import SegmentationTrainer
-from diff_cf.models.segmentation import SegmentationUNet
-from diff_cf.utils.utils import visualize_seg, calc_iou
+from diff_cf.utils.utils import visualize_seg
+from diff_cf.utils.metrics import calc_iou, calc_f1_score
 
 torch.manual_seed(42)
 if torch.cuda.is_available():
@@ -69,6 +69,7 @@ def main(cfg: DictConfig):
     for i, (image, target) in tqdm(enumerate(test_dataset), total=len(test_dataset), desc="segmentation"):
         pred = trainer.predict(image[None].to(device))
         iou = calc_iou(target, pred, num_classes=cfg.data.n_classes)
+        f1, precision, recall = calc_f1_score(target, pred, num_classes=cfg.data.n_classes)
 
         path = f"{cfg.system.figures_dir}/segmentation/image_{i}"
         os.makedirs(f"{cfg.system.figures_dir}/segmentation/image_{i}", exist_ok=True)
@@ -76,7 +77,11 @@ def main(cfg: DictConfig):
         save_image(visualize_seg(pred[0]), f"{path}/prediction.png")
         save_image(visualize_seg(target), f"{path}/target.png")
         save_image(test_dataset.denormalize(image, i) / 256, f"{path}/image.png")
-        results.append({'path': f"image_{i}", 'iou': iou})
+        results.append({'path': f"image_{i}",
+                        'iou': iou,
+                        'f1': f1,
+                        'precision': precision,
+                        'recall': recall})
 
     pd.DataFrame(results, columns=['path', 'iou']).to_csv(
         f"{cfg.system.figures_dir}/segmentation/results.csv", index=False)

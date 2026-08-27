@@ -10,7 +10,8 @@ from tqdm import trange
 
 from ..base_generator import BaseGenerator
 from ...models.losses import CounterfactualLoss
-from ...utils.utils import calc_iou, visualize_seg
+from ...utils.utils import visualize_seg
+from ...utils.metrics import calc_iou
 
 
 class BaselineGenerator(BaseGenerator):

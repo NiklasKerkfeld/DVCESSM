@@ -9,11 +9,13 @@ from torch import nn
 import torchvision.transforms.functional as F
 from tqdm import tqdm
 
+from utils.metrics import calc_f1_score
 from ..base_generator import BaseGenerator
 from .engine import Engine
 from ...models.losses import CounterfactualLoss, geman_mcclure_distance
 from ...utils.cone_projection import cone_projection
-from ...utils.utils import visualize_adaption, visualize_seg, calc_iou
+from ...utils.utils import visualize_adaption, visualize_seg
+from ...utils.metrics import calc_iou
 
 
 class CounterfactualGenerator(BaseGenerator):
@@ -218,7 +220,12 @@ class CounterfactualGenerator(BaseGenerator):
         # log scalars
         prediction = torch.argmax(results['logits'][0], dim=0)
         iou = calc_iou(prediction, target, num_classes=self.num_classes)
+        f1, prediction, recall = calc_f1_score(prediction, target, num_classes=self.num_classes)
         self.writer.add_scalar('Metrics/IoU', iou, log_step)
+        self.writer.add_scalar('Metrics/f1', f1, log_step)
+        self.writer.add_scalar('Metrics/prediction', prediction, log_step)
+        self.writer.add_scalar('Metrics/recall', recall, log_step)
+
         self.writer.add_scalar('Gradients/mean', mean.mean().item(), log_step)
         self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)
         self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)

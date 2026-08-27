@@ -7,37 +7,6 @@ from torch import nn
 
 import torch
 
-def calc_iou(labels: torch.Tensor, preds: torch.Tensor, num_classes: int = 5) -> float:
-    """
-    Calculates the Mean Intersection over Union (mIoU) for multi-class segmentation.
-    Args:
-        labels: ground truth mask of shape (H, W)
-        preds: predicted mask of shape (H, W)
-        num_classes: number of segmentation classes.
-
-    Returns:
-        mIoU: Mean Intersection over Union (mIoU).
-    """
-    conf_matrix = torch.zeros((num_classes, num_classes), device=labels.device)
-
-    conf_matrix += torch.bincount(
-        num_classes * labels.view(-1) + preds.view(-1),
-        minlength=num_classes ** 2
-    ).reshape(num_classes, num_classes)
-
-    # Calculate Metrics
-    tp = conf_matrix.diag()
-    fp = conf_matrix.sum(dim=0) - tp
-    fn = conf_matrix.sum(dim=1) - tp
-
-    # calc iou
-    present_classes = (conf_matrix.sum(dim=1) + conf_matrix.sum(dim=0)) > 0
-    denominator = tp + fp + fn
-    iou = tp[present_classes] / denominator[present_classes]
-
-    return iou.mean().item()
-
-
 def visualize_counterfactuals(image: torch.Tensor, *args: torch.Tensor) -> Tuple[torch.Tensor, ...]:
     """
     Normalizes 'image' and any number of additional tensors (*args)
