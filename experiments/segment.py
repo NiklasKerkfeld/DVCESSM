@@ -83,7 +83,7 @@ def main(cfg: DictConfig):
                         'precision': precision,
                         'recall': recall})
 
-    pd.DataFrame(results, columns=['path', 'iou']).to_csv(
+    pd.DataFrame(results, columns=['path', 'iou', 'f1', 'precision', 'recall']).to_csv(
         f"{cfg.system.figures_dir}/segmentation/results.csv", index=False)
 
 
