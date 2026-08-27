@@ -10,7 +10,6 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 
 from datasets.base import get_datasets
-from datasets.celebamask import get_ood_datasets
 from diff_cf.core.segmentation_trainer import SegmentationTrainer
 from diff_cf.utils.utils import visualize_seg
 from diff_cf.utils.metrics import calc_iou, calc_f1_score
