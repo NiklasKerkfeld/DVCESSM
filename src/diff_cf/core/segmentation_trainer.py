@@ -86,7 +86,7 @@ class SegmentationTrainer(BaseTrainer):
         Args:
             checkpoint_path: path to checkpoint.
         """
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
         self.epoch = checkpoint["epoch"]
         self.model.load_state_dict(checkpoint['model_state_dict'])
