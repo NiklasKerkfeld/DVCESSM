@@ -23,6 +23,7 @@ class BaselineGenerator(BaseGenerator):
                  segmentation_model: nn.Module,
                  device: torch.device,
                  cfg: DictConfig,
+                 log: bool = False,
                  name: str = 'BaselineGenerator'
                  ):
         """
@@ -32,7 +33,7 @@ class BaselineGenerator(BaseGenerator):
             cfg: Configuration dictionary.
             device: Device to run on.
         """
-        super().__init__(segmentation_model, device, cfg, name)
+        super().__init__(segmentation_model, device, cfg, log, name)
         self.lr = cfg.generation.lr
         self.steps = cfg.generation.steps
         self.alpha = cfg.generation.alpha

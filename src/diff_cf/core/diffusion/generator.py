@@ -19,6 +19,7 @@ from ...utils.metrics import calc_iou, calc_f1_score
 
 class CounterfactualGenerator(BaseGenerator):
     """Diffusion based Counterfactual Generator."""
+
     def __init__(self,
                  segmentation: nn.Module,
                  diffusion_model: nn.Module,
@@ -26,7 +27,8 @@ class CounterfactualGenerator(BaseGenerator):
                  device: torch.device,
                  cfg: DictConfig,
                  robust_segmentation: Optional[nn.Module] = None,
-                 name: str='counterfactual') -> None:
+                 log: bool = False,
+                 name: str = 'counterfactual') -> None:
         """
         Diffusion based Counterfactual Generator.
 
@@ -39,7 +41,7 @@ class CounterfactualGenerator(BaseGenerator):
             name: name of the process.
         """
 
-        super().__init__(segmentation, device, cfg, name)
+        super().__init__(segmentation, device, cfg, log, name)
         self.diffusion_model = diffusion_model
         self.engine = engine
 
@@ -54,9 +56,9 @@ class CounterfactualGenerator(BaseGenerator):
             self.step_size = int("inf")
 
         self.z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
-                 torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
+                      torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
         self.z_max = ((cfg.data.max - torch.tensor(cfg.data.means)) /
-                 torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
+                      torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
 
         self.diffusion_model.to(self.device).eval()
 
@@ -132,7 +134,6 @@ class CounterfactualGenerator(BaseGenerator):
         x_0_approx = curr_x
         return self.engine.epsilon_approximation(x, x_0_approx, t_tensor)
 
-
     def _calc_g_update(self,
                        x: torch.Tensor,
                        image: torch.Tensor,
@@ -163,7 +164,8 @@ class CounterfactualGenerator(BaseGenerator):
                                                                                  1) + 1e-8)
 
         # Distance Loss
-        distance = geman_mcclure_distance(image, approx_image) # torch.norm(image - approx_image, p=2)
+        distance = geman_mcclure_distance(image,
+                                          approx_image)  # torch.norm(image - approx_image, p=2)
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)

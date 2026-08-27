@@ -84,10 +84,11 @@ def main(cfg: DictConfig):
                                             device,
                                             cfg,
                                             robust_model,
+                                            log=True,
                                             name=run_name)
 
     else:
-        generator = BaselineGenerator(segmentation, device, cfg, name=run_name)
+        generator = BaselineGenerator(segmentation, device, cfg, log=True, name=run_name)
 
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target)
 
