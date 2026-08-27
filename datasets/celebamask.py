@@ -1,115 +1,55 @@
 """Dataset class for CelebAMask dataset."""
-import os
-from pathlib import Path
-from typing import List, Union, Tuple
 
-from hydra.utils import instantiate
+from pathlib import Path
+from typing import List, Tuple, Optional
+
 from omegaconf import DictConfig
 from torchvision.transforms import v2
-
 import torch
-from datasets.base import BaseDataset
+
+from base import BaseDataset, get_datasets
 
 
 class CelebAMaskDataset(BaseDataset):
-    """Dataset class for CelebAMask dataset."""
+    """Dataset class for CelebAMask dataset with attribute filtering."""
 
     def __init__(self,
                  samples: List[str],
                  cfg: DictConfig,
-                 augmentations: bool = False):
-        super().__init__(samples, cfg, augmentations)
+                 augmentations: bool = False,
+                 label: Optional[str] = None,
+                 use_positive: bool = True):
+        super().__init__(samples, cfg, augmentations, label, use_positive)
         self.means = torch.tensor(cfg.data.means)
         self.stds = torch.tensor(cfg.data.stds)
-
         self._normalize_transform = v2.Normalize(mean=self.means, std=self.stds)
 
+    def _filter_samples(self, samples: List[str]) -> List[str]:
+        if self.label is None:
+            return samples
 
-def get_ood_datasets(cfg: DictConfig, attribute: str, use_augmentations: bool = False) -> Tuple[
-    BaseDataset, BaseDataset]:
-    print(f"Testing attribute: {attribute}")
-    print(f"Data root from config: {cfg.data.root}")
+        anno_path = Path(self.cfg.data.root) / "CelebAMask-HQ" / "CelebAMask-HQ-attribute-anno.txt"
+        if not anno_path.exists():
+            raise FileNotFoundError(f"Attribute file not found at {anno_path}")
 
-    with open(f"{cfg.data.root}/CelebAMask-HQ/CelebAMask-HQ-attribute-anno.txt") as f:
-        data = f.readlines()[1:]
+        with open(anno_path, "r") as f:
+            lines = [line.strip() for line in f if line.strip()][1:]  # Skip image count line
 
-    data = [x.replace("\n", "").split(" ") for x in data]
+        attributes = lines[0].split()
+        if self.label not in attributes:
+            raise ValueError(f"Attribute '{self.label}' not found in attribute file.")
 
-    attributes = data[0]
-    index = attributes.index(attribute) + 2
-    images = [x[0] for x in data[1:]]
-    value = [x[index] for x in data[1:]]
+        attr_idx = attributes.index(self.label) + 1  # Offset by 1 for filename column
 
-    positives, negatives = [], []
-    for filename, value in zip(images, value):
-        name = f"{int(filename[:-4]):05d}"
-        batch = int(name) // 2000
-        out_dir = Path(f"./data/CelebAMask/preprocessed/{batch}")
-        out_path = out_dir / f"{name}.npz"
+        valid_stems = set()
+        for row in lines[1:]:
+            parts = row.split()
+            filename, value = parts[0], parts[attr_idx]
+            is_pos = (value == '1')
 
-        if not os.path.exists(out_path):
-            continue
+            if is_pos == self.use_positive:
+                stem = f"{int(Path(filename).stem):05d}"
+                valid_stems.add(stem)
 
-        if value == '1':
-            positives.append(out_path)
-        else:
-            negatives.append(out_path)
-
-    positive_dataset = instantiate(cfg.data.dataset,
-                                   samples=positives,
-                                   cfg=cfg,
-                                   augmentations=use_augmentations,
-                                   _recursive_=False)
-
-    negative_dataset = instantiate(cfg.data.dataset,
-                                   samples=negatives,
-                                   cfg=cfg,
-                                   augmentations=False,
-                                   _recursive_=False)
-
-    print(f"Created a positive dataset with {len(positive_dataset)} samples and a negative dataset with {len(negative_dataset)} samples")
-
-    return positive_dataset, negative_dataset
-
-
-if __name__ == "__main__":
-    from matplotlib import pyplot as plt
-    from hydra import initialize, compose
-
-    with initialize(version_base=None, config_path="../conf"):
-        cfg = compose(config_name="config")
-
-    attribute = "Male"
-
-    positive_dataset, negative_dataset = get_ood_datasets(cfg, attribute, use_augmentations=False)
-
-    print(f"Positive samples available: {len(positive_dataset)}")
-    print(f"Negative samples available: {len(negative_dataset)}")
-
-    fig, axes = plt.subplots(6, 5, figsize=(16, 25))
-    fig.suptitle(attribute, fontsize=18, fontweight="bold")
-
-    for i in range(min(15, len(positive_dataset))):
-        ax = axes[i // 5, i % 5]
-        image, label = positive_dataset[i]
-        image = positive_dataset.denormalize(image)
-
-        ax.imshow(image.permute(1, 2, 0) / 255.0)
-        ax.axis('off')
-
-    for i in range(min(15, len(negative_dataset))):
-        ax = axes[3 + i // 5, i % 5]
-        image, label = negative_dataset[i]
-        image = negative_dataset.denormalize(image)
-
-        ax.imshow(image.permute(1, 2, 0) / 255.0)
-        ax.axis('off')
-
-    fig.text(0.5, 0.95, "Positive Examples", ha="center", va="center", fontsize=14,
-             fontweight="bold")
-    fig.text(0.5, 0.48, "Negative Examples", ha="center", va="center", fontsize=14,
-             fontweight="bold")
-
-    # Adjust layout so titles and images don't overlap
-    plt.tight_layout()
-    plt.show()
+        filtered_samples = [s for s in samples if Path(s).stem in valid_stems]
+        return filtered_samples

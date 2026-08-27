@@ -2,14 +2,12 @@
 
 import glob
 from typing import Tuple, List, Optional
+from pathlib import Path
 
 import hydra
 from torchvision.transforms import v2
-
 import numpy as np
-
 import torch
-
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from sklearn.model_selection import train_test_split
@@ -21,11 +19,19 @@ class BaseDataset(Dataset):
                  samples: List[str],
                  cfg: DictConfig,
                  augmentations: bool = False,
+                 label: Optional[str] = None,
+                 use_positive: bool = True,
                  ) -> None:
-        self.files = samples
-
-        # parameter augmentations
+        self.cfg = cfg
         self.augmentations = augmentations
+        self.all_samples = samples
+
+        self.label = label
+        self.use_positive = use_positive
+        self.files = self._filter_samples(self.all_samples)
+        # Filter samples (overridden in subclasses like CelebAMaskDataset)
+        self.files = self._filter_samples(samples)
+
         self.blur_p = cfg.segmentation.augmentations.blur.p
         self.blur_sigma = [cfg.segmentation.augmentations.blur.sigma_min,
                            cfg.segmentation.augmentations.blur.sigma_max]
@@ -34,11 +40,19 @@ class BaseDataset(Dataset):
         self.noise_sigma = [cfg.segmentation.augmentations.noise.sigma_min,
                             cfg.segmentation.augmentations.noise.sigma_max]
 
-
         self.means: Optional[torch.Tensor] = None
         self.stds: Optional[torch.Tensor] = None
         self._normalize_transform: Optional[v2.Transform] = None
 
+    def _filter_samples(self, samples: List[str]) -> List[str]:
+        """Override in subclasses to filter samples by attribute labels."""
+        return samples
+
+    def set_attribute(self, label: Optional[str], use_positive: bool = True) -> None:
+        """Dynamically switch attribute filtering without rebuilding the dataset object."""
+        self.label = label
+        self.use_positive = use_positive
+        self.files = self._filter_samples(self.all_samples)
 
     def __len__(self) -> int:
         return len(self.files)
@@ -69,13 +83,9 @@ class BaseDataset(Dataset):
         return image, label
 
     def _stats(self, index: Optional[int]) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Override in subclass if stats must be fetched dynamically per file."""
         if index is None:
             if self.means is None or self.stds is None:
-                raise ValueError(
-                    "This dataset uses dynamic per-file normalization. "
-                    "You must provide an explicit 'index' to look up metadata stats."
-                )
+                raise ValueError("This dataset uses dynamic per-file normalization.")
             return self.means, self.stds
 
         if self.means is None or self.stds is None:
@@ -87,43 +97,27 @@ class BaseDataset(Dataset):
         return self.means, self.stds
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        image, label = self._load(index)
-
-        return image, label
+        return self._load(index)
 
     def denormalize(self, image: torch.Tensor, index: Optional[int] = None) -> torch.Tensor:
-        """
-        Reverses normalization for both single images (C, H, W) and batches (B, C, H, W).
-        If an index is provided, it checks for per-sample stats. Otherwise,
-        it falls back to global stats.
-        """
-        # Assuming self._stats(index) returns tensors of shape (C,)
         means, stds = self._stats(index)
+        means, stds = means.to(image.device), stds.to(image.device)
 
-        # Send stats to the correct device
-        means = means.to(image.device)
-        stds = stds.to(image.device)
-
-        # Dynamically match shapes for broadcasting
-        if image.dim() == 4:  # Batch case: (B, C, H, W)
-            m = means.view(1, -1, 1, 1)
-            s = stds.view(1, -1, 1, 1)
-        elif image.dim() == 3:  # Single image case: (C, H, W)
-            m = means.view(-1, 1, 1)
-            s = stds.view(-1, 1, 1)
+        if image.dim() == 4:
+            m, s = means.view(1, -1, 1, 1), stds.view(1, -1, 1, 1)
+        elif image.dim() == 3:
+            m, s = means.view(-1, 1, 1), stds.view(-1, 1, 1)
         else:
-            raise ValueError(
-                f"Unexpected image tensor shape: {image.shape}. Expected 3 or 4 dimensions.")
+            raise ValueError(f"Unexpected image tensor shape: {image.shape}.")
 
         return (image * s) + m
 
 
 def get_datasets(cfg: DictConfig,
-                 use_augmentations: bool = False) -> Tuple[BaseDataset, BaseDataset]:
-    """
-    cfg is the full OmegaConf object from Hydra
-    """
-    files = glob.glob(f"{cfg.data.root}/preprocessed/*/*.npz")
+                 use_augmentations: bool = False,
+                 label: Optional[str] = None,
+                 use_positive: bool = True) -> Tuple[BaseDataset, BaseDataset]:
+    files = sorted(glob.glob(f"{cfg.data.root}/preprocessed/*/*.npz"))
 
     train_samples, test_samples = train_test_split(
         files,
@@ -135,29 +129,19 @@ def get_datasets(cfg: DictConfig,
                                 samples=train_samples,
                                 cfg=cfg,
                                 augmentations=use_augmentations,
+                                label=label,
+                                use_positive=use_positive,
                                 _recursive_=False)
 
     test_dataset = instantiate(cfg.data.dataset,
                                samples=test_samples,
                                cfg=cfg,
                                augmentations=False,
+                               label=label,
+                               use_positive=use_positive,
                                _recursive_=False)
 
-    print(f"Created a training dataset with {len(train_dataset)} samples and a test dataset with {len(test_dataset)} samples")
-
+    print(f"Created training dataset ({len(train_dataset)}) & test dataset ({len(test_dataset)}) "
+          f"[label='{label}', positive={use_positive}]")
 
     return train_dataset, test_dataset
-
-
-@hydra.main(version_base=None, config_path="./../conf", config_name="config")
-def main(cfg: DictConfig):
-    print(OmegaConf.to_yaml(cfg))
-
-    train_dataset, test_dataset = get_datasets(cfg)
-    print(len(train_dataset))
-    print(len(test_dataset))
-
-
-if __name__ == "__main__":
-    main()
-

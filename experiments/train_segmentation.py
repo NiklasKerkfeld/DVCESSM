@@ -1,12 +1,12 @@
 import glob
 from pathlib import Path
+from typing import Tuple
 
 import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from datasets.base import get_datasets
-from datasets.celebamask import get_ood_datasets
+from datasets.base import get_datasets, BaseDataset
 from src.diff_cf.core.segmentation_trainer import SegmentationTrainer
 from monai.networks.nets import BasicUNet
 
@@ -33,12 +33,11 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    if cfg.segmentation.ood is None:
-        train_dataset, test_dataset = get_datasets(cfg, cfg.segmentation.use_augmentations)
-    else:
-        train_dataset, test_dataset = get_ood_datasets(cfg,
-                                                       cfg.segmentation.ood,
-                                                       cfg.segmentation.use_augmentations)
+    train_dataset, test_dataset = get_datasets(cfg, cfg.segmentation.augmentations.enable)
+    if cfg.segmentation.ood.enable:
+        train_dataset.set_attribute(cfg.segmentation.ood.attribute, use_positive=cfg.segmentation.ood.train_on_positive)
+        test_dataset.set_attribute(cfg.segmentation.ood.attribute, use_positive=~cfg.segmentation.ood.train_on_positive)
+
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
 

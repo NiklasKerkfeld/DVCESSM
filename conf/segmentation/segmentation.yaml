@@ -3,9 +3,12 @@ name: null
 epochs: 50
 lr: 0.001
 attention: True
-ood: null
-use_augmentations: True
+ood:
+  enable: True
+  label: male
+  train_on_positive: True
 augmentations:
+  enable: True
   blur:
     p: 0.2
     sigma_min: 0.1
@@ -16,7 +19,7 @@ augmentations:
     sigma_min: 0.1
     sigma_max: 1.0
 robust:
-  use: True
+  enable: True
   alpha: null
   epsilon: 30.0
   steps: 10

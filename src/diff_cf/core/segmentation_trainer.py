@@ -48,7 +48,7 @@ class SegmentationTrainer(BaseTrainer):
         self.checkpoint = cfg.segmentation.checkpoint_path
 
         # parameter for robust training
-        self.robust = cfg.segmentation.robust.use
+        self.robust = cfg.segmentation.robust.enable
         self.epsilon = cfg.segmentation.robust.epsilon
         self.steps = cfg.segmentation.robust.steps
         self.alpha = cfg.segmentation.robust.alpha
