@@ -1,6 +1,6 @@
 """Diffusion based Counterfactual Generator."""
 
-from typing import Tuple, Dict, Optional, List
+from typing import Tuple, Dict, Optional
 
 import torch
 import torchvision.utils as vutils
@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from ..base_generator import BaseGenerator
 from .engine import Engine
-from ...models.losses import CounterfactualLoss
+from ...models.losses import CounterfactualLoss, geman_mcclure_distance
 from ...utils.cone_projection import cone_projection
 from ...utils.utils import visualize_adaption, visualize_seg, calc_iou
 
@@ -162,7 +162,7 @@ class CounterfactualGenerator(BaseGenerator):
                                                                                  1) + 1e-8)
 
         # Distance Loss
-        distance = torch.norm(image - approx_image, p=2)
+        distance = geman_mcclure_distance(image, approx_image) # torch.norm(image - approx_image, p=2)
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
