@@ -3,11 +3,11 @@
 from pathlib import Path
 from typing import List, Optional
 
+import torch
 from omegaconf import DictConfig
 from torchvision.transforms import v2
-import torch
 
-from base import BaseDataset
+from datasets.base import BaseDataset
 
 
 class CelebAMaskDataset(BaseDataset):
