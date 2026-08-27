@@ -4,7 +4,7 @@ epochs: 50
 lr: 0.001
 attention: True
 ood:
-  enable: True
+  enable: False
   attribute: Male
   train_on_positive: True
 augmentations:
