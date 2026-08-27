@@ -9,13 +9,12 @@ from torch import nn
 import torchvision.transforms.functional as F
 from tqdm import tqdm
 
-from utils.metrics import calc_f1_score
 from ..base_generator import BaseGenerator
 from .engine import Engine
 from ...models.losses import CounterfactualLoss, geman_mcclure_distance
 from ...utils.cone_projection import cone_projection
 from ...utils.utils import visualize_adaption, visualize_seg
-from ...utils.metrics import calc_iou
+from ...utils.metrics import calc_iou, calc_f1_score
 
 
 class CounterfactualGenerator(BaseGenerator):
