@@ -3,7 +3,7 @@ name: null
 sample_idx: None
 sample_name: None
 seed: 42
-start_fraction: 0.5
+start_fraction: 0.25
 approximation_step_size: 100
 weight_segmentation: 0.1
 weight_distance: 0.15
