@@ -1,6 +1,7 @@
 type: Diffusion
 name: null
-sample_idx: ???
+sample_idx: None
+sample_name: None
 seed: 42
 start_fraction: 0.5
 approximation_step_size: 100

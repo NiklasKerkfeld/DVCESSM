@@ -24,13 +24,18 @@ def main(cfg: DictConfig):
         nr = len(glob.glob(f"{log_dir}/*"))
         run_name = f"{nr}_counterfactual"
 
-    n = cfg.generation.sample_idx
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
     _, dataset = get_datasets(cfg)
     print(f"dataset size: {len(dataset)}")
+
+    if cfg.generation.sample_name:
+        n = dataset.find_index(cfg.generation.sample_name)
+    elif cfg.generation.sample_idx:
+        n = cfg.generation.sample_idx
+    else:
+        raise ValueError("Either 'sample_idx' or 'sample_name' must be provided.")
 
     image = torch.stack([dataset[n][0]], dim=0)
     target = torch.stack([dataset[n][1]], dim=0)
