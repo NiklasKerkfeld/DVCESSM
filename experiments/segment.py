@@ -72,8 +72,8 @@ def main(cfg: DictConfig):
         f1, precision, recall = calc_f1_score(target, pred, num_classes=cfg.data.n_classes)
 
         file = Path(test_dataset.get_filepath(i)).stem
-        path = f"{cfg.system.figures_dir}/segmentation/{file}"
-        os.makedirs(f"{cfg.system.figures_dir}/segmentation/{file}", exist_ok=True)
+        path = f"{cfg.system.evaluation_dir}/segmentation/{file}"
+        os.makedirs(f"{cfg.system.evaluation_dir}/segmentation/{file}", exist_ok=True)
 
         save_image(visualize_seg(pred[0]), f"{path}/prediction.png")
         save_image(visualize_seg(target), f"{path}/target.png")
@@ -85,7 +85,7 @@ def main(cfg: DictConfig):
                         'recall': recall})
 
     pd.DataFrame(results, columns=['file', 'iou', 'f1', 'precision', 'recall']).to_csv(
-        f"{cfg.system.figures_dir}/segmentation/results.csv", index=False)
+        f"{cfg.system.evaluation_dir}/segmentation/results.csv", index=False)
 
 
 if __name__ == '__main__':
