@@ -31,7 +31,7 @@ def main(cfg: DictConfig):
     print(f"dataset size: {len(dataset)}")
 
     if cfg.generation.sample_name:
-        n = dataset.find_index(cfg.generation.sample_name)
+        n = dataset.find_index(str(cfg.generation.sample_name))
     elif cfg.generation.sample_idx:
         n = cfg.generation.sample_idx
     else:
