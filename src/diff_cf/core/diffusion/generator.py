@@ -151,7 +151,7 @@ class CounterfactualGenerator(BaseGenerator):
         loss_seg = loss_fn(logits)
         grad_c = torch.autograd.grad(loss_seg, x, retain_graph=True)[0]
         if self.use_smoothing:
-            grad_c = self._apply_dynamic_smoothing(grad_c, t)
+            grad_c = self._apply_threshold(grad_c, t)
 
         if self.robust_segmentation is not None:
             logits_rob = self.robust_segmentation(approx_image_batch)
@@ -178,6 +178,14 @@ class CounterfactualGenerator(BaseGenerator):
             'grad_d': grad_d.detach(),
             'logits': logits.detach()
         }
+
+    def _apply_threshold(self, grad: torch.Tensor):
+        abs_grad = torch.abs(grad)
+        threshold = torch.quantile(abs_grad, 0.9)
+        mask = abs_grad > threshold
+        grad[mask] = 0
+        return grad
+
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         sqrt_alpha_bar = self.engine.sqrt_alphas_cumprod[t[0]].item()
