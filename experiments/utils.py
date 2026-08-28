@@ -10,7 +10,7 @@ from datasets.brats import BraTSDataset
 from datasets.celebamask import CelebAMaskDataset
 
 from diff_cf.utils.utils import visualize_seg, visualize_counterfactuals, visualize_adaption
-from utils.metrics import calc_iou, calc_f1_score
+from diff_cf.utils.metrics import calc_iou, calc_f1_score
 
 
 def visualize_rgb(dataset: CelebAMaskDataset,
