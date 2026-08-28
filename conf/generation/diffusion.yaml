@@ -5,7 +5,7 @@ sample_name: None
 seed: 42
 start_fraction: 0.5
 approximation_step_size: 100
-weight_segmentation: 0.15
+weight_segmentation: 0.1
 weight_distance: 0.15
 model: ???
 robust: null
