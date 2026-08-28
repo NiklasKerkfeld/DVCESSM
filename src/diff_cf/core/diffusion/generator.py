@@ -166,8 +166,8 @@ class CounterfactualGenerator(BaseGenerator):
             grad_c = self._apply_dynamic_smoothing(grad_c, t)
 
         # Distance Loss
-        distance = geman_mcclure_distance(image,
-                                          approx_image)  # torch.norm(image - approx_image, p=2)
+        distance = torch.norm(image - approx_image, p=2) # geman_mcclure_distance(image, approx_image)
+
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
