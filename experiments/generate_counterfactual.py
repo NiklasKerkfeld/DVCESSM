@@ -32,10 +32,13 @@ def main(cfg: DictConfig):
 
     if cfg.generation.sample_name:
         n = dataset.find_index(str(cfg.generation.sample_name))
+        if n is None:
+            raise FileNotFoundError(f"File {str(cfg.generation.sample_name)} not found in dataset!")
     elif cfg.generation.sample_idx:
         n = cfg.generation.sample_idx
     else:
         raise ValueError("Either 'sample_idx' or 'sample_name' must be provided.")
+
 
     image = torch.stack([dataset[n][0]], dim=0)
     target = torch.stack([dataset[n][1]], dim=0)
