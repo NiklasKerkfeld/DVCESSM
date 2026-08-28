@@ -32,6 +32,12 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     print("min: ", image.min(), "max: ", image.max())
     print((image < 0).float().mean(), (image > 1).float().mean())
 
+    iou_org = calc_iou(target, prediction_org, cfg.data.n_classes)
+    f1_org, precision_org, recall_org = calc_f1_score(target, prediction_org, cfg.data.n_classes)
+
+    iou_cf = calc_iou(target, prediction_cf, cfg.data.n_classes)
+    f1_cf, precision_cf, recall_cf = calc_f1_score(target, prediction_cf, cfg.data.n_classes)
+
     image = dataset.denormalize(image) / 255.0
     counterfactual = dataset.denormalize(counterfactual[0]) / 255.0
 
@@ -43,12 +49,6 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     print("\n Image:")
     print("min: ", image.min(), "max: ", image.max())
     print((image < 0).float().mean(), (image > 1).float().mean())
-
-    iou_org = calc_iou(target, prediction_org, cfg.data.n_classes)
-    f1_org, precision_org, recall_org = calc_f1_score(target, prediction_org, cfg.data.n_classes)
-
-    iou_cf = calc_iou(target, prediction_cf, cfg.data.n_classes)
-    f1_cf, precision_cf, recall_cf = calc_f1_score(target, prediction_cf, cfg.data.n_classes)
 
     target = visualize_seg(target)
     pred_original = visualize_seg(prediction_org[0])
@@ -81,10 +81,10 @@ def visualize_rgb(dataset: CelebAMaskDataset,
                 f"\t\t Precision: \t {precision_cf}\n"
                 f"\t\t Recall: \t {recall_cf}\n"
                 f"\t Difference:\n"
-                f"\t\t Recall: \t {(image-counterfactual).abs().sum()}\n"
+                f"\t\t Distance: \t {(image-counterfactual).abs().mean()}\n"
                 f"\t\t IoU: \t {iou_cf-iou_org}\n"
                 f"\t\t F1: \t {f1_cf-f1_org}\n"
-                f"\t\t Precision: \t {precision_cf-prediction_org}\n"
+                f"\t\t Precision: \t {precision_cf-precision_org}\n"
                 f"\t\t Recall: \t {recall_cf-recall_org}\n"
                 )
 
