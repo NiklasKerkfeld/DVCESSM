@@ -179,10 +179,11 @@ class CounterfactualGenerator(BaseGenerator):
             'logits': logits.detach()
         }
 
-    def _apply_threshold(self, grad: torch.Tensor):
+    @staticmethod
+    def _apply_threshold(grad: torch.Tensor):
         abs_grad = torch.abs(grad)
         threshold = torch.quantile(abs_grad, 0.9)
-        mask = abs_grad > threshold
+        mask = abs_grad < threshold
         grad[mask] = 0
         return grad
 
