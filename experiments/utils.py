@@ -80,6 +80,12 @@ def visualize_rgb(dataset: CelebAMaskDataset,
                 f"\t\t F1: \t {f1_cf}\n"
                 f"\t\t Precision: \t {precision_cf}\n"
                 f"\t\t Recall: \t {recall_cf}\n"
+                f"\t Difference:\n"
+                f"\t\t Recall: \t {(image-counterfactual).abs().sum()}\n"
+                f"\t\t IoU: \t {iou_cf-iou_org}\n"
+                f"\t\t F1: \t {f1_cf-f1_org}\n"
+                f"\t\t Precision: \t {precision_cf-prediction_org}\n"
+                f"\t\t Recall: \t {recall_cf-recall_org}\n"
                 )
 
     torchvision.utils.save_image(target,
