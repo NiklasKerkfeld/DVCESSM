@@ -164,7 +164,7 @@ class CounterfactualGenerator(BaseGenerator):
             grad_c = self._apply_threshold(grad_c)
 
         # Distance Loss
-        distance = geman_mcclure_distance(image,
+        distance = geman_mcclure_distance(approx_image,
                                           approx_image)  # torch.norm(image - approx_image, p=2)
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
