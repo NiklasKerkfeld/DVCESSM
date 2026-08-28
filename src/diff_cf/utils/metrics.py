@@ -37,23 +37,26 @@ def calc_iou(labels: torch.Tensor, preds: torch.Tensor, num_classes: int = 5) ->
 def calc_f1_score(
     labels: torch.Tensor, preds: torch.Tensor, num_classes: int = 5
 ) -> Tuple[float, float, float]:
-    """Calculates Mean Precision, Recall, and F1-Score for multi-class segmentation.
+    """Calculates Macro Precision, Recall, and F1-Score for multi-class segmentation.
 
     Args:
-        labels: ground truth mask of shape (H, W)
-        preds: predicted mask of shape (H, W)
-        num_classes: number of segmentation classes.
+        labels: Ground truth mask of shape (H, W) or (B, H, W).
+        preds: Predicted mask of shape (H, W) or (B, H, W).
+        num_classes: Number of segmentation classes.
 
     Returns:
-        Dict containing 'precision', 'recall', and 'f1' scores.
+        Tuple of (macro_f1, macro_precision, macro_recall).
     """
     conf_matrix = torch.zeros((num_classes, num_classes), device=labels.device)
 
+    # Flatten tensors
+    labels_flat = labels.view(-1).long()
+    preds_flat = preds.view(-1).long()
+
     conf_matrix += torch.bincount(
-        num_classes * labels.view(-1) + preds.view(-1), minlength=num_classes**2
+        num_classes * labels_flat + preds_flat, minlength=num_classes**2
     ).reshape(num_classes, num_classes)
 
-    # Calculate True Positives, False Positives, False Negatives
     tp = conf_matrix.diag()
     fp = conf_matrix.sum(dim=0) - tp
     fn = conf_matrix.sum(dim=1) - tp
@@ -63,9 +66,14 @@ def calc_f1_score(
     recall = tp / (tp + fn + eps)
     f1 = (2 * tp) / (2 * tp + fp + fn + eps)
 
-    # Filter to classes present in ground truth or predictions
-    present_classes = (conf_matrix.sum(dim=1) + conf_matrix.sum(dim=0)) > 0
+    # Base present classes ONLY on Ground Truth targets present in this sample
+    gt_present = conf_matrix.sum(dim=1) > 0
 
-    return (f1[present_classes].mean().item(),
-            precision[present_classes].mean().item(),
-            recall[present_classes].mean().item())
+    if not gt_present.any():
+        return 0.0, 0.0, 0.0
+
+    macro_f1 = f1[gt_present].mean().item()
+    macro_precision = precision[gt_present].mean().item()
+    macro_recall = recall[gt_present].mean().item()
+
+    return macro_f1, macro_precision, macro_recall
