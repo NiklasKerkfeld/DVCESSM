@@ -161,6 +161,7 @@ class CounterfactualGenerator(BaseGenerator):
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
         if self.use_smoothing:
+            grad_c = self._apply_threshold(grad_c)
             grad_c = self._apply_dynamic_smoothing(grad_c, t)
 
         # Distance Loss
