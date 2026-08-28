@@ -21,7 +21,7 @@ class BaseGenerator:
                  segmentation_model: nn.Module,
                  device: torch.device,
                  cfg: DictConfig,
-                 log: bool = False,
+                 log_to_tensorboard: bool = False,
                  name: str = 'BaseGenerator'):
         """
 
@@ -35,7 +35,7 @@ class BaseGenerator:
         self.segmentation_model = segmentation_model
         self.device = device
         self.cfg = cfg
-        self.log = log
+        self.log_to_tensorboard = log_to_tensorboard
         self.name = name
         self.border_width = cfg.generation.border_width
         self.use_mask = cfg.generation.use_mask
@@ -46,7 +46,7 @@ class BaseGenerator:
         self.segmentation_model.to(self.device).eval()
 
         # Initialize TensorBoard
-        if self.log:
+        if self.log_to_tensorboard:
             print(f"logging to {cfg.system.log_dir}/Generation/{name}")
             self.writer = SummaryWriter(log_dir=f"{cfg.system.log_dir}/Generation/{name}")
 
@@ -68,7 +68,7 @@ class BaseGenerator:
             pred_org: predicted segmentation map on original image.
             pred_cf: predicted segmentation map on counterfactual.
         """
-        if self.log:
+        if self.log_to_tensorboard:
             self.writer.add_image('Image', vutils.make_grid(image[0], normalize=True), 0)
             self.writer.add_image('Target',
                                   visualize_seg(target[0].detach().cpu()).float(),
@@ -79,7 +79,7 @@ class BaseGenerator:
         self.adaptgrad.to(self.device)
 
         pred_org = self.segmentation_model(image).detach().cpu().argmax(dim=1)
-        if self.log:
+        if self.log_to_tensorboard:
             self.writer.add_image('Prediction', visualize_seg(pred_org[0].detach().cpu()).float(), 0)
 
         counterfactual = self._generate_counterfactual(image, target)
