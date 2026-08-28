@@ -10,6 +10,7 @@ from datasets.brats import BraTSDataset
 from datasets.celebamask import CelebAMaskDataset
 
 from diff_cf.utils.utils import visualize_seg, visualize_counterfactuals, visualize_adaption
+from utils.metrics import calc_iou, calc_f1_score
 
 
 def visualize_rgb(dataset: CelebAMaskDataset,
@@ -43,6 +44,12 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     print("min: ", image.min(), "max: ", image.max())
     print((image < 0).float().mean(), (image > 1).float().mean())
 
+    iou_org = calc_iou(target, prediction_org, cfg.data.n_classes)
+    f1_org, precision_org, recall_org = calc_f1_score(target, prediction_org, cfg.data.n_classes)
+
+    iou_cf = calc_iou(target, prediction_cf, cfg.data.n_classes)
+    f1_cf, precision_cf, recall_cf = calc_f1_score(target, prediction_cf, cfg.data.n_classes)
+
     target = visualize_seg(target)
     pred_original = visualize_seg(prediction_org[0])
     pred_counterfactual = visualize_seg(prediction_cf[0])
@@ -60,6 +67,20 @@ def visualize_rgb(dataset: CelebAMaskDataset,
 
     with open(f"{cfg.system.figures_dir}/{run_name}/config.txt", "a") as f:
         f.write(OmegaConf.to_yaml(cfg))
+
+    with open(f"{cfg.system.figures_dir}/{run_name}/results.txt", "a") as f:
+        f.write(f"Results:\n"
+                f"\t Original:\n"
+                f"\t\t IoU: \t {iou_org}\n"
+                f"\t\t F1: \t {f1_org}\n"
+                f"\t\t Precision: \t {precision_org}\n"
+                f"\t\t Recall: \t {recall_org}\n"
+                f"\t Counterfactual:\n"
+                f"\t\t IoU: \t {iou_cf}\n"
+                f"\t\t F1: \t {f1_cf}\n"
+                f"\t\t Precision: \t {precision_cf}\n"
+                f"\t\t Recall: \t {recall_cf}\n"
+                )
 
     torchvision.utils.save_image(target,
                                  f"{cfg.system.figures_dir}/{run_name}/target.png")
@@ -135,7 +156,6 @@ def visualize_mri(dataset: BraTSDataset,
     ]).flatten(0, 1), nrow=4)
     torchvision.utils.save_image(stacked_image,
                                  f"{cfg.system.figures_dir}/{run_name}/comparison.png")
-
 
 
 def parse_attributes(file_path):
