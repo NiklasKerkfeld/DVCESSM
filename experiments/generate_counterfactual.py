@@ -39,7 +39,6 @@ def main(cfg: DictConfig):
     else:
         raise ValueError("Either 'sample_idx' or 'sample_name' must be provided.")
 
-
     image = torch.stack([dataset[n][0]], dim=0)
     target = torch.stack([dataset[n][1]], dim=0)
 

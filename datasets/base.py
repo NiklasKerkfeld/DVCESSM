@@ -63,6 +63,8 @@ class BaseDataset(Dataset):
         for idx, file_path in enumerate(self.files):
             if Path(file_path).stem == target_stem:
                 return idx
+            else:
+                print(f"{Path(file_path).stem} != {target_stem}")
         return None
 
     def __len__(self) -> int:
