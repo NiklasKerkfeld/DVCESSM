@@ -11,4 +11,5 @@ robust: null
 alpha: 0.471238898
 GradSmoothing:
   enable: true
+  alpha: 0.99
   max_sigma: 2.5

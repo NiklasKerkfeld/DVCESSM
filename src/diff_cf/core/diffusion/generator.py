@@ -49,8 +49,14 @@ class CounterfactualGenerator(BaseGenerator):
         self.weight_distance = cfg.generation.weight_distance
         self.start_fraction = cfg.generation.start_fraction
         self.alpha = cfg.generation.alpha
-        self.use_smoothing = False # cfg.generation.GradSmoothing.enable
+
+        # smoothing
+        self.use_smoothing = cfg.generation.GradSmoothing.enable
+        self.grad_c: Optional[torch.Tensor] = None
+        self.grad_d: Optional[torch.Tensor] = None
+        self.t_alpha = cfg.generation.GradSmoothing.alpha
         self.max_sigma = cfg.generation.GradSmoothing.max_sigma
+
         self.step_size = cfg.generation.approximation_step_size
         if not self.step_size:
             self.step_size = int("inf")
@@ -66,11 +72,7 @@ class CounterfactualGenerator(BaseGenerator):
         if self.robust_segmentation is not None:
             self.robust_segmentation.to(self.device).eval()
 
-        # time smoothing
-        self.use_time_smoothing = True
-        self.grad_c = None
-        self.grad_d = None
-        self.t_alpha = 0.9
+
 
     @torch.no_grad()
     def _generate_counterfactual(self,
@@ -167,10 +169,6 @@ class CounterfactualGenerator(BaseGenerator):
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
 
-        if self.use_smoothing:
-            grad_c = self._threshold_grad(grad_c)
-            grad_c = self._apply_dynamic_smoothing(grad_c, t)
-
         # Distance Loss
         distance = torch.norm(image - approx_image, p=2) # geman_mcclure_distance(image, approx_image)
 
@@ -178,19 +176,23 @@ class CounterfactualGenerator(BaseGenerator):
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
 
-        if self.use_time_smoothing:
+        if self.use_smoothing:
+            grad_c = self._apply_dynamic_smoothing(grad_c, t)
+
+            # init gradients in the frist round
             if self.grad_c is None:
-                self.grad_c = grad_c
+                self.grad_c = grad_c.clone()
             if self.grad_d is None:
-                self.grad_d = grad_d
+                self.grad_d = grad_d.clone()
 
-            grad_c = (1 - self.t_alpha) * self.grad_c + self.t_alpha * grad_c
-            grad_d = (1 - self.t_alpha) * self.grad_d + self.t_alpha * grad_d
+            # rolling average
+            self.grad_c = (1 - self.t_alpha) * self.grad_c + self.t_alpha * grad_c
+            self.grad_d = (1 - self.t_alpha) * self.grad_d + self.t_alpha * grad_d
 
-            mask = self._get_mask(grad_c)
-            grad_c[mask] = 0
-            grad_d[~mask] = 0
-
+            # only change very strong gradients ignore changes of grad_d there
+            mask = self._get_mask(self.grad_c)
+            grad_c = torch.where(mask, torch.zeros_like(self.grad_c), self.grad_c)
+            grad_d = torch.where(~mask, torch.zeros_like(self.grad_d), self.grad_d)
 
         g_update = self.weight_segmentation * grad_c + self.weight_distance * grad_d
 
