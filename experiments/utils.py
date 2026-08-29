@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import torch
 import torchvision
@@ -21,6 +22,15 @@ def visualize_rgb(dataset: CelebAMaskDataset,
                   prediction_org: Tensor,
                   prediction_cf: Tensor,
                   cfg: DictConfig):
+
+    # create output folder
+    output_folder = Path(cfg.system.evaluation)
+    if cfg.generation.batch_name:
+        output_folder /= Path(cfg.generation.batch_name)
+    output_folder /= Path(run_name)
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+
     image, target = dataset[n][0], dataset[n][1]
 
     print("Before denormalize:")
@@ -63,12 +73,11 @@ def visualize_rgb(dataset: CelebAMaskDataset,
 
     adaption_visual = visualize_adaption(adaption, maximas)
 
-    os.makedirs(f"{cfg.system.figures_dir}/{run_name}", exist_ok=True)
 
-    with open(f"{cfg.system.figures_dir}/{run_name}/config.txt", "a") as f:
+    with open(output_folder / "config.txt", "a") as f:
         f.write(OmegaConf.to_yaml(cfg))
 
-    with open(f"{cfg.system.figures_dir}/{run_name}/results.txt", "a") as f:
+    with open(output_folder / "results.txt", "a") as f:
         f.write(f"Results:\n"
                 f"\t Original:\n"
                 f"\t\t IoU: \t {iou_org}\n"
@@ -88,21 +97,15 @@ def visualize_rgb(dataset: CelebAMaskDataset,
                 f"\t\t Recall: \t {recall_cf-recall_org}\n"
                 )
 
-    torchvision.utils.save_image(target,
-                                 f"{cfg.system.figures_dir}/{run_name}/target.png")
-    torchvision.utils.save_image(pred_original,
-                                 f"{cfg.system.figures_dir}/{run_name}/prediction_original.png")
-    torchvision.utils.save_image(pred_counterfactual,
-                                 f"{cfg.system.figures_dir}/{run_name}/prediction_counterfactual.png")
+    torchvision.utils.save_image(target, output_folder / "target.png")
+    torchvision.utils.save_image(pred_original, output_folder / "prediction_original.png")
+    torchvision.utils.save_image(pred_counterfactual, output_folder / "prediction_counterfactual.png")
 
-    torchvision.utils.save_image(image,
-                                 f"{cfg.system.figures_dir}/{run_name}/original.png")
-    torchvision.utils.save_image(counterfactual,
-                                 f"{cfg.system.figures_dir}/{run_name}/counterfactual.png")
+    torchvision.utils.save_image(image, output_folder / "original.png")
+    torchvision.utils.save_image(counterfactual, output_folder / "counterfactual.png")
 
     for i, channel in enumerate(["red", "green", "blue"]):
-        torchvision.utils.save_image(adaption_visual[0, i],
-                                     f"{cfg.system.figures_dir}/{run_name}/adaption_{channel}.png")
+        torchvision.utils.save_image(adaption_visual[0, i], output_folder / "adaption_{channel}.png")
 
     adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True),
                                          maximas=torch.max(maximas))
@@ -115,8 +118,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
         pred_counterfactual,
         target
     ], nrow=3)
-    torchvision.utils.save_image(stacked_image,
-                                 f"{cfg.system.figures_dir}/{run_name}/comparison.png")
+    torchvision.utils.save_image(stacked_image, output_folder / "comparison.png")
 
 
 def visualize_mri(dataset: BraTSDataset,
@@ -127,6 +129,14 @@ def visualize_mri(dataset: BraTSDataset,
                   prediction_org: Tensor,
                   prediction_cf: Tensor,
                   cfg: DictConfig):
+
+    # create output folder
+    output_folder = Path(cfg.system.evaluation)
+    if cfg.generation.batch_name:
+        output_folder /= Path(cfg.generation.batch_name)
+    output_folder /= Path(run_name)
+    output_folder.mkdir(parents=True, exist_ok=True)
+
     image, target = dataset[n][0], dataset[n][1]
 
     target = visualize_seg(target)[0]
@@ -136,32 +146,24 @@ def visualize_mri(dataset: BraTSDataset,
     adaption = visualize_adaption(adaption)
     image, counterfactual = visualize_counterfactuals(image, counterfactual)
 
-    os.makedirs(f"{cfg.system.figures_dir}/{run_name}", exist_ok=True)
-
-    with open(f"{cfg.system.figures_dir}/{run_name}/config.txt", "a") as f:
+    with open( output_folder / "config.txt", "a") as f:
         f.write(str(cfg))
 
-    torchvision.utils.save_image(target, f"{cfg.system.figures_dir}/{run_name}/target.png")
-    torchvision.utils.save_image(pred_original,
-                                 f"{cfg.system.figures_dir}/{run_name}/prediction_original.png")
-    torchvision.utils.save_image(pred_counterfactual,
-                                 f"{cfg.system.figures_dir}/{run_name}/prediction_counterfactual.png")
+    torchvision.utils.save_image(target, output_folder / "target.png")
+    torchvision.utils.save_image(pred_original, output_folder / "prediction_original.png")
+    torchvision.utils.save_image(pred_counterfactual, output_folder / "prediction_counterfactual.png")
 
     for i, channel in enumerate(["T1", "T1ce", "T2", "FLAIR"]):
-        torchvision.utils.save_image(image[0, i],
-                                     f"{cfg.system.figures_dir}/{run_name}/original_{channel}.png")
-        torchvision.utils.save_image(counterfactual[0, i],
-                                     f"{cfg.system.figures_dir}/{run_name}/counterfactual_{channel}.png")
-        torchvision.utils.save_image(adaption[0, i],
-                                     f"{cfg.system.figures_dir}/{run_name}/adaption_{channel}.png")
+        torchvision.utils.save_image(image[0, i], output_folder / "original_{channel}.png")
+        torchvision.utils.save_image(counterfactual[0, i], output_folder / "counterfactual_{channel}.png")
+        torchvision.utils.save_image(adaption[0, i], output_folder / "adaption_{channel}.png")
 
     stacked_image = make_grid(torch.stack([
         image[0],
         adaption[0],
         counterfactual[0]
     ]).flatten(0, 1), nrow=4)
-    torchvision.utils.save_image(stacked_image,
-                                 f"{cfg.system.figures_dir}/{run_name}/comparison.png")
+    torchvision.utils.save_image(stacked_image, output_folder / "comparison.png")
 
 
 def parse_attributes(file_path):

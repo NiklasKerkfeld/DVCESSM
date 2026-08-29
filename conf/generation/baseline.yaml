@@ -1,5 +1,6 @@
 type: Baseline
 name: null
+batch_name: null
 sample_idx: ???
 model: ???
 alpha: 1.0

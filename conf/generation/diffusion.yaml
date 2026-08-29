@@ -1,5 +1,6 @@
 type: Diffusion
 name: null
+batch_name: null
 sample_idx: None
 sample_name: None
 seed: 42
