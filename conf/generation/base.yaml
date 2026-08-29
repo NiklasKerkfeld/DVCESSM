@@ -13,5 +13,5 @@ SegmentationLoss:
   reduction: mean
 
 AdaptGrad:
-  N: 1
+  N: 30
   c: 0.99

@@ -39,7 +39,7 @@ class BaseGenerator:
         self.log_to_tensorboard = log_to_tensorboard
         self.name = name
 
-        self.segmentation_loss_factory = instantiate(cfg.generation.segmentation_loss)
+        self.segmentation_loss_factory = instantiate(cfg.generation.SegmentationLoss)
 
         self.adaptgrad = AdaptGrad(cfg)
 
