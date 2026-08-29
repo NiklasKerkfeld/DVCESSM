@@ -13,5 +13,10 @@ SegmentationLoss:
   reduction: mean
 
 AdaptGrad:
+  _target_: diff_cf.utils.adapt_grad.AdaptGrad
   N: 30
   c: 0.99
+  data_min: ${data.min}
+  data_max: ${data.max}
+  data_means: ${data.means}
+  data_stds: ${data.stds}

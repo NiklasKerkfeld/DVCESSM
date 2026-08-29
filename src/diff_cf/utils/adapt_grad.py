@@ -1,4 +1,5 @@
 """Implementation of AdaptGrad from https://arxiv.org/html/2410.07711v2"""
+from typing import List
 
 import torch
 from omegaconf import DictConfig
@@ -14,20 +15,33 @@ class AdaptGrad(nn.Module):
     x_max: torch.Tensor
     denominator: torch.Tensor
 
-    def __init__(self, cfg: DictConfig):
+    def __init__(
+            self,
+            N: int,
+            c: float,
+            data_min: List[float],
+            data_max: List[float],
+            data_means: List[float],
+            data_stds: List[float]
+    ):
         """
         Implementation of AdaptGrad from https://arxiv.org/html/2410.07711v2.
 
         Args:
-            cfg: Configuration dictionary.
+            N: number of samples created
+            c: confidence threshold
+            data_min: minimum data value
+            data_max: maximum data value
+            data_means: mean data value
+            data_stds: standard deviation data value
         """
         super().__init__()
-        self.N = cfg.generation.AdaptGrad.N     # pylint: disable=invalid-name
-        self.c = cfg.generation.AdaptGrad.c
-        x_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
-                 torch.tensor(cfg.data.stds))
-        x_max = ((cfg.data.max - torch.tensor(cfg.data.means)) /
-                 torch.tensor(cfg.data.stds))
+        self.N = N     # pylint: disable=invalid-name
+        self.c = c
+        x_min = ((data_min - torch.tensor(data_means)) /
+                 torch.tensor(data_stds))
+        x_max = ((data_max - torch.tensor(data_means)) /
+                 torch.tensor(data_stds))
         self.register_buffer('x_min', x_min[None, :, None, None])
         self.register_buffer('x_max', x_max[None, :, None, None])
         self.register_buffer('denominator', torch.sqrt(torch.tensor(2.0)) * erfinv(self.c))

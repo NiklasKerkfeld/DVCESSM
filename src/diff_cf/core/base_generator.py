@@ -9,7 +9,6 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
-from ..utils.adapt_grad import AdaptGrad
 from ..utils.utils import visualize_seg
 
 
@@ -42,7 +41,7 @@ class BaseGenerator:
 
         self.segmentation_loss_factory = instantiate(cfg.generation.SegmentationLoss)
 
-        self.adaptgrad = AdaptGrad(cfg)
+        self.adaptgrad = instantiate(cfg.generation.AdaptGrad).to(self.device)
 
         self.segmentation_model.to(self.device).eval()
 

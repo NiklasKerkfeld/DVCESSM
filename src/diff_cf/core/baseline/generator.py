@@ -122,7 +122,7 @@ class BaselineGenerator(BaseGenerator):
         """
 
         prediction = torch.argmax(output[0], dim=0)
-        iou = calc_iou(prediction, target, num_classes=self.num_classes)
+        iou = calc_iou(prediction, target, num_classes=self.n_classes)
 
         self.writer.add_scalar('Metrics/loss', loss, t)
         self.writer.add_scalar('Metrics/cost', cost, t)
