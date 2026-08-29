@@ -67,7 +67,7 @@ class CounterfactualLoss(nn.Module):
 
 def log_distance(image: torch.Tensor, approx_image: torch.Tensor) -> torch.Tensor:
     diff = torch.abs(approx_image - image)
-    return torch.sum(torch.log(1 + diff))
+    return torch.sum(torch.log(1 + diff) * 4)
 
 
 def geman_mcclure_distance(image: torch.Tensor, approx_image: torch.Tensor) -> torch.Tensor:
