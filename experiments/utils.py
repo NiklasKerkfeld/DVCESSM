@@ -24,7 +24,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
                   cfg: DictConfig):
 
     # create output folder
-    output_folder = Path(cfg.system.evaluation)
+    output_folder = Path(cfg.system.evaluation_dir)
     if cfg.generation.batch_name:
         output_folder /= Path(cfg.generation.batch_name)
     output_folder /= Path(run_name)
@@ -131,7 +131,7 @@ def visualize_mri(dataset: BraTSDataset,
                   cfg: DictConfig):
 
     # create output folder
-    output_folder = Path(cfg.system.evaluation)
+    output_folder = Path(cfg.system.evaluation_dir)
     if cfg.generation.batch_name:
         output_folder /= Path(cfg.generation.batch_name)
     output_folder /= Path(run_name)
