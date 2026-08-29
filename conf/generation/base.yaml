@@ -6,7 +6,7 @@ sample_name: None
 model: ???
 
 SegmentationLoss:
-  _target_: my_package.models.losses.CounterfactualLoss
+  _target_: diff_cf.core.losses.CounterfactualLoss
   _partial_: true
   use_mask: true
   border_width: 2
