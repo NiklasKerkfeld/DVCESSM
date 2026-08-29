@@ -49,7 +49,7 @@ class CounterfactualGenerator(BaseGenerator):
         self.weight_distance = cfg.generation.weight_distance
         self.start_fraction = cfg.generation.start_fraction
         self.alpha = cfg.generation.alpha
-        self.use_smoothing = cfg.generation.GradSmoothing.enable
+        self.use_smoothing = False # cfg.generation.GradSmoothing.enable
         self.max_sigma = cfg.generation.GradSmoothing.max_sigma
         self.step_size = cfg.generation.approximation_step_size
         if not self.step_size:
@@ -65,6 +65,12 @@ class CounterfactualGenerator(BaseGenerator):
         self.robust_segmentation = robust_segmentation
         if self.robust_segmentation is not None:
             self.robust_segmentation.to(self.device).eval()
+
+        # time smoothing
+        self.use_time_smoothing = True
+        self.grad_c = None
+        self.grad_d = None
+        self.t_alpha = 0.9
 
     @torch.no_grad()
     def _generate_counterfactual(self,
@@ -172,6 +178,19 @@ class CounterfactualGenerator(BaseGenerator):
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
 
+        if self.use_time_smoothing:
+            if self.grad_c is None:
+                self.grad_c = grad_c
+            if self.grad_d is None:
+                self.grad_d = grad_d
+
+            grad_c = (1 - self.t_alpha) * self.grad_c + self.t_alpha * grad_c
+            grad_d = (1 - self.t_alpha) * self.grad_d + self.t_alpha * grad_d
+
+            mask = self._get_mask(grad_c)
+            grad_c[mask] = 0
+            grad_d[~mask] = 0
+
 
         g_update = self.weight_segmentation * grad_c + self.weight_distance * grad_d
 
@@ -189,6 +208,13 @@ class CounterfactualGenerator(BaseGenerator):
         mask = abs_grad < threshold
         grad[mask] = 0
         return grad
+
+    @staticmethod
+    def _get_mask(grad: torch.Tensor, percentile: float = 0.9):
+        abs_grad = torch.abs(grad)
+        threshold = torch.quantile(abs_grad, percentile)
+        return abs_grad < threshold
+
 
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
