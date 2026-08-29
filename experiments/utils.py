@@ -190,7 +190,7 @@ def log_results(output_folder: Path,
     rec_diff = recall_cf - recall_org
 
     rows = [
-        ["Distance", "-", "-", f"{dist:.4f}"],
+        ["Adoption", "-", "-", f"{dist:.4f}"],
         ["Time", "-", "-", f"{time_needed:.4f}"],
         ["IoU", f"{iou_org:.4f}", f"{iou_cf:.4f}", f"{iou_diff:.4f}"],
         ["F1", f"{f1_org:.4f}", f"{f1_cf:.4f}", f"{f1_diff:.4f}"],

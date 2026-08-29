@@ -41,8 +41,8 @@ def main(cfg: DictConfig):
         row = {"Method": method}
         for metric in target_metrics:
             if metric in group and group[metric].notna().any():
-                row[f"{metric}_mean"] = group[metric].mean()
-                row[f"{metric}_std"] = group[metric].std()
+                row[f"{metric}_mean"] = round(group[metric].mean(), 4)
+                row[f"{metric}_std"] = round(group[metric].std(), 4)
             else:
                 row[f"{metric}_mean"] = None
                 row[f"{metric}_std"] = None
