@@ -31,27 +31,42 @@ def main(cfg: DictConfig):
 
         records.append(row)
 
+    if not records:
+        print(f"No results.csv files found under {output_folder}")
+        return
+
     df_all = pd.DataFrame(records)
 
-    # 2. Compute Mean and Standard Deviation per Method
+    # 2. Compute Mean, Std, and pre-formatted LaTeX string per Method
     summary = []
     target_metrics = ["IoU", "F1", "Precision", "Recall", "Adoption", "Time"]
 
     for method, group in df_all.groupby("method"):
-        row = {"Method": method}
+        row = {"method": method}
         for metric in target_metrics:
             if metric in group and group[metric].notna().any():
-                row[f"{metric}_mean"] = round(group[metric].mean(), 4)
-                row[f"{metric}_std"] = round(group[metric].std(), 4)
+                m = group[metric].mean()
+                s = group[metric].std()
+
+                # Raw floats for analysis/plotting
+                row[f"{metric}_mean"] = round(m, 4)
+                row[f"{metric}_std"] = round(s, 4) if pd.notna(s) else 0.0
+
+                # Formatted LaTeX string column for direct table rendering
+                std_val = s if pd.notna(s) else 0.0
+                row[metric] = f"${m:.3f} (\\pm {std_val:.3f})$"
             else:
                 row[f"{metric}_mean"] = None
                 row[f"{metric}_std"] = None
+                row[metric] = "-"
         summary.append(row)
 
-    # 3. Export single summary file for LaTeX
+    # 3. Export summary CSV for LaTeX
     summary_df = pd.DataFrame(summary)
-    summary_df.to_csv(output_folder / "summary_results.csv", index=False)
-    
-   
-if __name__ == '__main__':
+    summary_path = output_folder / "summary_results.csv"
+    summary_df.to_csv(summary_path, index=False)
+    print(f"Summary generated: {summary_path}")
+
+
+if __name__ == "__main__":
     main()
