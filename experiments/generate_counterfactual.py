@@ -19,7 +19,7 @@ def main(cfg: DictConfig):
 
     log_dir = f'{cfg.system.log_dir}/Generation'
     if cfg.generation.name is not None:
-        run_name = cfg.generation.name
+        run_name = str(cfg.generation.name)
     else:
         nr = len(glob.glob(f"{log_dir}/*"))
         run_name = f"{nr}_counterfactual"
