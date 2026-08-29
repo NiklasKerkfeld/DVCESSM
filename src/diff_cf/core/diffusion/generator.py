@@ -10,7 +10,7 @@ from torch import nn
 import torchvision.transforms.functional as F
 from tqdm import tqdm
 
-from losses import CounterfactualLoss
+from ..losses import CounterfactualLoss
 from ..base_generator import BaseGenerator
 from .engine import Engine
 from ...utils.cone_projection import cone_projection
