@@ -75,7 +75,6 @@ def visualize_rgb(dataset: CelebAMaskDataset,
 
     adaption_visual = visualize_adaption(adaption, maximas)
 
-
     with open(output_folder / "config.txt", "a") as f:
         f.write(OmegaConf.to_yaml(cfg))
 
