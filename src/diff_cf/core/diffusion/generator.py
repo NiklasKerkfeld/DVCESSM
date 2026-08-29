@@ -4,6 +4,7 @@ from typing import Tuple, Dict, Optional
 
 import torch
 import torchvision.utils as vutils
+from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch import nn
 import torchvision.transforms.functional as F
@@ -11,7 +12,7 @@ from tqdm import tqdm
 
 from ..base_generator import BaseGenerator
 from .engine import Engine
-from ...models.losses import CounterfactualLoss, geman_mcclure_distance, log_distance
+from ...models.losses import CounterfactualLoss
 from ...utils.cone_projection import cone_projection
 from ...utils.utils import visualize_adaption, visualize_seg
 from ...utils.metrics import calc_iou, calc_f1_score
@@ -47,6 +48,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         self.weight_segmentation = cfg.generation.weight_segmentation
         self.weight_distance = cfg.generation.weight_distance
+        self.distance_loss = instantiate(cfg.generation.distance_loss)
         self.start_fraction = cfg.generation.start_fraction
         self.alpha = cfg.generation.alpha
 
@@ -74,8 +76,6 @@ class CounterfactualGenerator(BaseGenerator):
         if self.robust_segmentation is not None:
             self.robust_segmentation.to(self.device).eval()
 
-
-
     @torch.no_grad()
     def _generate_counterfactual(self,
                                  image: torch.Tensor,
@@ -84,9 +84,7 @@ class CounterfactualGenerator(BaseGenerator):
         # reset gradients
         self.reset_state()
 
-        loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)),
-                                     use_mask=self.use_mask,
-                                     border_width=self.border_width)
+        loss_fn = self.segmentation_loss_factory(target=target.repeat((self.adaptgrad.N, 1, 1)))
 
         start_t = int(self.engine.T * self.start_fraction)
         t_tensor = torch.full((image.shape[0],), start_t, device=self.device)
@@ -181,7 +179,7 @@ class CounterfactualGenerator(BaseGenerator):
                                                                                  1) + 1e-8)
 
         # Distance Loss
-        distance = log_distance(image, approx_image)
+        distance = self.distance_loss(image, approx_image)
 
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
@@ -230,8 +228,6 @@ class CounterfactualGenerator(BaseGenerator):
         abs_grad = torch.abs(grad)
         threshold = torch.quantile(abs_grad, self.percentile)
         return abs_grad < threshold
-
-
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         sqrt_alpha_bar = self.engine.sqrt_alphas_cumprod[t[0]].item()

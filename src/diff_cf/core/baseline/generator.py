@@ -57,9 +57,7 @@ class BaselineGenerator(BaseGenerator):
         parameter = nn.Parameter(torch.zeros_like(image))
         optimizer = AdamW([parameter], lr=self.lr)
 
-        loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)),
-                                     use_mask=self.use_mask,
-                                     border_width=self.border_width)
+        loss_fn = self.segmentation_loss_factory(target=target.repeat((self.adaptgrad.N, 1, 1)))
 
         s_filter = self.filter.repeat(image.shape[1], 1, 1, 1).to(self.device)
 

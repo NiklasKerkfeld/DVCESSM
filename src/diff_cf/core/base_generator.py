@@ -4,6 +4,7 @@ from typing import Tuple
 
 import torch
 import torchvision.utils as vutils
+from hydra.utils import instantiate
 from omegaconf import DictConfig
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
@@ -37,9 +38,8 @@ class BaseGenerator:
         self.cfg = cfg
         self.log_to_tensorboard = log_to_tensorboard
         self.name = name
-        self.border_width = cfg.generation.border_width
-        self.use_mask = cfg.generation.use_mask
-        self.num_classes = cfg.data.n_classes
+
+        self.segmentation_loss_factory = instantiate(cfg.generation.segmentation_loss)
 
         self.adaptgrad = AdaptGrad(cfg)
 
