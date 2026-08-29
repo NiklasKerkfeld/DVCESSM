@@ -41,12 +41,11 @@ def main(cfg: DictConfig):
         row = {"Method": method}
         for metric in target_metrics:
             if metric in group and group[metric].notna().any():
-                mean_val = group[metric].mean()
-                std_val = group[metric].std()
-                # Escape standard LaTeX math syntax for output ($mean \pm std$)
-                row[metric] = f"${mean_val:.3f} \\pm {std_val:.3f}$"
+                row[f"{metric}_mean"] = group[metric].mean()
+                row[f"{metric}_std"] = group[metric].std()
             else:
-                row[metric] = "-"
+                row[f"{metric}_mean"] = None
+                row[f"{metric}_std"] = None
         summary.append(row)
 
     # 3. Export single summary file for LaTeX
