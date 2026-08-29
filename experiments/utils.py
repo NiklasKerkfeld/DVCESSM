@@ -1,3 +1,4 @@
+import csv
 import os
 from pathlib import Path
 
@@ -21,6 +22,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
                   adaption: Tensor,
                   prediction_org: Tensor,
                   prediction_cf: Tensor,
+                  time_needed: float,
                   cfg: DictConfig):
 
     # create output folder
@@ -77,25 +79,19 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     with open(output_folder / "config.txt", "a") as f:
         f.write(OmegaConf.to_yaml(cfg))
 
-    with open(output_folder / "results.txt", "a") as f:
-        f.write(f"Results:\n"
-                f"\t Original:\n"
-                f"\t\t IoU: \t {iou_org}\n"
-                f"\t\t F1: \t {f1_org}\n"
-                f"\t\t Precision: \t {precision_org}\n"
-                f"\t\t Recall: \t {recall_org}\n"
-                f"\t Counterfactual:\n"
-                f"\t\t IoU: \t {iou_cf}\n"
-                f"\t\t F1: \t {f1_cf}\n"
-                f"\t\t Precision: \t {precision_cf}\n"
-                f"\t\t Recall: \t {recall_cf}\n"
-                f"\t Difference:\n"
-                f"\t\t Distance: \t {(image-counterfactual).abs().mean()}\n"
-                f"\t\t IoU: \t {iou_cf-iou_org}\n"
-                f"\t\t F1: \t {f1_cf-f1_org}\n"
-                f"\t\t Precision: \t {precision_cf-precision_org}\n"
-                f"\t\t Recall: \t {recall_cf-recall_org}\n"
-                )
+    log_results(
+        output_folder,
+        iou_org=iou_org,
+        f1_org=f1_org,
+        precision_org=precision_org,
+        recall_org=recall_org,
+        iou_cf=iou_cf,
+        f1_cf=f1_cf,
+        precision_cf=precision_cf,
+        recall_cf=recall_cf,
+        dist=(image-counterfactual).abs().mean().item(),
+        time_needed=time_needed
+    )
 
     torchvision.utils.save_image(target, output_folder / "target.png")
     torchvision.utils.save_image(pred_original, output_folder / "prediction_original.png")
@@ -105,7 +101,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     torchvision.utils.save_image(counterfactual, output_folder / "counterfactual.png")
 
     for i, channel in enumerate(["red", "green", "blue"]):
-        torchvision.utils.save_image(adaption_visual[0, i], output_folder / "adaption_{channel}.png")
+        torchvision.utils.save_image(adaption_visual[0, i], output_folder / f"adaption_{channel}.png")
 
     adaption_visual = visualize_adaption(adaption.sum(dim=1, keepdim=True),
                                          maximas=torch.max(maximas))
@@ -164,6 +160,50 @@ def visualize_mri(dataset: BraTSDataset,
         counterfactual[0]
     ]).flatten(0, 1), nrow=4)
     torchvision.utils.save_image(stacked_image, output_folder / "comparison.png")
+
+def log_results(output_folder: Path,
+                iou_org: float,
+                f1_org: float,
+                precision_org: float,
+                recall_org: float,
+                iou_cf: float,
+                f1_cf: float,
+                precision_cf: float,
+                recall_cf: float,
+                dist: float,
+                time_needed: float):
+    # Define file path
+    csv_path = output_folder / "results.csv"
+
+    # Write headers if file doesn't exist yet
+    file_exists = csv_path.exists()
+
+    fields = [
+        "Metric",
+        "Original",
+        "Counterfactual",
+        "Difference",
+    ]
+
+    iou_diff = iou_cf - iou_org
+    f1_diff = f1_cf - f1_org
+    prec_diff = precision_cf - precision_org
+    rec_diff = recall_cf - recall_org
+
+    rows = [
+        ["Distance", "-", "-", f"{dist:.4f}"],
+        ["Time", "-", "-", f"{time_needed:.4f}"],
+        ["IoU", f"{iou_org:.4f}", f"{iou_cf:.4f}", f"{iou_diff:.4f}"],
+        ["F1", f"{f1_org:.4f}", f"{f1_cf:.4f}", f"{f1_diff:.4f}"],
+        ["Precision", f"{precision_org:.4f}", f"{precision_cf:.4f}", f"{prec_diff:.4f}"],
+        ["Recall", f"{recall_org:.4f}", f"{recall_cf:.4f}", f"{rec_diff:.4f}"],
+    ]
+
+    with open(csv_path, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(fields)
+        writer.writerows(rows)
 
 
 def parse_attributes(file_path):

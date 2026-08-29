@@ -1,4 +1,5 @@
 import glob
+import time
 
 import hydra
 import torch
@@ -97,14 +98,16 @@ def main(cfg: DictConfig):
     else:
         generator = BaselineGenerator(segmentation, device, cfg, log=True, name=run_name)
 
+    start_time = time.time()
     counterfactual, adaption, prediction_org, prediction_cf = generator.generate(image, target)
+    time_needed = time.time() - start_time
 
     if cfg.data.image_type == 'mri':
         visualize_mri(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf,
                       cfg)
     else:
         visualize_rgb(dataset, n, run_name, counterfactual, adaption, prediction_org, prediction_cf,
-                      cfg)
+                      time_needed, cfg)
 
 
 if __name__ == '__main__':
