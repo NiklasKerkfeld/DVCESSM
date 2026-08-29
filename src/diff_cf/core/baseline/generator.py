@@ -9,7 +9,6 @@ from torch.optim import AdamW
 from tqdm import trange
 
 from ..base_generator import BaseGenerator
-from ...models.losses import CounterfactualLoss
 from ...utils.utils import visualize_seg
 from ...utils.metrics import calc_iou
 
