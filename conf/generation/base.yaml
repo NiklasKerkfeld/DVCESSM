@@ -1,0 +1,11 @@
+type: ???
+name: null
+batch_name: null
+sample_idx: None
+sample_name: None
+model: ???
+border_width: 2
+use_mask: true
+AdaptGrad:
+  N: 1
+  c: 0.99
