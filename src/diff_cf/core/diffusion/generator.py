@@ -270,8 +270,9 @@ class CounterfactualGenerator(BaseGenerator):
 
         # log scalars
         prediction = torch.argmax(results['logits'][0], dim=0)
-        iou = calc_iou(prediction, target, num_classes=self.num_classes)
-        f1, precision, recall = calc_f1_score(prediction, target, num_classes=self.num_classes)
+        iou = calc_iou(prediction, target, num_classes=self.n_classes)
+        f1, precision, recall = calc_f1_score(prediction, target, num_classes=self.n_classes)
+
         self.writer.add_scalar('Metrics/IoU', iou, log_step)
         self.writer.add_scalar('Metrics/f1', f1, log_step)
         self.writer.add_scalar('Metrics/precision', precision, log_step)

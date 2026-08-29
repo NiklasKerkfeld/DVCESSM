@@ -35,9 +35,10 @@ class BaseGenerator:
         super().__init__()
         self.segmentation_model = segmentation_model
         self.device = device
-        self.cfg = cfg
         self.log_to_tensorboard = log_to_tensorboard
         self.name = name
+
+        self.n_classes = cfg.data.n_classes
 
         self.segmentation_loss_factory = instantiate(cfg.generation.SegmentationLoss)
 
