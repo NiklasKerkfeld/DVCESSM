@@ -54,6 +54,8 @@ class CounterfactualGenerator(BaseGenerator):
         self.use_smoothing = cfg.generation.GradSmoothing.enable
         self.grad_c: Optional[torch.Tensor] = None
         self.grad_d: Optional[torch.Tensor] = None
+        self.use_strong_gradients_only = cfg.generation.GradSmoothing.strong_gradients
+        self.percentile: float = cfg.generation.GradSmoothing.percentile
         self.t_alpha = cfg.generation.GradSmoothing.alpha
         self.max_sigma = cfg.generation.GradSmoothing.max_sigma
 
@@ -78,6 +80,10 @@ class CounterfactualGenerator(BaseGenerator):
     def _generate_counterfactual(self,
                                  image: torch.Tensor,
                                  target: torch.Tensor) -> torch.Tensor:
+
+        # reset gradients
+        self.reset_state()
+
         loss_fn = CounterfactualLoss(target.repeat((self.adaptgrad.N, 1, 1)),
                                      use_mask=self.use_mask,
                                      border_width=self.border_width)
@@ -116,6 +122,11 @@ class CounterfactualGenerator(BaseGenerator):
                 self.log(x, target, mean, mu_norm, g_update, logs_dict, start_t, t)
 
         return x.detach()
+
+    def reset_state(self):
+        """Call this at the start of a new diffusion trajectory."""
+        self.grad_c = None
+        self.grad_d = None
 
     def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor) -> torch.Tensor:
         t_val = t_tensor[0].item()
@@ -189,10 +200,14 @@ class CounterfactualGenerator(BaseGenerator):
             self.grad_c = (1 - self.t_alpha) * self.grad_c + self.t_alpha * grad_c
             self.grad_d = (1 - self.t_alpha) * self.grad_d + self.t_alpha * grad_d
 
-            # only change very strong gradients ignore changes of grad_d there
-            mask = self._get_mask(self.grad_c)
-            grad_c = torch.where(mask, torch.zeros_like(self.grad_c), self.grad_c)
-            grad_d = torch.where(~mask, torch.zeros_like(self.grad_d), self.grad_d)
+            grad_c = self.grad_c
+            grad_d = self.grad_d
+
+        # only change very strong gradients ignore changes of grad_d there
+        if self.use_strong_gradients_only:
+            mask = self._get_mask(grad_c)
+            grad_c = torch.where(mask, torch.zeros_like(grad_c), grad_c)
+            grad_d = torch.where(~mask, torch.zeros_like(grad_d), grad_d)
 
         g_update = self.weight_segmentation * grad_c + self.weight_distance * grad_d
 
@@ -211,10 +226,9 @@ class CounterfactualGenerator(BaseGenerator):
         grad[mask] = 0
         return grad
 
-    @staticmethod
-    def _get_mask(grad: torch.Tensor, percentile: float = 0.9):
+    def _get_mask(self, grad: torch.Tensor):
         abs_grad = torch.abs(grad)
-        threshold = torch.quantile(abs_grad, percentile)
+        threshold = torch.quantile(abs_grad, self.percentile)
         return abs_grad < threshold
 
 
