@@ -1,1 +1,2 @@
 _target_: diff_cf.core.losses.differentiable_soft_l0_count
+_partial_: true

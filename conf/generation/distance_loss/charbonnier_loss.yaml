@@ -1,1 +1,2 @@
 _target_: diff_cf.core.losses.charbonnier_loss
+_partial_: true

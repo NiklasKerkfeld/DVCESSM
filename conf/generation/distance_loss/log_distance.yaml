@@ -1,1 +1,2 @@
 _target_: diff_cf.core.losses.log_distance
+_partial_: true
