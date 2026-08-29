@@ -1,1 +1,1 @@
-_target_: my_package.generators.losses.geman_mcclure_distance
+_target_: diff_cf.core.losses.geman_mcclure_distance
