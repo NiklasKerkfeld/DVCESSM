@@ -181,7 +181,7 @@ class CounterfactualGenerator(BaseGenerator):
                                                                                  1) + 1e-8)
 
         # Distance Loss
-        distance = torch.log(1 + torch.abs(image - approx_image)).mean() # torch.norm(image - approx_image, p=2) # geman_mcclure_distance(image, approx_image)
+        distance = torch.norm(image - approx_image, p=2) # torch.log(1 + torch.abs(image - approx_image)).mean() #  geman_mcclure_distance(image, approx_image)
 
         grad_d = torch.autograd.grad(distance, x)[0]
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
