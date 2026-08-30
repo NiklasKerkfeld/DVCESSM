@@ -72,7 +72,7 @@ class CounterfactualGenerator(BaseGenerator):
                          robust_model, adapt_grad, cone_projection_alpha, n_classes,
                          log_dir, log_to_tensorboard, device, name)
         self.diffusion_model = diffusion_model.to(self.device).eval()
-        self.engine = engine
+        self.engine = engine.to(self.device)
 
         self.weight_segmentation = weight_segmentation
         self.weight_distance = weight_distance
@@ -84,8 +84,6 @@ class CounterfactualGenerator(BaseGenerator):
         self.smoothing_step = 0
         self.grad_c: Optional[torch.Tensor] = None
         self.grad_d: Optional[torch.Tensor] = None
-
-
 
     @torch.no_grad()
     def _generate_counterfactual(self,
