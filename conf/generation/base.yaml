@@ -4,6 +4,7 @@ batch_name: null
 sample_idx: None
 sample_name: None
 model: ???
+robust: null
 seed: 42
 
 cone_projection_alpha: 0.471238898
