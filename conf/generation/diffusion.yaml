@@ -12,7 +12,7 @@ robust: null
 cone_projection_alpha: 0.471238898
 
 GradSmoothing:
-  _target_: src.core.diffusion.generator.GradSmoothingConfig
+  _target_: src.diff_cf.core.diffusion.generator.GradSmoothingConfig
   spacial_gradient_smoothing: true
   temporal_gradient_smoothing: true
   filter_gradients: true
