@@ -73,7 +73,7 @@ def main(cfg: DictConfig):
                                                                                                1)
 
     # AdaptGrad
-    adapt_grad = instantiate(cfg.generation.adapt_grad)
+    adapt_grad = instantiate(cfg.generation.AdaptGrad)
 
     if cfg.generation.type == 'Diffusion':
         # Smoothing
