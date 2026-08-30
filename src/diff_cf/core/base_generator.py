@@ -1,15 +1,17 @@
 """Abstract class for all generators."""
-
-from typing import Tuple
+import math
+from typing import Tuple, Optional
 
 import torch
+import torch.nn.functional as F
 import torchvision.utils as vutils
-from hydra.utils import instantiate
-from omegaconf import DictConfig
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
-from ..utils.utils import visualize_seg
+from diffusion.generator import GradSmoothingConfig
+from losses import SegmentationLossFactory, BaseDistanceLoss, SegmentationLossConfig
+from utils.adapt_grad import AdaptGrad
+from ..utils.utils import visualize_seg, scalar_product
 
 
 class BaseGenerator:
@@ -19,36 +21,57 @@ class BaseGenerator:
 
     def __init__(self,
                  segmentation_model: nn.Module,
-                 device: torch.device,
-                 cfg: DictConfig,
+                 segmentation_loss_config: SegmentationLossConfig,
+                 distance_loss: BaseDistanceLoss,
+                 z_bounds: Tuple[torch.Tensor, torch.Tensor],
+                 robust_model: Optional[nn.Module] = None,
+                 adapt_grad: Optional[AdaptGrad] = None,
+                 cone_projection_alpha: Optional[float] = None,
+                 n_classes: int = 2,
+                 log_dir: Optional[str] = None,
                  log_to_tensorboard: bool = False,
+                 device: torch.device = torch.device('cpu'),
                  name: str = 'BaseGenerator'):
         """
-
         Args:
             segmentation_model: segmentation model.
+            segmentation_loss_factory: Factory for the SegmentationLoss.
+            distance_loss: loss function for messaging the distance to original image.
+            robust_model: robust segmentation model to improve segmentation gradients using cone projection.
+            adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
+            cone_projection_alpha: alpha angle in radians for cone projection.
+            n_classes: number of classes.
+            log_dir: logging directory.
+            log_to_tensorboard: activated tensorboard logging.
             device: device to run on.
-            cfg: Configuration dictionary.
             name: name of the process.
         """
         super().__init__()
-        self.segmentation_model = segmentation_model
-        self.device = device
+        self.segmentation_model = segmentation_model.to(device).eval()
+        self.segmentation_loss_factory = SegmentationLossFactory(segmentation_loss_config)
+        self.distance_loss = distance_loss
+        self.robust_model = robust_model.to(device).eval() if robust_model else None
+        self.z_min, self.z_max = z_bounds[0].to(device), z_bounds[1].to(device)
+        self.n_classes = n_classes
+        self.log_dir = log_dir
         self.log_to_tensorboard = log_to_tensorboard
+        self.device = device
         self.name = name
 
-        self.n_classes = cfg.data.n_classes
+        self.alpha = cone_projection_alpha if cone_projection_alpha else None
+        if self.robust_model is not None and self.alpha is None:
+            raise ValueError(
+                "When robust model is provided alpha value for cone projection must be set!")
 
-        self.segmentation_loss_factory = instantiate(cfg.generation.SegmentationLoss)
-
-        self.adaptgrad = instantiate(cfg.generation.AdaptGrad).to(self.device)
-
-        self.segmentation_model.to(self.device).eval()
+        self.adaptgrad = adapt_grad if adapt_grad else torch.nn.Identity()
 
         # Initialize TensorBoard
         if self.log_to_tensorboard:
-            print(f"logging to {cfg.system.log_dir}/Generation/{name}")
-            self.writer = SummaryWriter(log_dir=f"{cfg.system.log_dir}/Generation/{name}")
+            if self.log_dir is None:
+                raise ValueError("log_dir must be provided when log_to_tensorboard is True")
+            print(f"logging to {self.log_dir}/Generation/{name}")
+            print(f"logging to {self.log_dir}/Generation/{name}")
+            self.writer = SummaryWriter(log_dir=f"{self.log_dir}/Generation/{name}")
 
     @torch.no_grad()
     def generate(self,
@@ -80,7 +103,8 @@ class BaseGenerator:
 
         pred_org = self.segmentation_model(image).detach().cpu().argmax(dim=1)
         if self.log_to_tensorboard:
-            self.writer.add_image('Prediction', visualize_seg(pred_org[0].detach().cpu()).float(), 0)
+            self.writer.add_image('Prediction', visualize_seg(pred_org[0].detach().cpu()).float(),
+                                  0)
 
         counterfactual = self._generate_counterfactual(image, target)
         adaptions = counterfactual - image
@@ -100,3 +124,36 @@ class BaseGenerator:
             counterfactual: counterfactual.
         """
         raise NotImplementedError
+
+    def _cone_projection(self, grad_seg: torch.Tensor, grad_rob: torch.Tensor) -> torch.Tensor:
+        """
+        Does the cone projection from this paper https://arxiv.org/pdf/2210.11841 to ensure use full gradients.
+
+        Args:
+            grad_seg: gradient of the segmentation model.
+            grad_rob: gradient of the robust model.
+
+        Returns:
+            new gradient for guiding the diffusion model.
+        """
+        if self.alpha is None:
+            raise ValueError("alpha must be provided when cone projection is used!")
+
+        vec_seg = grad_seg.flatten(1)
+        vec_rob = grad_rob.flatten(1)
+        angle = torch.acos(
+            F.cosine_similarity(vec_seg, vec_rob, dim=-1).clamp(-1.0 + 1e-7, 1.0 - 1e-7))
+
+        p_ortho = vec_rob - (scalar_product(vec_rob, vec_seg) / (
+                scalar_product(vec_seg, vec_seg) + 1e-8)) * vec_seg
+        p_ortho_norm = torch.norm(p_ortho, p=2, dim=-1, keepdim=True)
+        vec_seg_norm = torch.norm(vec_seg, p=2, dim=-1, keepdim=True)
+
+        u = math.sin(self.alpha) * (p_ortho / (p_ortho_norm + 1e-8)) + math.cos(self.alpha) * (
+                vec_seg / (vec_seg_norm + 1e-8))
+
+        projection = scalar_product(u, vec_rob) * u
+
+        p_cone = torch.where((angle > self.alpha).unsqueeze(-1), projection, vec_rob)
+
+        return p_cone.view_as(grad_seg)

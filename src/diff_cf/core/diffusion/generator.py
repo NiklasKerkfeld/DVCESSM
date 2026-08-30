@@ -1,86 +1,96 @@
 """Diffusion based Counterfactual Generator."""
-
+from dataclasses import dataclass
 from typing import Tuple, Dict, Optional
 
 import torch
 import torchvision.utils as vutils
-from hydra.utils import instantiate
-from omegaconf import DictConfig
 from torch import nn
 import torchvision.transforms.functional as F
 from tqdm import tqdm
 
-from ..losses import CounterfactualLoss
+from losses import BaseDistanceLoss, SegmentationLoss, SegmentationLossConfig
+from utils.adapt_grad import AdaptGrad
 from ..base_generator import BaseGenerator
 from .engine import Engine
-from ...utils.cone_projection import cone_projection
 from ...utils.utils import visualize_adaption, visualize_seg
 from ...utils.metrics import calc_iou, calc_f1_score
+
+
+@dataclass(frozen=True)
+class GradSmoothingConfig:
+    """Configuration for dynamic gradient smoothing."""
+    spacial_gradient_smoothing: bool = False
+    temporal_gradient_smoothing: bool = False
+    filter_gradients: bool = False
+    percentile: float = 0.9
+    alpha: float = 0.99
+    max_sigma: float = 2.5
 
 
 class CounterfactualGenerator(BaseGenerator):
     """Diffusion based Counterfactual Generator."""
 
     def __init__(self,
-                 segmentation: nn.Module,
+                 segmentation_model: nn.Module,
                  diffusion_model: nn.Module,
                  engine: Engine,
-                 device: torch.device,
-                 cfg: DictConfig,
-                 robust_segmentation: Optional[nn.Module] = None,
-                 log: bool = False,
-                 name: str = 'counterfactual') -> None:
+                 segmentation_loss_config: SegmentationLossConfig,
+                 distance_loss: BaseDistanceLoss,
+                 z_bounds: Tuple[torch.Tensor, torch.Tensor],
+                 weight_segmentation: float = 0.15,
+                 weight_distance: float = 0.15,
+                 start_fraction: float = 0.5,
+                 approximation_step_size: int = int('inf'),
+                 robust_model: Optional[nn.Module] = None,
+                 adapt_grad: Optional[AdaptGrad] = None,
+                 smoothing_cfg: GradSmoothingConfig = GradSmoothingConfig(),
+                 n_classes: int = 2,
+                 cone_projection_alpha: Optional[float] = None,
+                 log_dir: Optional[str] = None,
+                 log_to_tensorboard: bool = False,
+                 device: torch.device = torch.device('cpu'),
+                 name: str = 'DiffusionGenerator') -> None:
         """
         Diffusion based Counterfactual Generator.
 
         Args:
-            segmentation: segmentation model.
-            diffusion_model: diffusion model.
-            engine: engine for the diffusion process.
+            segmentation_model: segmentation model.
+            segmentation_loss_factory: Factory for the SegmentationLoss.
+            distance_loss: loss function for messaging the distance to original image.
+            robust_model: robust segmentation model to improve segmentation gradients using cone projection.
+            adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
+            cone_projection_alpha: alpha angle in radians for cone projection.
+            smoothing_cfg: configuration of gradient smoothing.
+            n_classes: number of classes.
+            log_dir: logging directory.
+            log_to_tensorboard: activated tensorboard logging.
             device: device to run on.
-            cfg: Configuration dictionary.
             name: name of the process.
         """
 
-        super().__init__(segmentation, device, cfg, log, name)
-        self.diffusion_model = diffusion_model
+        super().__init__(segmentation_model, segmentation_loss_config, distance_loss, z_bounds,
+                         robust_model, adapt_grad, cone_projection_alpha, n_classes,
+                         log_dir, log_to_tensorboard, device, name)
+        self.diffusion_model = diffusion_model.to(self.device).eval()
         self.engine = engine
 
-        self.weight_segmentation = cfg.generation.weight_segmentation
-        self.weight_distance = cfg.generation.weight_distance
-        self.distance_loss = instantiate(cfg.generation.distance_loss)
-        self.start_fraction = cfg.generation.start_fraction
-        self.alpha = cfg.generation.alpha
+        self.weight_segmentation = weight_segmentation
+        self.weight_distance = weight_distance
+        self.start_fraction = start_fraction
+        self.step_size = approximation_step_size
 
         # smoothing
-        self.use_smoothing = cfg.generation.GradSmoothing.enable
+        self.smoothing = smoothing_cfg
+        self.smoothing_step = 0
         self.grad_c: Optional[torch.Tensor] = None
         self.grad_d: Optional[torch.Tensor] = None
-        self.use_strong_gradients_only = cfg.generation.GradSmoothing.strong_gradients
-        self.percentile: float = cfg.generation.GradSmoothing.percentile
-        self.t_alpha = cfg.generation.GradSmoothing.alpha
-        self.max_sigma = cfg.generation.GradSmoothing.max_sigma
 
-        self.step_size = cfg.generation.approximation_step_size
-        if not self.step_size:
-            self.step_size = int("inf")
 
-        self.z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
-                      torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
-        self.z_max = ((cfg.data.max - torch.tensor(cfg.data.means)) /
-                      torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
-
-        self.diffusion_model.to(self.device).eval()
-
-        self.robust_segmentation = robust_segmentation
-        if self.robust_segmentation is not None:
-            self.robust_segmentation.to(self.device).eval()
 
     @torch.no_grad()
     def _generate_counterfactual(self,
                                  image: torch.Tensor,
                                  target: torch.Tensor) -> torch.Tensor:
-
         # reset gradients
         self.reset_state()
 
@@ -154,7 +164,7 @@ class CounterfactualGenerator(BaseGenerator):
     def _calc_g_update(self,
                        x: torch.Tensor,
                        image: torch.Tensor,
-                       loss_fn: CounterfactualLoss,
+                       loss_fn: SegmentationLoss,
                        epsilon_pred: torch.Tensor,
                        t: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         x = x.detach().requires_grad_(True)
@@ -168,12 +178,12 @@ class CounterfactualGenerator(BaseGenerator):
         loss_seg = loss_fn(logits)
         grad_c = torch.autograd.grad(loss_seg, x, retain_graph=True)[0]
 
-        if self.robust_segmentation is not None:
-            logits_rob = self.robust_segmentation(approx_image_batch)
+        if self.robust_model is not None:
+            logits_rob = self.robust_model(approx_image_batch)
             loss_rob = loss_fn(logits_rob)
             grad_rob = torch.autograd.grad(loss_rob, x, retain_graph=True)[0]
 
-            grad_c = cone_projection(grad_c, grad_rob, self.alpha)
+            grad_c = self._cone_projection(grad_c, grad_rob)
 
         grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
@@ -185,24 +195,29 @@ class CounterfactualGenerator(BaseGenerator):
         grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
                                                                                  1) + 1e-8)
 
-        if self.use_smoothing:
+        if self.smoothing.spacial_gradient_smoothing:
             grad_c = self._apply_dynamic_smoothing(grad_c, t)
+            grad_d = self._apply_dynamic_smoothing(grad_d, t)
 
+        if self.smoothing.temporal_gradient_smoothing:
+            self.smoothing_step += 1
             # init gradients in the frist round
             if self.grad_c is None:
-                self.grad_c = grad_c.clone()
+                self.grad_c = torch.zeros_like(grad_c)
             if self.grad_d is None:
-                self.grad_d = grad_d.clone()
+                self.grad_d = torch.zeros_like(grad_d)
 
             # rolling average
-            self.grad_c = (1 - self.t_alpha) * self.grad_c + self.t_alpha * grad_c
-            self.grad_d = (1 - self.t_alpha) * self.grad_d + self.t_alpha * grad_d
+            self.grad_c = (1 - self.smoothing.alpha) * self.grad_c + self.smoothing.alpha * grad_c
+            self.grad_d = (1 - self.smoothing.alpha) * self.grad_d + self.smoothing.alpha * grad_d
 
-            grad_c = self.grad_c
-            grad_d = self.grad_d
+            bias_correction = 1.0 - (1.0 - self.smoothing.alpha) ** self.smoothing_step
+
+            grad_c = self.grad_c / bias_correction
+            grad_d = self.grad_d / bias_correction
 
         # only change very strong gradients ignore changes of grad_d there
-        if self.use_strong_gradients_only:
+        if self.smoothing.filter_gradients:
             mask = self._get_mask(grad_c)
             grad_c = torch.where(mask, torch.zeros_like(grad_c), grad_c)
             grad_d = torch.where(~mask, torch.zeros_like(grad_d), grad_d)
@@ -226,14 +241,26 @@ class CounterfactualGenerator(BaseGenerator):
 
     def _get_mask(self, grad: torch.Tensor):
         abs_grad = torch.abs(grad)
-        threshold = torch.quantile(abs_grad, self.percentile)
+        threshold = torch.quantile(abs_grad, self.smoothing.percentile)
         return abs_grad < threshold
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+        """
+        Smoothes the gradient over the image dimension using a gaussian filter.
+
+        The sigma value of the Gaus filter is adopted to the step, so that the gradient is smoother
+        in early stages of the diffusion process.
+        Args:
+            grad: Tensor with the gradients.
+            t: time step.
+
+        Returns:
+            torch.Tensor with the smoothed gradients.
+        """
         sqrt_alpha_bar = self.engine.sqrt_alphas_cumprod[t[0]].item()
 
         # Scale max_sigma inversely with signal magnitude
-        sigma = self.max_sigma * (1.0 - sqrt_alpha_bar)
+        sigma = self.smoothing.max_sigma * (1.0 - sqrt_alpha_bar)
 
         if sigma < 0.2:
             return grad

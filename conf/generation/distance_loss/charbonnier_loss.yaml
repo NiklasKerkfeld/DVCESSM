@@ -1,2 +1,3 @@
-_target_: diff_cf.core.losses.charbonnier_loss
-_partial_: true
+distance_loss:
+  _target_: src.losses.CharbonnierLoss
+  eps: 1e-3

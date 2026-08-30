@@ -1,13 +1,13 @@
 """Engine for the Diffusion process."""
 
-from typing import Tuple
+from typing import Tuple, Literal
 
 import torch
 from omegaconf import DictConfig
 from torch import nn
 
 
-def cosine_beta_schedule(T: int, s: float = 0.008) -> torch.Tensor: # pylint: disable=invalid-name
+def cosine_beta_schedule(T: int, s: float = 0.008) -> torch.Tensor:  # pylint: disable=invalid-name
     """
     Cosine schedule as proposed in https://arxiv.org/abs/2102.09672
     """
@@ -33,24 +33,34 @@ class Engine(nn.Module):
     sqrt_beta: torch.Tensor
 
     def __init__(self,
-                 cfg: DictConfig,
-                 device: torch.device = torch.device('cpu'),
-                 ) -> None:
+                 T: int = 1000,
+                 beta_schedule: Literal['cosine', 'linear'] = 'cosine',
+                 beta_min: float = 1e-4,
+                 beta_max: float = 0.02,
+                 device: torch.device = torch.device('cpu')) -> None:
         """
         Engine for the Diffusion process.
 
         Args:
-            cfg: Configuration dictionary.
-            device: device to run on.
+            T: Total number of diffusion timesteps.
+            beta_schedule: Schedule type ('cosine' or 'linear').
+            beta_min: Minimum beta value for linear schedule.
+            beta_max: Maximum beta value for linear schedule.
+            device: Device to run on.
         """
         super().__init__()
-        self.T = cfg.engine.T   # pylint: disable=invalid-name
+
+        self.T = T  # pylint: disable=invalid-name
         self.device = device
 
-        beta = cosine_beta_schedule(
-            self.T) if cfg.engine.beta_schedule == 'cosine' else torch.linspace(cfg.engine.beta_min,
-                                                                                cfg.engine.beta_max,
-                                                                                self.T)
+        if beta_schedule == 'cosine':
+            beta = cosine_beta_schedule(self.T)
+        elif beta_schedule == 'linear':
+            beta = torch.linspace(beta_min, beta_max, self.T)
+        else:
+            raise ValueError(
+                f"Unsupported beta_schedule: '{beta_schedule}'. Expected 'cosine' or 'linear'.")
+
         alphas = 1.0 - beta
         alphas_cumprod = torch.cumprod(alphas, dim=0)
 
@@ -81,7 +91,8 @@ class Engine(nn.Module):
         out = a.gather(-1, t)
         return out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
 
-    def sample(self, images: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def sample(self, images: torch.Tensor) -> Tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Samples an image at random timestep t.
         Args:
@@ -97,7 +108,8 @@ class Engine(nn.Module):
         noised_images, noise, snr = self.diffuse(images, t)
         return noised_images, noise, t, snr
 
-    def diffuse(self, images: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def diffuse(self, images: torch.Tensor, t: torch.Tensor) -> Tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Diffuses in given image (batch) at timestep t.
         Args:
@@ -153,7 +165,8 @@ class Engine(nn.Module):
         target_t = (t - steps).clamp(min=0)
 
         sqrt_alpha_hat = self._extract(self.sqrt_alphas_cumprod, target_t, images.shape)
-        sqrt_one_minus_alpha_hat = self._extract(self.sqrt_one_minus_alphas_cumprod, target_t, images.shape)
+        sqrt_one_minus_alpha_hat = self._extract(self.sqrt_one_minus_alphas_cumprod, target_t,
+                                                 images.shape)
 
         return sqrt_alpha_hat * x0_pred + sqrt_one_minus_alpha_hat * epsilon_pred
 
@@ -180,9 +193,9 @@ class Engine(nn.Module):
     def epsilon_approximation(self, x_t: torch.Tensor,
                               x_0: torch.Tensor,
                               t_tensor: torch.Tensor) -> torch.Tensor:
-
         sqrt_alpha_bar = self._extract(self.sqrt_alphas_cumprod, t_tensor, x_t.shape)
-        sqrt_one_minus_alpha_bar = self._extract(self.sqrt_one_minus_alphas_cumprod, t_tensor, x_t.shape)
+        sqrt_one_minus_alpha_bar = self._extract(self.sqrt_one_minus_alphas_cumprod, t_tensor,
+                                                 x_t.shape)
         return (x_t - sqrt_alpha_bar * x_0) / sqrt_one_minus_alpha_bar
 
     def get_sigma(self, t: torch.Tensor, shape: torch.Size) -> torch.Tensor:

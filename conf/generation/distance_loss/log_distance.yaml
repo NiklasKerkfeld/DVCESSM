@@ -1,2 +1,3 @@
-_target_: diff_cf.core.losses.log_distance
-_partial_: true
+distance_loss:
+  _target_: src.losses.GemanMcClureDistance
+  scale: 1.4427

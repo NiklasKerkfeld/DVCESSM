@@ -7,6 +7,9 @@ from torch import nn
 
 import torch
 
+def scalar_product(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    return torch.sum(a * b, dim=-1, keepdim=True)
+
 def visualize_counterfactuals(image: torch.Tensor, *args: torch.Tensor) -> Tuple[torch.Tensor, ...]:
     """
     Normalizes 'image' and any number of additional tensors (*args)

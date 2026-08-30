@@ -1,13 +1,15 @@
 """Baseline Generator class."""
+from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
 import torchvision.utils as vutils
-from omegaconf import DictConfig
 from torch import nn
 from torch.optim import AdamW
 from tqdm import trange
 
+from losses import BaseDistanceLoss, SegmentationLossConfig
+from utils.adapt_grad import AdaptGrad
 from ..base_generator import BaseGenerator
 from ...utils.utils import visualize_seg
 from ...utils.metrics import calc_iou
@@ -18,29 +20,54 @@ class BaselineGenerator(BaseGenerator):
     Baseline Generator.
     Optimizes a parameter map added to the input image to satisfy a target prediction.
     """
+
     def __init__(self,
                  segmentation_model: nn.Module,
-                 device: torch.device,
-                 cfg: DictConfig,
-                 log: bool = False,
-                 name: str = 'BaselineGenerator'
+                 segmentation_loss_config: SegmentationLossConfig,
+                 distance_loss: BaseDistanceLoss,
+                 z_bounds: Tuple[torch.Tensor, torch.Tensor],
+                 robust_model: Optional[nn.Module] = None,
+                 adapt_grad: Optional[AdaptGrad] = None,
+                 lr: float = 1e-3,
+                 steps: int = 100,
+                 alpha: float = 1.0,
+                 beta: float = 1.0,
+                 cone_projection_alpha: Optional[float] = None,
+                 n_classes: int = 2,
+                 log_dir: Optional[str] = None,
+                 log_to_tensorboard: bool = False,
+                 device: torch.device = torch.device('cpu'),
+                 name: str = 'BaselineGenerator',
                  ):
         """
         Args:
-            segmentation_model: Segmentation model used for prediction.
-            name: Name for result directories.
-            cfg: Configuration dictionary.
-            device: Device to run on.
+            segmentation_model: segmentation model.
+            segmentation_loss_config: Factory for the SegmentationLoss.
+            distance_loss: loss function for messaging the distance to original image.
+            robust_model: robust segmentation model to improve segmentation gradients using cone projection.
+            adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
+            lr: learning rate for AdamW to update adaption parameters.
+            steps: number of steps.
+            alpha: weight of adoption cost
+            beta: weight of smoothness loss.
+            cone_projection_alpha: alpha angle in radians for cone projection.
+            n_classes: number of classes.
+            log_dir: logging directory.
+            log_to_tensorboard: activated tensorboard logging.
+            device: device to run on.
+            name: name of the process.
         """
-        super().__init__(segmentation_model, device, cfg, log, name)
-        self.lr = cfg.generation.lr
-        self.steps = cfg.generation.steps
-        self.alpha = cfg.generation.alpha
-        self.beta = cfg.generation.beta
+        super().__init__(segmentation_model, segmentation_loss_config, distance_loss, z_bounds,
+                         robust_model, adapt_grad, cone_projection_alpha, n_classes,
+                         log_dir, log_to_tensorboard, device, name)
+        self.lr = lr
+        self.steps = steps
+        self.alpha = alpha
+        self.beta = beta
 
         self.filter = torch.tensor([[[-1 / 8, -1 / 8, -1 / 8],
-                                     [-1/8, 1, -1/8],
-                                     [-1/8, -1/8, -1/8]]])
+                                     [-1 / 8, 1, -1 / 8],
+                                     [-1 / 8, -1 / 8, -1 / 8]]])
 
     def _generate_counterfactual(self, image: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
@@ -53,6 +80,10 @@ class BaselineGenerator(BaseGenerator):
         Returns:
             counterfactual: Output image.
         """
+        # calculate max and min values for parameter
+        p_min = self.z_min - image
+        p_max = self.z_max - image
+
         parameter = nn.Parameter(torch.zeros_like(image))
         optimizer = AdamW([parameter], lr=self.lr)
 
@@ -67,12 +98,13 @@ class BaselineGenerator(BaseGenerator):
             for t in progress_bar:
                 optimizer.zero_grad()
 
-                counterfactual = image + parameter
-                cost = (1 / N) * torch.norm(parameter, p=2)
+                cost = (1 / N) * self.distance_loss.loss(parameter)
 
                 smoothness = torch.abs(F.conv2d(parameter,
                                                 s_filter,
                                                 groups=image.shape[1])).mean()
+
+                counterfactual = image + parameter
 
                 image_batch = self.adaptgrad(counterfactual)
                 output = self.segmentation_model(image_batch)
@@ -82,6 +114,9 @@ class BaselineGenerator(BaseGenerator):
 
                 loss.backward()
                 optimizer.step()
+
+                with torch.no_grad():
+                    parameter.clip(p_min, p_max)
 
                 # --- TensorBoard Logging ---
                 if t % 25 == 0 or t == self.steps - 1:

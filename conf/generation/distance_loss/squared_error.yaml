@@ -1,2 +1,3 @@
-_target_: diff_cf.core.losses.norm_distance
-_partial_: true
+distance_loss:
+  _target_: src.losses.NormDistance
+  p: 2

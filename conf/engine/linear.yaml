@@ -1,3 +1,4 @@
+_target_: src.diffusion.Engine
 T: 1000
 beta_schedule: 'linear'
 beta_min: 1e-4

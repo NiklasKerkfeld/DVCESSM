@@ -5,9 +5,10 @@ sample_idx: None
 sample_name: None
 model: ???
 
+distance_loss: NormDistance
+
 SegmentationLoss:
-  _target_: diff_cf.core.losses.CounterfactualLoss
-  _partial_: true
+  _target_: diff_cf.core.losses.SegmentationLossConfig
   use_mask: true
   border_width: 2
   reduction: mean

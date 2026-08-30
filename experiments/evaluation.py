@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 
 import pandas as pd
+from hydra.utils import instantiate
+
 import torch
 import hydra
 from monai.networks.nets import BasicUNet
@@ -92,7 +94,7 @@ def main(cfg: DictConfig):
         )
         diffusion.load_state_dict(checkpoint['model_state_dict'])
 
-        engine = Engine(cfg, device=device)
+        engine = instantiate(cfg.engine)
 
         generator = CounterfactualGenerator(segmentation,
                                             diffusion,
