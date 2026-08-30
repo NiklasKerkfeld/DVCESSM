@@ -70,7 +70,6 @@ class BaseGenerator:
             if self.log_dir is None:
                 raise ValueError("log_dir must be provided when log_to_tensorboard is True")
             print(f"logging to {self.log_dir}/Generation/{name}")
-            print(f"logging to {self.log_dir}/Generation/{name}")
             self.writer = SummaryWriter(log_dir=f"{self.log_dir}/Generation/{name}")
 
     @torch.no_grad()

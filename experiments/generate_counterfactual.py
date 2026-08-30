@@ -25,11 +25,10 @@ def main(cfg: DictConfig):
         torch.random.manual_seed(cfg.generation.seed)
 
     # setup log_dir and run_name
-    log_dir = f'{cfg.system.log_dir}/Generation'
     if cfg.generation.name is not None:
         run_name = str(cfg.generation.name)
     else:
-        nr = len(glob.glob(f"{log_dir}/*"))
+        nr = len(glob.glob(f"{cfg.system.log_dir}/*"))
         run_name = f"{nr}_counterfactual"
 
     # select device
@@ -132,7 +131,7 @@ def main(cfg: DictConfig):
             smoothing_cfg=smoothing_cfg,
             n_classes=cfg.data.n_classes,
             cone_projection_alpha=cfg.generation.cone_projection_alpha,
-            log_dir=log_dir,
+            log_dir=cfg.system.log_dir,
             log_to_tensorboard=True,
             device=device,
             name=run_name,
@@ -152,7 +151,7 @@ def main(cfg: DictConfig):
             beta=cfg.generation.beta,
             cone_projection_alpha=cfg.generation.cone_projection_alpha,
             n_classes=cfg.data.n_classes,
-            log_dir=log_dir,
+            log_dir=cfg.system.log_dir,
             log_to_tensorboard=True,
             device=device,
             name=run_name,
