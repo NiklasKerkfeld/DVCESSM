@@ -1,3 +1,3 @@
-_target_: src.diffusion.Engine
+_target_: src.diff_cf.core.diffusion.Engine
 T: 4000
 beta_schedule: 'cosine'
