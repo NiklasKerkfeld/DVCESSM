@@ -1,3 +1,2 @@
-distance_loss:
-  _target_: src.diff_cf.core.losses.NormDistance
-  p: 2
+_target_: src.diff_cf.core.losses.NormDistance
+p: 2

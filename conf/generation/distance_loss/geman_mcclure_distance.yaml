@@ -1,3 +1,2 @@
-distance_loss:
-  _target_: src.diff_cf.core.losses.GemanMcClureDistance
-  gamma: 0.1
+_target_: src.diff_cf.core.losses.GemanMcClureDistance
+gamma: 0.1

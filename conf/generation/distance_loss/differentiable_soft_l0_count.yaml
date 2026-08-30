@@ -1,4 +1,3 @@
-distance_loss:
-  _target_: src.diff_cf.core.losses.DifferentiableSoftL0Count
-  epsilon: 0.05
-  tau: 20.0
+_target_: src.diff_cf.core.losses.DifferentiableSoftL0Count
+epsilon: 0.05
+tau: 20.0

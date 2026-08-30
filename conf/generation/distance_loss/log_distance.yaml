@@ -1,3 +1,2 @@
-distance_loss:
-  _target_: src.diff_cf.core.losses.LogDistance
-  scale: 1.4427
+_target_: src.diff_cf.core.losses.LogDistance
+scale: 1.4427

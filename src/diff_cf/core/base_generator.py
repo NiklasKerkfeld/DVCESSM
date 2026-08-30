@@ -34,7 +34,7 @@ class BaseGenerator:
         """
         Args:
             segmentation_model: segmentation model.
-            segmentation_loss_factory: Factory for the SegmentationLoss.
+            segmentation_loss_config: Factory for the SegmentationLoss.
             distance_loss: loss function for messaging the distance to original image.
             robust_model: robust segmentation model to improve segmentation gradients using cone projection.
             adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
