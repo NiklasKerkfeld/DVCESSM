@@ -1,6 +1,6 @@
 defaults:
   - base
-  - distance_loss: NormDistance
+  - DistanceLoss: NormDistance
 
 type: Baseline
 alpha: 1.0
