@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torchvision.utils as vutils
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
+from utils.metrics import calc_iou, calc_f1_score
 
 from .losses import SegmentationLossFactory, BaseDistanceLoss, SegmentationLossConfig
 from ..utils.adapt_grad import AdaptGrad
@@ -156,3 +157,38 @@ class BaseGenerator:
         p_cone = torch.where((angle > self.alpha).unsqueeze(-1), projection, vec_rob)
 
         return p_cone.view_as(grad_seg)
+
+    def log(self,
+            target: torch.Tensor,
+            logits: torch.Tensor,
+            step: int,
+            **kwargs):
+        """
+        Base logging method for TensorBoard.
+
+        Args:
+            target: Target segmentation map tensor.
+            logits: Output tensor/logits from segmentation model.
+            step: Current step or iteration index.
+
+        Returns:
+            prediction: Calculated argmax prediction tensor, or None if logging is disabled.
+        """
+        # Compute prediction map
+        prediction = torch.argmax(logits[0] if logits.dim() == 4 else logits, dim=0)
+
+        # Log primary metric
+        iou = calc_iou(prediction, target, num_classes=self.n_classes)
+        f1, precision, recall = calc_f1_score(prediction, target, num_classes=self.n_classes)
+
+        self.writer.add_scalar('Metrics/f1', f1, step)
+        self.writer.add_scalar('Metrics/precision', precision, step)
+        self.writer.add_scalar('Metrics/recall', recall, step)
+        self.writer.add_scalar('Metrics/IoU', iou, step)
+
+        # Log common image outputs
+        self.writer.add_image(
+            'Process/prediction',
+            visualize_seg(prediction.detach().cpu()).float(),
+            step,
+        )

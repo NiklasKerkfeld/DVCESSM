@@ -11,9 +11,6 @@ from tqdm import trange
 from ..losses import BaseDistanceLoss, SegmentationLossConfig
 from ...utils.adapt_grad import AdaptGrad
 from ..base_generator import BaseGenerator
-from ...utils.utils import visualize_seg
-from ...utils.metrics import calc_iou
-
 
 class BaselineGenerator(BaseGenerator):
     """
@@ -147,38 +144,30 @@ class BaselineGenerator(BaseGenerator):
         return counterfactual.detach()
 
     def log(self,
-            counterfactual: torch.Tensor,
             target: torch.Tensor,
-            output: torch.Tensor,
-            loss: float,
-            cost: float,
-            smoothness: float,
-            t: int) -> None:
-        """
-        Logs process on tensorboard.
+            logits: torch.Tensor,
+            step: int,
+            counterfactual: Optional[torch.Tensor] = None,
+            loss: Optional[float] = None,
+            cost: Optional[float] = None,
+            smoothness: Optional[float] = None,
+            **kwargs):
+        """Logs baseline metrics to TensorBoard."""
+        super().log(
+            target=target,
+            logits=logits,
+            step=step,
+        )
 
-        Args:
-            counterfactual: current counterfactual image.
-            target: Target segmentation map.
-            output: current output of the segmentation model.
-            loss: current loss.
-            cost: current cost of the adaption.
-            smoothness: current smoothness loss
-            t: current step of the process
+        if loss is not None:
+            self.writer.add_scalar('Metrics/loss', loss, step)
 
-        Returns:
-            None
-        """
+        if cost is not None:
+            self.writer.add_scalar('Metrics/cost', cost, step)
 
-        prediction = torch.argmax(output[0], dim=0)
-        iou = calc_iou(prediction, target, num_classes=self.n_classes)
+        if smoothness is not None:
+            self.writer.add_scalar('Metrics/smoothness', smoothness, step)
 
-        self.writer.add_scalar('Metrics/loss', loss, t)
-        self.writer.add_scalar('Metrics/cost', cost, t)
-        self.writer.add_scalar('Metrics/smoothness', smoothness, t)
-        self.writer.add_scalar('Metrics/IoU', iou, t)
-
-        self.writer.add_image('Counterfactual',
-                              vutils.make_grid(counterfactual, normalize=True), t)
-        self.writer.add_image('Prediction',
-                              visualize_seg(prediction.detach().cpu()).float(), t)
+        if counterfactual is not None:
+            self.writer.add_image('Process/counterfactual',
+                                  vutils.make_grid(counterfactual, normalize=True), step)

@@ -12,8 +12,7 @@ from ..losses import BaseDistanceLoss, SegmentationLoss, SegmentationLossConfig
 from ..base_generator import BaseGenerator
 from .engine import Engine
 from ...utils.adapt_grad import AdaptGrad
-from ...utils.utils import visualize_adaption, visualize_seg
-from ...utils.metrics import calc_iou, calc_f1_score
+from ...utils.utils import visualize_adaption
 
 
 @dataclass(frozen=True)
@@ -109,7 +108,8 @@ class CounterfactualGenerator(BaseGenerator):
                     image,
                     loss_fn,
                     epsilon_pred,
-                    t_tensor)
+                    t_tensor
+                )
 
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
 
@@ -124,8 +124,20 @@ class CounterfactualGenerator(BaseGenerator):
             x = x.clamp(self.z_min, self.z_max)
 
             # --- TensorBoard Logging ---
-            if t % 50 == 0:
-                self.log(x, target, mean, mu_norm, g_update, logs_dict, start_t, t)
+            if self.log_to_tensorboard and t % 50 == 0:
+                self.log(
+                    target=target,
+                    logits=logs_dict['logits'],
+                    step=start_t - t,
+                    x=x.detach().cpu(),
+                    mean=mean.detach().cpu(),
+                    mu_norm=mu_norm.detach().cpu(),
+                    g_update=g_update.detach().cpu(),
+                    grad_c=logs_dict['grad_c'],
+                    grad_d=logs_dict['grad_d'],
+                    approx_image=logs_dict['approx_image'],
+                    start_t=start_t,
+                )
 
         return x.detach()
 
@@ -269,60 +281,62 @@ class CounterfactualGenerator(BaseGenerator):
 
         return F.gaussian_blur(grad, kernel_size=[kernel_size, kernel_size], sigma=[sigma, sigma])
 
-    def log(self, x: torch.Tensor,
+    def log(self,
             target: torch.Tensor,
-            mean: torch.Tensor,
-            mu_norm: torch.Tensor,
-            g_update: torch.Tensor,
-            results: Dict[str, torch.Tensor],
-            start_t: int,
-            t: int) -> None:
-        """
-        Logs process to tensorboard.
+            logits: torch.Tensor,
+            step: int,
+            x: Optional[torch.Tensor] = None,
+            mean: Optional[torch.Tensor] = None,
+            mu_norm: Optional[torch.Tensor] = None,
+            g_update: Optional[torch.Tensor] = None,
+            grad_c: Optional[torch.Tensor] = None,
+            grad_d: Optional[torch.Tensor] = None,
+            approx_image: Optional[torch.Tensor] = None,
+            **kwargs
+            ):
+        """Logs diffusion process state to TensorBoard."""
 
-        Args:
-            x: current image.
-            target: target segmentation map.
-            g_update: g_update.
-            results: dict with approx_image, grad_c, grad_d and logits
-            start_t: starting point of diffusion
-            t: current timestep.
+        super().log(
+            target=target,
+            logits=logits,
+            step=step,
+        )
 
-        Returns:
-            None
-        """
-        log_step = start_t - t
+        # Subclass-specific metrics
+        if mean is not None:
+            self.writer.add_scalar('Gradients/mean', mean.mean().item(), step)
 
-        # log scalars
-        prediction = torch.argmax(results['logits'][0], dim=0)
-        iou = calc_iou(prediction, target, num_classes=self.n_classes)
-        f1, precision, recall = calc_f1_score(prediction, target, num_classes=self.n_classes)
+        if mu_norm is not None:
+            self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), step)
 
-        self.writer.add_scalar('Metrics/IoU', iou, log_step)
-        self.writer.add_scalar('Metrics/f1', f1, log_step)
-        self.writer.add_scalar('Metrics/precision', precision, log_step)
-        self.writer.add_scalar('Metrics/recall', recall, log_step)
+        if g_update is not None:
+            self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), step)
 
-        self.writer.add_scalar('Gradients/mean', mean.mean().item(), log_step)
-        self.writer.add_scalar('Gradients/mu_norm', mu_norm.mean().item(), log_step)
-        self.writer.add_scalar('Gradients/g_update', g_update.abs().mean().item(), log_step)
-        self.writer.add_scalar('Gradients/grad_c', results['grad_c'].abs().mean().item(), log_step)
-        self.writer.add_scalar('Gradients/grad_d', results['grad_d'].abs().mean().item(), log_step)
+        if grad_c is not None:
+            self.writer.add_scalar('Gradients/grad_c', grad_c.abs().mean().item(),
+                                   step)
 
-        self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),
-                              log_step)
-        self.writer.add_image('Process/approx_x_0',
-                              vutils.make_grid(results['approx_image'], normalize=True), log_step)
+        if grad_d is not None:
+            self.writer.add_scalar('Gradients/grad_d', grad_d.abs().mean().item(),
+                                   step)
 
-        prediction = visualize_seg(prediction.detach().cpu()).float()
-        g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
-        grad_c_visual = visualize_adaption(results['grad_c'].sum(dim=1, keepdim=True))[0, 0]
-        grad_d_visual = visualize_adaption(results['grad_d'].sum(dim=1, keepdim=True))[0, 0]
+        if approx_image is not None:
+            self.writer.add_image('Process/approx_x_0',
+                                  vutils.make_grid(approx_image, normalize=True),
+                                  step)
 
-        self.writer.add_image('Process/g_update',
-                              vutils.make_grid(g_visual, normalize=True), log_step)
-        self.writer.add_image('Process/grad_c',
-                              vutils.make_grid(grad_c_visual, normalize=True), log_step)
-        self.writer.add_image('Process/grad_d',
-                              vutils.make_grid(grad_d_visual, normalize=True), log_step)
-        self.writer.add_image('Process/prediction', prediction, log_step)
+        if x is not None:
+            self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),
+                                  step)
+
+        if g_update is not None and grad_c is not None and grad_d is not None:
+            g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
+            grad_c_visual = visualize_adaption(grad_c.sum(dim=1, keepdim=True))[0, 0]
+            grad_d_visual = visualize_adaption(grad_d.sum(dim=1, keepdim=True))[0, 0]
+
+            self.writer.add_image('Process/g_update',
+                                  vutils.make_grid(g_visual, normalize=True), step)
+            self.writer.add_image('Process/grad_c',
+                                  vutils.make_grid(grad_c_visual, normalize=True), step)
+            self.writer.add_image('Process/grad_d',
+                                  vutils.make_grid(grad_d_visual, normalize=True), step)
