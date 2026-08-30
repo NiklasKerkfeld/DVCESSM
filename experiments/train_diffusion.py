@@ -43,7 +43,7 @@ def main(cfg: DictConfig):
                            use_prior=cfg.diffusion.use_target,
                            num_classes=cfg.data.n_classes)
 
-    engine = instantiate(cfg.engine)
+    engine = instantiate(cfg.engine, device=device)
 
     trainer = Trainer(
         dataset,

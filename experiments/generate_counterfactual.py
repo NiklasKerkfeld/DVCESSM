@@ -112,7 +112,7 @@ def main(cfg: DictConfig):
         diffusion_model.load_state_dict(checkpoint['model_state_dict'])
 
         # init diffusion engine
-        engine = instantiate(cfg.engine)
+        engine = instantiate(cfg.engine, device=device)
 
         # init diffusion counterfactual generator
         generator = CounterfactualGenerator(
