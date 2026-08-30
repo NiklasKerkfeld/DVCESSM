@@ -42,6 +42,7 @@ def main(cfg: DictConfig):
                            nums_features=cfg.diffusion.nums_features,
                            use_prior=cfg.diffusion.use_target,
                            num_classes=cfg.data.n_classes)
+
     engine = instantiate(cfg.engine)
 
     trainer = Trainer(
