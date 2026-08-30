@@ -56,14 +56,14 @@ class SegmentationLoss(nn.Module):
 
         return self.reduction(loss)
 
-    def _set_boarders(self, target: torch.Tensor) -> None:
+    def _set_boarders(self) -> None:
         if self.border_width > 0:
             k_size = self.border_width + 1
 
-            dilated = F.max_pool2d(target.float(), kernel_size=k_size, stride=1,
+            dilated = F.max_pool2d(self.target.float(), kernel_size=k_size, stride=1,
                                    padding=self.border_width // 2)
 
-            eroded = -F.max_pool2d(-target.float(), kernel_size=k_size, stride=1,
+            eroded = -F.max_pool2d(-self.target.float(), kernel_size=k_size, stride=1,
                                    padding=self.border_width // 2)
 
             mask = dilated != eroded
