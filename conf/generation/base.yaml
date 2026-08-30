@@ -4,6 +4,7 @@ batch_name: null
 sample_idx: None
 sample_name: None
 model: ???
+seed: 42
 
 distance_loss: NormDistance
 

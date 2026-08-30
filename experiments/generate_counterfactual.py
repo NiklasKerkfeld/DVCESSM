@@ -20,6 +20,10 @@ def main(cfg: DictConfig):
     # print config
     print(OmegaConf.to_yaml(cfg))
 
+    # set random seeds:
+    if cfg.generation.seed is not None:
+        torch.random.manual_seed(cfg.generation.seed)
+
     # setup log_dir and run_name
     log_dir = f'{cfg.system.log_dir}/Generation'
     if cfg.generation.name is not None:
