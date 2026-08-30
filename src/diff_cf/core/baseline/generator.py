@@ -98,37 +98,51 @@ class BaselineGenerator(BaseGenerator):
             for t in progress_bar:
                 optimizer.zero_grad()
 
-                cost = (1 / N) * self.distance_loss.loss(parameter)
-
-                smoothness = torch.abs(F.conv2d(parameter,
-                                                s_filter,
-                                                groups=image.shape[1])).mean()
-
+                # calc counterfactual
                 counterfactual = image + parameter
 
+                # calculate regularization gradient
+                cost = (1 / N) * self.distance_loss.loss(parameter)
+                smoothness = torch.abs(F.conv2d(parameter, s_filter, groups=image.shape[1])).mean()
+                loss_reg = self.alpha * cost + self.beta * smoothness
+                grad_reg = torch.autograd.grad(loss_reg, parameter)[0]
+
+                # create noised batch with AdaptGrad to reduce gradient noise
                 image_batch = self.adaptgrad(counterfactual)
+
+                # calc gradients with segmentation model
                 output = self.segmentation_model(image_batch)
-                loss = loss_fn(output)
+                loss_seg = loss_fn(output)
+                grad = torch.autograd.grad(loss_seg, parameter,
+                                           retain_graph=self.robust_model is not None)[0]
 
-                loss = loss + self.alpha * cost + self.beta * smoothness
+                # if set calculate gradients with robust model
+                if self.robust_model:
+                    loss_rob = loss_fn(self.robust_model(image_batch))
+                    grad_rob = torch.autograd.grad(loss_rob, parameter)[0]
 
-                loss.backward()
+                    # use cone projection to combine gradients
+                    grad = self._cone_projection(grad, grad_rob)
+
+                parameter.grad = grad + grad_reg
                 optimizer.step()
 
                 with torch.no_grad():
                     parameter.clip(p_min, p_max)
 
+                loss = (loss_seg + loss_reg).detach().cpu().item()
+
                 # --- TensorBoard Logging ---
-                if t % 25 == 0 or t == self.steps - 1:
+                if self.log_to_tensorboard and (t % 25 == 0 or t == self.steps - 1):
                     self.log(counterfactual,
                              target,
                              output,
-                             loss.item(),
+                             loss,
                              cost.item(),
                              smoothness.item(),
                              t)
 
-                progress_bar.set_description(f"loss: {loss.detach().cpu().item():.4f}")
+                progress_bar.set_description(f"loss: {loss:.4f}")
 
         return counterfactual.detach()
 
