@@ -64,7 +64,7 @@ def main(cfg: DictConfig):
 
     # Losses
     segmentation_loss_config = instantiate(cfg.generation.SegmentationLoss)
-    distance_loss = instantiate(cfg.generation.DistanceLoss)
+    distance_loss = instantiate(cfg.generation.distance_loss)
 
     # Image domain bounds
     z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) / torch.tensor(cfg.data.stds)).view(3, 1,

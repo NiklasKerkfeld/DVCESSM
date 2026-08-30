@@ -1,6 +1,6 @@
 defaults:
   - base
-  - DistanceLoss: log_distance
+  - distance_loss: log_distance
 
 type: Diffusion
 seed: 42

@@ -5,7 +5,7 @@ sample_idx: None
 sample_name: None
 model: ???
 
-DistanceLoss: NormDistance
+distance_loss: NormDistance
 
 SegmentationLoss:
   _target_: diff_cf.core.losses.SegmentationLossConfig
