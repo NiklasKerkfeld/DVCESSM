@@ -40,7 +40,7 @@ class CounterfactualGenerator(BaseGenerator):
                  weight_segmentation: float = 0.15,
                  weight_distance: float = 0.15,
                  start_fraction: float = 0.5,
-                 approximation_step_size: int = int('inf'),
+                 approximation_step_size: Optional[int] = None,
                  robust_model: Optional[nn.Module] = None,
                  adapt_grad: Optional[AdaptGrad] = None,
                  smoothing_cfg: GradSmoothingConfig = GradSmoothingConfig(),
@@ -55,7 +55,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         Args:
             segmentation_model: segmentation model.
-            segmentation_loss_factory: Factory for the SegmentationLoss.
+            segmentation_loss_config: configuration for the SegmentationLoss.
             distance_loss: loss function for messaging the distance to original image.
             robust_model: robust segmentation model to improve segmentation gradients using cone projection.
             adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
@@ -77,7 +77,7 @@ class CounterfactualGenerator(BaseGenerator):
         self.weight_segmentation = weight_segmentation
         self.weight_distance = weight_distance
         self.start_fraction = start_fraction
-        self.step_size = approximation_step_size
+        self.step_size = approximation_step_size if approximation_step_size else self.engine.T
 
         # smoothing
         self.smoothing = smoothing_cfg
