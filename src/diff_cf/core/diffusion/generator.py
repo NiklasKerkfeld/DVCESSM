@@ -8,10 +8,10 @@ from torch import nn
 import torchvision.transforms.functional as F
 from tqdm import tqdm
 
-from losses import BaseDistanceLoss, SegmentationLoss, SegmentationLossConfig
-from utils.adapt_grad import AdaptGrad
+from ..losses import BaseDistanceLoss, SegmentationLoss, SegmentationLossConfig
 from ..base_generator import BaseGenerator
 from .engine import Engine
+from ...utils.adapt_grad import AdaptGrad
 from ...utils.utils import visualize_adaption, visualize_seg
 from ...utils.metrics import calc_iou, calc_f1_score
 

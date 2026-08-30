@@ -8,8 +8,8 @@ from torch import nn
 from torch.optim import AdamW
 from tqdm import trange
 
-from losses import BaseDistanceLoss, SegmentationLossConfig
-from utils.adapt_grad import AdaptGrad
+from ..losses import BaseDistanceLoss, SegmentationLossConfig
+from ...utils.adapt_grad import AdaptGrad
 from ..base_generator import BaseGenerator
 from ...utils.utils import visualize_seg
 from ...utils.metrics import calc_iou
