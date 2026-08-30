@@ -8,7 +8,6 @@ approximation_step_size: 100
 weight_segmentation: 0.15
 weight_distance: 0.15
 robust: null
-cone_projection_alpha: 0.471238898
 
 GradSmoothing:
   _target_: src.diff_cf.core.diffusion.generator.GradSmoothingConfig

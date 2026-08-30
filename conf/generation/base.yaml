@@ -6,6 +6,8 @@ sample_name: None
 model: ???
 seed: 42
 
+cone_projection_alpha: 0.471238898
+
 distance_loss: NormDistance
 
 SegmentationLoss:
