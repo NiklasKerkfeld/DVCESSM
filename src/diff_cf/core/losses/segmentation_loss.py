@@ -36,7 +36,7 @@ class SegmentationLoss(nn.Module):
         self.use_mask = config.use_mask
         self.reduction: Callable = torch.sum if config.reduction == 'sum' else torch.mean
 
-        self._set_borders()
+        self._set_boarders()
 
     def forward(self, logits: torch.Tensor) -> torch.Tensor:
         """
