@@ -91,24 +91,35 @@ class BaseGenerator:
             pred_org: predicted segmentation map on original image.
             pred_cf: predicted segmentation map on counterfactual.
         """
-        if self.log_to_tensorboard:
-            self.writer.add_image('Image', vutils.make_grid(image[0], normalize=True), 0)
-            self.writer.add_image('Target',
-                                  visualize_seg(target[0].detach().cpu()).float(),
-                                  0)
-
         image, target = image.to(self.device), target.to(self.device)
         self.segmentation_model.to(self.device).eval()
         self.adaptgrad.to(self.device)
 
         pred_org = self.segmentation_model(image).detach().cpu().argmax(dim=1)
+
         if self.log_to_tensorboard:
-            self.writer.add_image('Prediction', visualize_seg(pred_org[0].detach().cpu()).float(),
+            self.writer.add_image('Start/image', vutils.make_grid(image[0], normalize=True),
+                                  0)
+            self.writer.add_image('Start/target',
+                                  visualize_seg(target[0].detach().cpu()).float(),
+                                  0)
+            self.writer.add_image('Start/prediction',
+                                  visualize_seg(pred_org[0].detach().cpu()).float(),
                                   0)
 
         counterfactual = self._generate_counterfactual(image, target)
         adaptions = counterfactual - image
         pred_cf = self.segmentation_model(counterfactual).detach().cpu().argmax(dim=1)
+
+        if self.log_to_tensorboard:
+            self.writer.add_image('End/image',
+                                  vutils.make_grid(counterfactual[0], normalize=True),
+                                  0)
+            self.writer.add_image('End/target', visualize_seg(target[0].detach().cpu()).float(),
+                                  0)
+            self.writer.add_image('End/prediction',
+                                  visualize_seg(pred_cf[0].detach().cpu()).float(),
+                                  0)
 
         return counterfactual.cpu(), adaptions.cpu(), pred_org, pred_cf
 
