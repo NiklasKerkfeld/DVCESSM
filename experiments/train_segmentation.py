@@ -1,12 +1,11 @@
 import glob
 from pathlib import Path
-from typing import Tuple
 
 import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from datasets.base import get_datasets, BaseDataset
+from datasets.base import get_datasets
 from src.diff_cf.core.segmentation_trainer import SegmentationTrainer
 from monai.networks.nets import BasicUNet
 

@@ -7,7 +7,7 @@ model: ???
 robust: null
 seed: 42
 
-cone_projection_alpha: 0.471238898
+cone_projection_alpha: 0.523599
 
 distance_loss: NormDistance
 

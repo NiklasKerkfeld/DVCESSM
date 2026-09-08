@@ -93,24 +93,24 @@ class CounterfactualGenerator(BaseGenerator):
 
         loss_fn = self.segmentation_loss_factory(target=target.repeat((self.adaptgrad.N, 1, 1)))
 
-        start_t = int(self.engine.T * self.start_fraction)
+        start_t = min(int(self.engine.T * self.start_fraction), self.engine.T - 1)
         t_tensor = torch.full((image.shape[0],), start_t, device=self.device)
         x, _, _ = self.engine.diffuse(image, t_tensor)
 
-        for t in tqdm(reversed(range(start_t)), total=start_t, desc="generating counterfactual"):
+        for t in tqdm(range(start_t, -1, -1), total=start_t + 1, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)
-            epsilon_pred = self._pred_epsilon(x, t_tensor)
-            mean = self.engine.reverse(x, epsilon_pred, t_tensor)
+            epsilon_guidance, epsilon_reverse = self._pred_epsilon(x, t_tensor)
 
             with torch.enable_grad():
                 g_update, logs_dict = self._calc_g_update(
                     x,
                     image,
                     loss_fn,
-                    epsilon_pred,
+                    epsilon_guidance,
                     t_tensor
                 )
 
+            mean = self.engine.reverse(x, epsilon_reverse, t_tensor)
             mu_norm = torch.norm(mean.view(mean.shape[0], -1), p=2, dim=1).view(-1, 1, 1, 1)
 
             if t > 0:
@@ -143,33 +143,65 @@ class CounterfactualGenerator(BaseGenerator):
 
     def reset_state(self):
         """Call this at the start of a new diffusion trajectory."""
+        self.smoothing_step = 0
         self.grad_c = None
         self.grad_d = None
 
-    def _pred_epsilon(self, x: torch.Tensor, t_tensor: torch.Tensor) -> torch.Tensor:
-        t_val = t_tensor[0].item()
+    def _pred_epsilon(
+            self,
+            x: torch.Tensor,
+            t_tensor: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        t_val = int(t_tensor[0].item())
 
-        # Return standard 1-step prediction at t=0 or when t is smaller than the step size
+        # Standard prediction used by the DDPM reverse process
+        epsilon_reverse = self.diffusion_model(x, t_tensor).detach()
+
         if t_val == 0 or t_val <= self.step_size:
-            return self.diffusion_model(x, t_tensor).detach()
+            return epsilon_reverse, epsilon_reverse
 
-        # Build sub-timesteps from current t down to 0 with fixed stride
-        time_steps = list(range(int(t_val), 0, -self.step_size))
+        time_steps = list(range(t_val, 0, -self.step_size))
         if time_steps[-1] != 0:
             time_steps.append(0)
 
         curr_x = x.clone()
+
         for i in range(len(time_steps) - 1):
             sub_t = time_steps[i]
             next_t = time_steps[i + 1]
             delta_t = sub_t - next_t
 
-            sub_t_tensor = torch.full((x.shape[0],), sub_t, device=x.device, dtype=torch.long)
-            eps = self.diffusion_model(curr_x, sub_t_tensor).detach()
-            curr_x = self.engine.reverse(curr_x, eps, sub_t_tensor, steps=delta_t)
+            sub_t_tensor = torch.full(
+                (x.shape[0],),
+                sub_t,
+                device=x.device,
+                dtype=torch.long,
+            )
 
-        x_0_approx = curr_x
-        return self.engine.epsilon_approximation(x, x_0_approx, t_tensor)
+            if i == 0:
+                epsilon_sub = epsilon_reverse
+            else:
+                epsilon_sub = self.diffusion_model(
+                    curr_x, sub_t_tensor
+                ).detach()
+
+            if next_t == 0:
+                curr_x = self.engine.image_approximation(
+                    curr_x, epsilon_sub, sub_t_tensor
+                )
+            else:
+                curr_x = self.engine.reverse(
+                    curr_x,
+                    epsilon_sub,
+                    sub_t_tensor,
+                    steps=delta_t,
+                )
+
+        epsilon_guidance = self.engine.epsilon_approximation(
+            x, curr_x, t_tensor
+        )
+
+        return epsilon_guidance, epsilon_reverse
 
     def _calc_g_update(self,
                        x: torch.Tensor,
@@ -218,10 +250,10 @@ class CounterfactualGenerator(BaseGenerator):
                 self.grad_d = torch.zeros_like(grad_d)
 
             # rolling average
-            self.grad_c = (1 - self.smoothing.alpha) * self.grad_c + self.smoothing.alpha * grad_c
-            self.grad_d = (1 - self.smoothing.alpha) * self.grad_d + self.smoothing.alpha * grad_d
+            self.grad_c = self.smoothing.alpha * self.grad_c + (1 - self.smoothing.alpha) * grad_c
+            self.grad_d = self.smoothing.alpha * self.grad_d + (1 - self.smoothing.alpha) * grad_d
 
-            bias_correction = 1.0 - (1.0 - self.smoothing.alpha) ** self.smoothing_step
+            bias_correction = 1.0 - (self.smoothing.alpha ** self.smoothing_step)
 
             grad_c = self.grad_c / bias_correction
             grad_d = self.grad_d / bias_correction

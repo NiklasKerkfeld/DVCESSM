@@ -16,7 +16,6 @@ from baseline.generator import BaselineGenerator
 from datasets.base import get_datasets
 from diff_cf.utils.metrics import calc_iou, calc_f1_score
 from diff_cf.utils.utils import visualize_seg, visualize_adaption
-from diffusion.engine import Engine
 from diffusion.generator import CounterfactualGenerator
 from diff_cf.models.diffusion_model_final import DiffusionModel
 
