@@ -9,7 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 from torchvision.utils import save_image
 from tqdm import tqdm
 
-from datasets.base import get_datasets
+from base_dataset import get_datasets
 from diff_cf.core.segmentation_trainer import SegmentationTrainer
 from diff_cf.utils.utils import visualize_seg
 from diff_cf.utils.metrics import calc_iou, calc_f1_score
@@ -54,8 +54,8 @@ def main(cfg: DictConfig):
         train_dataset,
         test_dataset,
         model,
-        device,
-        cfg,
+        n_classes = cfg.data.n_classes,
+        device=device,
         name=run_name,
         log_dir=log_dir
     )

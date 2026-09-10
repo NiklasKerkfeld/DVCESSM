@@ -5,7 +5,7 @@ import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from datasets.base import get_datasets
+from base_dataset import get_datasets
 from src.diff_cf.core.segmentation_trainer import SegmentationTrainer
 from monai.networks.nets import BasicUNet
 
@@ -34,8 +34,10 @@ def main(cfg: DictConfig):
 
     train_dataset, test_dataset = get_datasets(cfg, cfg.segmentation.augmentations.enable)
     if cfg.segmentation.ood.enable:
-        train_dataset.set_attribute(cfg.segmentation.ood.attribute, use_positive=cfg.segmentation.ood.train_on_positive)
-        test_dataset.set_attribute(cfg.segmentation.ood.attribute, use_positive=not cfg.segmentation.ood.train_on_positive)
+        train_dataset.set_attribute(cfg.segmentation.ood.attribute,
+                                    use_positive=cfg.segmentation.ood.train_on_positive)
+        test_dataset.set_attribute(cfg.segmentation.ood.attribute,
+                                   use_positive=not cfg.segmentation.ood.train_on_positive)
 
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
@@ -52,8 +54,18 @@ def main(cfg: DictConfig):
         train_dataset,
         test_dataset,
         model,
-        device,
-        cfg,
+        n_classes=cfg.data.n_classes,
+        device=device,
+        lr=cfg.segmentation.lr,
+        batch_size=cfg.data.batch_size,
+        num_workers=cfg.data.num_workers,
+        train_robust=cfg.segmentation.robust.enable,
+        robust_start=cfg.segmentation.robust.start_epoch,
+        robust_warm_up=cfg.segmentation.robust.warm_up,
+        robust_epsilon=cfg.segmentation.robust.epsilon,
+        robust_steps=cfg.segmentation.robust.steps,
+        robust_alpha=cfg.segmentation.robust.alpha,
+        image_type=cfg.data.image_type,
         name=run_name,
         log_dir=log_dir
     )

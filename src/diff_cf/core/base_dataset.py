@@ -16,42 +16,38 @@ from torch.utils.data import Dataset
 class BaseDataset(Dataset):
     def __init__(self,
                  samples: List[str],
-                 cfg: DictConfig,
+                 means: list[float],
+                 stds: list[float],
+                 mins: list[float],
+                 maxs: list[float],
                  augmentations: bool = False,
-                 label: Optional[str] = None,
-                 use_positive: bool = True,
+                 probablity_blur: float = 0.2,
+                 blur_sigma: list[float] = [0.2, 2.0],
+                 blur_kernel: list[int] = [3],
+                 probablity_noise: float = 0.2,
+                 noise_sigma: list[float] = [0.2, 2]
                  ) -> None:
-        self.cfg = cfg
         self.augmentations = augmentations
+
         self.all_samples = samples
-
-        self.label = label
-        self.use_positive = use_positive
         self.files = self._filter_samples(self.all_samples)
-        # Filter samples (overridden in subclasses like CelebAMaskDataset)
-        self.files = self._filter_samples(samples)
 
-        self.blur_p = cfg.segmentation.augmentations.blur.p
-        self.blur_sigma = [cfg.segmentation.augmentations.blur.sigma_min,
-                           cfg.segmentation.augmentations.blur.sigma_max]
-        self.blur_kernel = cfg.segmentation.augmentations.blur.kernel
-        self.noise_p = cfg.segmentation.augmentations.noise.p
-        self.noise_sigma = [cfg.segmentation.augmentations.noise.sigma_min,
-                            cfg.segmentation.augmentations.noise.sigma_max]
+        self.blur_p = probablity_blur
+        self.blur_sigma = blur_sigma
+        self.blur_kernel = blur_kernel
+        self.noise_p = probablity_noise
+        self.noise_sigma = noise_sigma
 
-        self.means: Optional[torch.Tensor] = None
-        self.stds: Optional[torch.Tensor] = None
+        self.means = means
+        self.stds = stds
+        self.mins = mins
+        self.maxs = maxs
+
         self._normalize_transform: Optional[v2.Transform] = None
 
     def _filter_samples(self, samples: List[str]) -> List[str]:
         """Override in subclasses to filter samples by attribute labels."""
         return samples
-
-    def set_attribute(self, label: Optional[str], use_positive: bool = True) -> None:
-        """Dynamically switch attribute filtering without rebuilding the dataset object."""
-        self.label = label
-        self.use_positive = use_positive
-        self.files = self._filter_samples(self.all_samples)
 
     def get_filepath(self, index: int) -> str:
         """Returns the raw file path for a given index."""
@@ -99,12 +95,6 @@ class BaseDataset(Dataset):
                 raise ValueError("This dataset uses dynamic per-file normalization.")
             return self.means, self.stds
 
-        if self.means is None or self.stds is None:
-            data = np.load(self.files[index])
-            sample_mean = torch.from_numpy(data["mean"]).float()
-            sample_std = torch.from_numpy(data["std"]).float()
-            return sample_mean, sample_std
-
         return self.means, self.stds
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -122,6 +112,9 @@ class BaseDataset(Dataset):
             raise ValueError(f"Unexpected image tensor shape: {image.shape}.")
 
         return (image * s) + m
+
+    def set_attribute(self, label: Optional[str] = None, use_positive: bool = True) -> None:
+        raise NotImplementedError("This dataset does not support attribute filtering!")
 
 
 def get_datasets(cfg: DictConfig,

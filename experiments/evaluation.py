@@ -13,7 +13,7 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 
 from baseline.generator import BaselineGenerator
-from datasets.base import get_datasets
+from base_dataset import get_datasets
 from diff_cf.utils.metrics import calc_iou, calc_f1_score
 from diff_cf.utils.utils import visualize_seg, visualize_adaption
 from diffusion.generator import CounterfactualGenerator

@@ -4,7 +4,7 @@ from typing import List
 
 from omegaconf import DictConfig
 
-from datasets.base import BaseDataset
+from base_dataset import BaseDataset
 
 
 class BraTSDataset(BaseDataset):

@@ -7,8 +7,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torchvision.utils import save_image
 
-from datasets.base import get_datasets
-from diff_cf.core.diffusion.engine import Engine
+from base_dataset import get_datasets
 from diff_cf.models.diffusion_model_final import DiffusionModel
 from diff_cf.core.diffusion.trainer import Trainer
 
@@ -36,8 +35,7 @@ def main(cfg: DictConfig):
         dataset,
         model,
         engine,
-        device,
-        cfg
+        device
     )
 
     checkpoint = f'{cfg.diffusion.checkpoint_path}/{cfg.generation.model}.pt'

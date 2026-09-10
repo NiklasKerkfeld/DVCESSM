@@ -1,11 +1,12 @@
 """Abstract class for all Trainer."""
-from typing import Tuple, List, Optional
+from typing import Optional, Literal
 
 import torch
-from omegaconf import DictConfig
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
+
+from base_dataset import BaseDataset
 
 
 class BaseTrainer:
@@ -13,33 +14,39 @@ class BaseTrainer:
     Abstract class for all Trainer.
     """
     def __init__(self,
-                 dataset: Dataset[Tuple[torch.Tensor, torch.Tensor]],
+                 dataset: BaseDataset,
                  device: torch.device,
-                 cfg: DictConfig,
+                 lr: float = 1e-3,
+                 batch_size: int = 64,
+                 num_workers: int = 4,
+                 image_type: Literal['mri', 'rgb'] = 'rgb',
                  name: str = 'SuperTrainer',
+                 checkpoint_path: str = './checkpoints',
                  log_dir: str = '.logs/'
                  ) -> None:
         """
         Args:
             dataset: Dataset for training
             device: device to run on.
-            cfg: Configuration dictionary.
             name: name of the process.
             log_dir: Path to logging folder.
         """
         self.dataset = dataset
         self.device = device
+        self.lr = lr
+        self.batch_size = batch_size
+        self.num_workers = num_workers
         self.name = name
         self.log_dir = log_dir
-        self.checkpoint = "./checkpoints"
-        self.image_type = cfg.data.image_type
+        self.checkpoint = checkpoint_path
+        self.image_type = image_type
 
         self.epoch = 0
 
         self.train_dataloader = DataLoader(dataset=dataset,
-                                           batch_size=cfg.data.batch_size,
+                                           batch_size=self.batch_size,
                                            shuffle=True,
-                                           num_workers=cfg.data.num_workers)
+                                           num_workers=self.num_workers)
 
         self.writer = SummaryWriter(f'{self.log_dir}/{self.name}')
 
@@ -72,6 +79,6 @@ class BaseTrainer:
 
         return self.dataset.denormalize(image, index)
 
-    def _log_images(self, images: torch.Tensor | List[torch.Tensor], label: str):
+    def _log_images(self, images: torch.Tensor | list[torch.Tensor], label: str):
         grid = make_grid(images, nrow=4, normalize=True)
         self.writer.add_image(label, grid, global_step=self.epoch)

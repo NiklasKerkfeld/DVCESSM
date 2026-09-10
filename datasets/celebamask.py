@@ -3,11 +3,9 @@
 from pathlib import Path
 from typing import List, Optional
 
-import torch
-from omegaconf import DictConfig
 from torchvision.transforms import v2
 
-from datasets.base import BaseDataset
+from base_dataset import BaseDataset
 
 
 class CelebAMaskDataset(BaseDataset):
@@ -15,20 +13,40 @@ class CelebAMaskDataset(BaseDataset):
 
     def __init__(self,
                  samples: List[str],
-                 cfg: DictConfig,
+                 means: list[float],
+                 stds: list[float],
+                 mins: list[float],
+                 maxs: list[float],
+                 root: str,
                  augmentations: bool = False,
+                 probablity_blur: float = 0.2,
+                 blur_sigma: list[float] = [0.2, 2],
+                 blur_kernel: list[int] = [3],
+                 probablity_noise: float = 0.2,
+                 noise_sigma: list[float] = [0.2, 2],
                  label: Optional[str] = None,
                  use_positive: bool = True):
-        super().__init__(samples, cfg, augmentations, label, use_positive)
-        self.means = torch.tensor(cfg.data.means)
-        self.stds = torch.tensor(cfg.data.stds)
+        super().__init__(samples, means, stds, mins, maxs, augmentations, probablity_blur,
+                         blur_sigma, blur_kernel, probablity_noise, noise_sigma)
+        self.root = root
+        self.label = label
+        self.use_positive = use_positive
+
+        self.files = self._filter_samples(self.all_samples)
+
         self._normalize_transform = v2.Normalize(mean=self.means, std=self.stds)
+
+    def set_attribute(self, label: Optional[str] = None, use_positive: bool = True) -> None:
+        """Dynamically switch attribute filtering without rebuilding the dataset object."""
+        self.label = label
+        self.use_positive = use_positive
+        self.files = self._filter_samples(self.all_samples)
 
     def _filter_samples(self, samples: List[str]) -> List[str]:
         if self.label is None:
             return samples
 
-        anno_path = Path(self.cfg.data.root) / "CelebAMask-HQ" / "CelebAMask-HQ-attribute-anno.txt"
+        anno_path = Path(self.root) / "CelebAMask-HQ" / "CelebAMask-HQ-attribute-anno.txt"
         if not anno_path.exists():
             raise FileNotFoundError(f"Attribute file not found at {anno_path}")
 

@@ -7,9 +7,8 @@ import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from datasets.base import get_datasets
+from base_dataset import get_datasets
 from src.diff_cf.models.diffusion_model_final import DiffusionModel
-from src.diff_cf.core.diffusion.engine import Engine
 from src.diff_cf.core.diffusion.trainer import Trainer
 
 torch.manual_seed(42)
@@ -50,7 +49,16 @@ def main(cfg: DictConfig):
         model,
         engine,
         device,
-        cfg,
+        use_target=cfg.diffusion.use_target,
+        epochs=cfg.diffusion.epochs,
+        warm_up=cfg.diffusion.warm_up,
+        lr=cfg.diffusion.lr,
+        batch_size=cfg.data.batch_size,
+        accumulation_steps=cfg.data.accumulation_steps,
+        num_workers=cfg.data.num_workers,
+        gamma=cfg.diffusion.gamma,
+        ema_decay=cfg.diffusion.ema_decay,
+        image_type=cfg.data.image_type,
         name=run_name,
         log_dir=log_dir
     )

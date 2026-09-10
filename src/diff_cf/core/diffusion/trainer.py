@@ -3,18 +3,17 @@
 import copy
 import math
 import os
-from typing import Tuple, Optional
+from typing import Optional, Literal
 
 import torch
 from matplotlib import pyplot as plt
-from omegaconf import DictConfig
 from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR
-from torch.utils.data import Dataset
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
+from base_dataset import BaseDataset
 from .engine import Engine
 from ..trainer import BaseTrainer
 from ...models.diffusion_model_final import DiffusionModel
@@ -25,31 +24,41 @@ class Trainer(BaseTrainer):
     """Trainer for the Diffusion model."""
 
     def __init__(self,
-                 dataset: Dataset[Tuple[torch.Tensor, torch.Tensor]],
+                 dataset: BaseDataset,
                  model: DiffusionModel,
                  engine: Engine,
                  device: torch.device,
-                 cfg: DictConfig,
+                 use_target: bool = False,
+                 epochs: int = 500,
+                 warm_up: int = 500,
+                 lr: float = 1e-3,
+                 batch_size: int = 64,
+                 accumulation_steps: int = 1,
+                 num_workers: int = 4,
+                 gamma: float = 0.99,
+                 ema_decay: float = 0.999,
+                 image_type: Literal['mri', 'rgb'] = 'rgb',
                  name: str = 'DiffusionTrainer',
+                 checkpoint_path: str = './checkpoints',
                  log_dir: str = '.logs/'
                  ):
-        super().__init__(dataset, device, cfg, name, log_dir)
+        super().__init__(dataset, device, lr, batch_size, num_workers, image_type, name,
+                         checkpoint_path,
+                         log_dir)
         self.model = model
         self.engine = engine
-        self.lr = cfg.diffusion.lr
-        self.gamma = cfg.diffusion.gamma
-        self.accumulation_steps = cfg.data.accumulation_steps
-        self.checkpoint = cfg.diffusion.checkpoint_path
-        self.use_target = cfg.diffusion.use_target
+        self.gamma = gamma
+        self.accumulation_steps = accumulation_steps
+        self.use_target = use_target
 
         # --- get data range ---
-        self.z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) /
-                      torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
-        self.z_max = ((cfg.data.max - torch.tensor(cfg.data.means)) /
-                      torch.tensor(cfg.data.stds)).view(3, 1, 1).to(self.device)
+        self.z_min = ((self.dataset.mins - torch.tensor(self.dataset.means)) /
+                      torch.tensor(self.dataset.stds)).view(3, 1, 1).to(self.device)
+        self.z_max = ((self.dataset.maxs - torch.tensor(self.dataset.means)) /
+                      torch.tensor(self.dataset.stds)).view(3, 1, 1).to(self.device)
 
         # --- EMA Setup ---
-        self.ema_decay = cfg.diffusion.get("ema_decay", 0.999)
+        self.ema_decay = ema_decay
         self.ema_model = copy.deepcopy(self.model)
         self.ema_model.to(self.device)
         self.ema_model.eval()
@@ -61,8 +70,8 @@ class Trainer(BaseTrainer):
         self.loss_fn = nn.MSELoss()
         self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
-        self.num_warmup_steps = cfg.diffusion.warm_up
-        total_training_steps = (cfg.diffusion.epochs * len(self.train_dataloader)) // self.accumulation_steps
+        self.num_warmup_steps = warm_up
+        total_training_steps = (epochs * len(self.train_dataloader)) // self.accumulation_steps
 
         def lr_lambda(current_step: int):
             if current_step < self.num_warmup_steps:

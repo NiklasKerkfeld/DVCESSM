@@ -1,18 +1,17 @@
 """Trainer for the Segmentation model."""
 
 import os
-from typing import Optional, Tuple
-
-from omegaconf import DictConfig
+from typing import Optional, Tuple, Literal
 
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 from torch.optim import AdamW
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
+from base_dataset import BaseDataset
 from ..utils.utils import visualize_seg
 from .trainer import BaseTrainer
 
@@ -23,12 +22,23 @@ class SegmentationTrainer(BaseTrainer):
     """
 
     def __init__(self,
-                 train_dataset: Dataset[Tuple[torch.Tensor, torch.Tensor]],
-                 valid_dataset: Dataset[Tuple[torch.Tensor, torch.Tensor]],
+                 train_dataset: BaseDataset,
+                 valid_dataset: BaseDataset,
                  model: nn.Module,
+                 n_classes: int,
                  device: torch.device,
-                 cfg: DictConfig,
+                 lr: float = 1e-3,
+                 batch_size: int = 64,
+                 num_workers: int = 4,
+                 train_robust: bool = False,
+                 robust_start: int = 10,
+                 robust_warm_up: int = 10,
+                 robust_epsilon: float = 0.1,
+                 robust_steps: int = 10,
+                 robust_alpha: Optional[float] = None,
+                 image_type: Literal['mri', 'rgb'] = 'rgb',
                  name: str = 'SegmentationTrainer',
+                 checkpoint_path: str = './checkpoints',
                  log_dir: str = '.logs/'
                  ) -> None:
         """
@@ -37,24 +47,32 @@ class SegmentationTrainer(BaseTrainer):
             valid_dataset: Dataset with validation data.
             model: Model to be trained.
             device: device to run on.
-            cfg: Configuration dictionary.
-            name: name of the process.
-            log_dir: Path to logging folder.
+            lr: learning rate for  (default 1e-3).
+            batch_size: batch_size for training (default 64).
+            num_workers: number of workers for dataloader (default 4).
+            train_robust: whether to use robust training or not (default False).
+            robust_start: starting epoch for robust training (default 10).
+            robust_warm_up: number of epochs used for linear warm up (default 10).
+            robust_epsilon: epsilon for robust training (default 0.1).
+            robust_steps: number of steps for projected gradient descent (default 10).
+            robust_alpha: alpha for robust training (default 2.5 * (self.epsilon / self.steps)).
+            name: name of the process (default 'SegmentationTrainer').
+            image_type: type of image for visualization (default 'rgb').
+            log_dir: Path to logging folder (default '.logs/').
         """
-        super().__init__(train_dataset, device, cfg, name, log_dir)
+        super().__init__(train_dataset, device, lr, batch_size, num_workers, image_type, name, checkpoint_path,
+                         log_dir)
         self.model = model
-        self.lr = cfg.segmentation.lr
-        self.num_classes = cfg.data.n_classes
-        self.checkpoint = cfg.segmentation.checkpoint_path
+        self.num_classes = n_classes
 
         # parameter for robust training
-        self.robust = cfg.segmentation.robust.enable
-        self.epsilon = cfg.segmentation.robust.epsilon
-        self.steps = cfg.segmentation.robust.steps
-        self.alpha = cfg.segmentation.robust.alpha
+        self.robust = train_robust
+        self.epsilon = robust_epsilon
+        self.steps = robust_steps
+        self.alpha = robust_alpha
         self.alpha = 2.5 * (self.epsilon / self.steps) if self.alpha is None else self.alpha
-        self.start_epoch = cfg.segmentation.robust.start_epoch
-        self.warm_up = cfg.segmentation.robust.warm_up
+        self.start_epoch = robust_start
+        self.warm_up = robust_warm_up
 
         self.loss_fn = CrossEntropyLoss()
 
@@ -63,9 +81,9 @@ class SegmentationTrainer(BaseTrainer):
         self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
 
         self.valid_dataloader = DataLoader(valid_dataset,
-                                           batch_size=cfg.data.batch_size,
+                                           batch_size=self.batch_size,
                                            shuffle=False,
-                                           num_workers=cfg.data.num_workers)
+                                           num_workers=self.num_workers)
 
     def save_checkpoint(self) -> None:
         """Saves current state in checkpoint."""
