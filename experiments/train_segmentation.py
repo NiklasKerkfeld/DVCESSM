@@ -5,7 +5,7 @@ import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from base_dataset import get_datasets
+from src.diff_cf.core.base_dataset import get_datasets
 from src.diff_cf.core.segmentation_trainer import SegmentationTrainer
 from monai.networks.nets import BasicUNet
 
