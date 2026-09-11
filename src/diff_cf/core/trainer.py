@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 
-from base_dataset import BaseDataset
+from .base_dataset import BaseDataset
 
 
 class BaseTrainer:
