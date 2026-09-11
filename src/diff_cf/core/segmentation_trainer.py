@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-from base_dataset import BaseDataset
+from .base_dataset import BaseDataset
 from ..utils.utils import visualize_seg
 from .trainer import BaseTrainer
 
