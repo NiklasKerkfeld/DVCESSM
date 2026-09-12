@@ -8,7 +8,7 @@ from omegaconf import DictConfig, OmegaConf
 from torchvision.utils import save_image
 
 from base_dataset import get_splits
-from diff_cf.models.diffusion_model_final import DiffusionModel
+from diff_cf.models.diffusion_model import DiffusionModel
 from diff_cf.core.diffusion.trainer import Trainer
 
 

@@ -16,7 +16,7 @@ from tqdm import tqdm
 from base_dataset import BaseDataset
 from .engine import Engine
 from ..trainer import BaseTrainer
-from ...models.diffusion_model_final import DiffusionModel
+from ...models.diffusion_model import DiffusionModel
 from ...utils.utils import visualize_seg
 
 

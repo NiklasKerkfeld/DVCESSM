@@ -1,6 +1,6 @@
 from torchview import draw_graph
 
-from diff_cf.models.diffusion_model_final import DiffusionModel
+from diff_cf.models.diffusion_model import DiffusionModel
 
 
 def main():

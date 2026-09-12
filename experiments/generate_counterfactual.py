@@ -11,7 +11,7 @@ from omegaconf import DictConfig, OmegaConf
 from base_dataset import get_splits
 from diff_cf.core.baseline.generator import BaselineGenerator
 from diff_cf.core.diffusion.generator import CounterfactualGenerator
-from diff_cf.models.diffusion_model_final import DiffusionModel
+from diff_cf.models.diffusion_model import DiffusionModel
 from experiments.utils import visualize_mri, visualize_rgb
 
 

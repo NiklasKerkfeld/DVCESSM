@@ -17,7 +17,7 @@ from base_dataset import get_splits
 from diff_cf.utils.metrics import calc_iou, calc_f1_score
 from diff_cf.utils.utils import visualize_seg, visualize_adaption
 from diffusion.generator import CounterfactualGenerator
-from diff_cf.models.diffusion_model_final import DiffusionModel
+from diff_cf.models.diffusion_model import DiffusionModel
 
 torch.manual_seed(42)
 if torch.cuda.is_available():
