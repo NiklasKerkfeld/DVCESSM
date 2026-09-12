@@ -1,8 +1,8 @@
 defaults:
+  - segmentation: segmentation
   - data: celebamask
   - engine: linear
   - generation: diffusion
-  - segmentation: segmentation
   - diffusion: diffusion
   - _self_
 

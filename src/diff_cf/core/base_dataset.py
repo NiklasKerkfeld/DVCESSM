@@ -1,53 +1,47 @@
 """Function to handle dataset instances."""
 
 import glob
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Sequence
 from pathlib import Path
 
 from torchvision.transforms import v2
 import numpy as np
 import torch
-from hydra.utils import instantiate
-from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 
 
 class BaseDataset(Dataset):
     def __init__(self,
+                 root: str,
                  samples: List[str],
                  means: list[float],
                  stds: list[float],
-                 mins: list[float],
-                 maxs: list[float],
+                 min: float,
+                 max: float,
                  augmentations: bool = False,
                  probablity_blur: float = 0.2,
-                 blur_sigma: list[float] = [0.2, 2.0],
-                 blur_kernel: list[int] = [3],
+                 blur_sigma: Sequence[float] = [0.2, 2.0],
+                 blur_kernel: int = 3,
                  probablity_noise: float = 0.2,
-                 noise_sigma: list[float] = [0.2, 2]
+                 noise_sigma: Sequence[float] = [0.2, 2]
                  ) -> None:
+        self.root = root
+        self.files = samples
+
         self.augmentations = augmentations
-
-        self.all_samples = samples
-        self.files = self._filter_samples(self.all_samples)
-
         self.blur_p = probablity_blur
-        self.blur_sigma = blur_sigma
+        self.blur_sigma = [float(x) for x in blur_sigma]
         self.blur_kernel = blur_kernel
         self.noise_p = probablity_noise
-        self.noise_sigma = noise_sigma
+        self.noise_sigma = [float(x) for x in noise_sigma]
 
-        self.means = means
-        self.stds = stds
-        self.mins = mins
-        self.maxs = maxs
+        self.means = torch.tensor(means)
+        self.stds = torch.tensor(stds)
+        self.z_min = ((min - self.means) / self.stds).view(3, 1, 1)
+        self.z_max = ((max - self.means) / self.stds).view(3, 1, 1)
 
         self._normalize_transform: Optional[v2.Transform] = None
-
-    def _filter_samples(self, samples: List[str]) -> List[str]:
-        """Override in subclasses to filter samples by attribute labels."""
-        return samples
 
     def get_filepath(self, index: int) -> str:
         """Returns the raw file path for a given index."""
@@ -79,7 +73,9 @@ class BaseDataset(Dataset):
 
         if self.augmentations:
             if torch.rand((1,)) > self.blur_p:
-                image = v2.functional.gaussian_blur(image, self.blur_kernel, self.blur_sigma)
+                image = v2.functional.gaussian_blur(image,
+                                                    [self.blur_kernel, self.blur_kernel],
+                                                    self.blur_sigma)
             if torch.rand((1,)) > self.noise_p:
                 image = v2.functional.gaussian_noise(
                     image,
@@ -113,15 +109,9 @@ class BaseDataset(Dataset):
 
         return (image * s) + m
 
-    def set_attribute(self, label: Optional[str] = None, use_positive: bool = True) -> None:
-        raise NotImplementedError("This dataset does not support attribute filtering!")
 
-
-def get_datasets(cfg: DictConfig,
-                 use_augmentations: bool = False,
-                 label: Optional[str] = None,
-                 use_positive: bool = True) -> Tuple[BaseDataset, BaseDataset]:
-    files = sorted(glob.glob(f"{cfg.data.root}/preprocessed/*/*.npz"))
+def get_splits(root: str) -> Tuple[BaseDataset, BaseDataset]:
+    files = sorted(glob.glob(f"{root}/preprocessed/*/*.npz"))
 
     train_samples, test_samples = train_test_split(
         files,
@@ -129,23 +119,4 @@ def get_datasets(cfg: DictConfig,
         random_state=42
     )
 
-    train_dataset = instantiate(cfg.data.dataset,
-                                samples=train_samples,
-                                cfg=cfg,
-                                augmentations=use_augmentations,
-                                label=label,
-                                use_positive=use_positive,
-                                _recursive_=False)
-
-    test_dataset = instantiate(cfg.data.dataset,
-                               samples=test_samples,
-                               cfg=cfg,
-                               augmentations=False,
-                               label=label,
-                               use_positive=use_positive,
-                               _recursive_=False)
-
-    print(f"Created training dataset ({len(train_dataset)}) & test dataset ({len(test_dataset)}) "
-          f"[label='{label}', positive={use_positive}]")
-
-    return train_dataset, test_dataset
+    return train_samples, test_samples

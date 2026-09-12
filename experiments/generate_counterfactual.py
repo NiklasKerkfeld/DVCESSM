@@ -8,7 +8,7 @@ import torch
 from monai.networks.nets import BasicUNet
 from omegaconf import DictConfig, OmegaConf
 
-from base_dataset import get_datasets
+from base_dataset import get_splits
 from diff_cf.core.baseline.generator import BaselineGenerator
 from diff_cf.core.diffusion.generator import CounterfactualGenerator
 from diff_cf.models.diffusion_model_final import DiffusionModel
@@ -36,8 +36,10 @@ def main(cfg: DictConfig):
     print(f"using device: {device}")
 
     # load test dataset
-    _, dataset = get_datasets(cfg)
-    print(f"dataset size: {len(dataset)}")
+    _, test_data = get_splits(cfg)
+    print(f"dataset size: {len(test_data)}")
+
+    dataset = instantiate(cfg.data.dataset, samples=test_data)
 
     # get sample by name or by index
     if cfg.generation.sample_name:
@@ -68,12 +70,6 @@ def main(cfg: DictConfig):
     # Losses
     segmentation_loss_config = instantiate(cfg.generation.SegmentationLoss)
     distance_loss = instantiate(cfg.generation.distance_loss)
-
-    # Image domain bounds
-    z_min = ((cfg.data.min - torch.tensor(cfg.data.means)) / torch.tensor(cfg.data.stds)).view(3, 1,
-                                                                                               1)
-    z_max = ((cfg.data.max - torch.tensor(cfg.data.means)) / torch.tensor(cfg.data.stds)).view(3, 1,
-                                                                                               1)
 
     # AdaptGrad
     adapt_grad = instantiate(cfg.generation.AdaptGrad)
@@ -121,7 +117,7 @@ def main(cfg: DictConfig):
             engine=engine,
             segmentation_loss_config=segmentation_loss_config,
             distance_loss=distance_loss,
-            z_bounds=(z_min, z_max),
+            z_bounds=(dataset.z_min, dataset.z_max),
             weight_segmentation=cfg.generation.weight_segmentation,
             weight_distance=cfg.generation.weight_distance,
             start_fraction=cfg.generation.start_fraction,
@@ -143,7 +139,7 @@ def main(cfg: DictConfig):
             segmentation_model=segmentation_model,
             segmentation_loss_config=segmentation_loss_config,
             distance_loss=distance_loss,
-            z_bounds=(z_min, z_max),
+            z_bounds=(dataset.z_min, dataset.z_max),
             adapt_grad=adapt_grad,
             lr=cfg.generation.lr,
             steps=cfg.generation.steps,

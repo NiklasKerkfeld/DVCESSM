@@ -3,9 +3,10 @@ from pathlib import Path
 
 import hydra
 import torch
+from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 
-from src.diff_cf.core.base_dataset import get_datasets
+from src.diff_cf.core.base_dataset import get_splits
 from src.diff_cf.core.segmentation_trainer import SegmentationTrainer
 from monai.networks.nets import BasicUNet
 
@@ -32,12 +33,23 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    train_dataset, test_dataset = get_datasets(cfg, cfg.segmentation.augmentations.enable)
-    if cfg.segmentation.ood.enable:
-        train_dataset.set_attribute(cfg.segmentation.ood.attribute,
-                                    use_positive=cfg.segmentation.ood.train_on_positive)
-        test_dataset.set_attribute(cfg.segmentation.ood.attribute,
-                                   use_positive=not cfg.segmentation.ood.train_on_positive)
+    train_data, test_data= get_splits(
+        root=cfg.data.root,
+    )
+
+    label = cfg.segmentation.ood.attribute if cfg.segmentation.ood.enable else None
+    train_on_positive = cfg.segmentation.ood.train_on_positive if cfg.segmentation.ood.enable else True
+
+    train_dataset = instantiate(cfg.data.dataset,
+                                samples=train_data,
+                                label=label,
+                                use_positive=train_on_positive)
+
+    test_dataset = instantiate(cfg.data.dataset,
+                                samples=test_data,
+                                label=label,
+                                use_positive=not train_on_positive)
+
 
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
@@ -75,7 +87,7 @@ def main(cfg: DictConfig):
         trainer.load_checkpoint(checkpoint)
         print(f"continue training form {checkpoint}...")
 
-    trainer.train(cfg.segmentation.epochs)
+    # trainer.train(cfg.segmentation.epochs)
 
 
 if __name__ == '__main__':

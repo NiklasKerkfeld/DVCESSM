@@ -12,28 +12,27 @@ class CelebAMaskDataset(BaseDataset):
     """Dataset class for CelebAMask dataset with attribute filtering."""
 
     def __init__(self,
+                 root: str,
                  samples: List[str],
                  means: list[float],
                  stds: list[float],
-                 mins: list[float],
-                 maxs: list[float],
-                 root: str,
+                 min: float,
+                 max: float,
                  augmentations: bool = False,
-                 probablity_blur: float = 0.2,
+                 probability_blur: float = 0.2,
                  blur_sigma: list[float] = [0.2, 2],
-                 blur_kernel: list[int] = [3],
-                 probablity_noise: float = 0.2,
+                 blur_kernel: int = 3,
+                 probability_noise: float = 0.2,
                  noise_sigma: list[float] = [0.2, 2],
                  label: Optional[str] = None,
                  use_positive: bool = True):
-        super().__init__(samples, means, stds, mins, maxs, augmentations, probablity_blur,
-                         blur_sigma, blur_kernel, probablity_noise, noise_sigma)
-        self.root = root
+        super().__init__(root, samples, means, stds, min, max, augmentations, probability_blur,
+                         blur_sigma, blur_kernel, probability_noise, noise_sigma)
         self.label = label
         self.use_positive = use_positive
 
+        self.all_samples = samples
         self.files = self._filter_samples(self.all_samples)
-
         self._normalize_transform = v2.Normalize(mean=self.means, std=self.stds)
 
     def set_attribute(self, label: Optional[str] = None, use_positive: bool = True) -> None:

@@ -4,12 +4,13 @@ from pathlib import Path
 import hydra
 import pandas as pd
 import torch
+from hydra.utils import instantiate
 from monai.networks.nets import BasicUNet
 from omegaconf import DictConfig, OmegaConf
 from torchvision.utils import save_image
 from tqdm import tqdm
 
-from base_dataset import get_datasets
+from base_dataset import get_splits
 from diff_cf.core.segmentation_trainer import SegmentationTrainer
 from diff_cf.utils.utils import visualize_seg
 from diff_cf.utils.metrics import calc_iou, calc_f1_score
@@ -32,12 +33,21 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    train_dataset, test_dataset = get_datasets(cfg, cfg.segmentation.augmentations.enable)
-    if cfg.segmentation.ood.enable:
-        train_dataset.set_attribute(cfg.segmentation.ood.attribute,
-                                    use_positive=cfg.segmentation.ood.train_on_positive)
-        test_dataset.set_attribute(cfg.segmentation.ood.attribute,
-                                   use_positive=not cfg.segmentation.ood.train_on_positive)
+    train_data, test_data = get_splits(cfg.data.root)
+
+    label = cfg.segmentation.ood.attribute if cfg.segmentation.ood.enable else None
+    train_on_positive = cfg.segmentation.ood.train_on_positive if cfg.segmentation.ood.enable else True
+
+    train_dataset = instantiate(cfg.data.dataset,
+                                samples=train_data,
+                                label=label,
+                                use_positive=train_on_positive)
+
+    test_dataset = instantiate(cfg.data.dataset,
+                                samples=test_data,
+                                label=label,
+                                use_positive=not train_on_positive)
+
 
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")

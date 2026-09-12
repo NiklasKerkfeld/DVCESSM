@@ -51,12 +51,6 @@ class Trainer(BaseTrainer):
         self.accumulation_steps = accumulation_steps
         self.use_target = use_target
 
-        # --- get data range ---
-        self.z_min = ((self.dataset.mins - torch.tensor(self.dataset.means)) /
-                      torch.tensor(self.dataset.stds)).view(3, 1, 1).to(self.device)
-        self.z_max = ((self.dataset.maxs - torch.tensor(self.dataset.means)) /
-                      torch.tensor(self.dataset.stds)).view(3, 1, 1).to(self.device)
-
         # --- EMA Setup ---
         self.ema_decay = ema_decay
         self.ema_model = copy.deepcopy(self.model)
@@ -295,7 +289,7 @@ class Trainer(BaseTrainer):
                 plt.axis('off')
                 plt.show()
 
-        return x.detach().clamp(self.z_min, self.z_max)
+        return x.detach().clamp(self.dataset.z_min, self.dataset.z_max)
 
     @torch.no_grad()
     def _visualize_sampling(self,

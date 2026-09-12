@@ -13,7 +13,7 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 
 from baseline.generator import BaselineGenerator
-from base_dataset import get_datasets
+from base_dataset import get_splits
 from diff_cf.utils.metrics import calc_iou, calc_f1_score
 from diff_cf.utils.utils import visualize_seg, visualize_adaption
 from diffusion.generator import CounterfactualGenerator
@@ -38,10 +38,18 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    _, test_dataset = get_datasets(cfg, cfg.segmentation.augmentations.enable)
-    if cfg.segmentation.ood.enable:
-        test_dataset.set_attribute(cfg.segmentation.ood.attribute,
-                                   use_positive=not cfg.segmentation.ood.train_on_positive)
+    _, test_data= get_splits(
+        root=cfg.data.root,
+    )
+
+    label = cfg.segmentation.ood.attribute if cfg.segmentation.ood.enable else None
+    train_on_positive = cfg.segmentation.ood.train_on_positive if cfg.segmentation.ood.enable else True
+
+    test_dataset = instantiate(cfg.data.dataset,
+                                samples=test_data,
+                                label=label,
+                                use_positive=not train_on_positive)
+
 
     test_loader = DataLoader(
         test_dataset,

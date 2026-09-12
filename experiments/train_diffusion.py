@@ -7,7 +7,7 @@ import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from base_dataset import get_datasets
+from base_dataset import get_splits
 from src.diff_cf.models.diffusion_model_final import DiffusionModel
 from src.diff_cf.core.diffusion.trainer import Trainer
 
@@ -32,7 +32,9 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
 
-    dataset, _ = get_datasets(cfg)
+    train_data, _ = get_splits(root=cfg.data.root)
+
+    dataset = instantiate(cfg.data.dataset, samples=train_data)
 
     model = DiffusionModel(channels=cfg.data.image_channels,
                            width=cfg.data.image_width,
@@ -68,7 +70,7 @@ def main(cfg: DictConfig):
         trainer.load_checkpoint(checkpoint)
         print(f"continue training form {checkpoint}...")
 
-    trainer.train(cfg.diffusion.epochs)
+    # trainer.train(cfg.diffusion.epochs)
 
 
 if __name__ == '__main__':
