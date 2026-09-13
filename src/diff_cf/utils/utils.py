@@ -1,13 +1,22 @@
 """Utility functions."""
 from typing import Optional, Tuple
 
+import torch
 from prettytable import PrettyTable
-
 from torch import nn
 
-import torch
 
 def scalar_product(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """
+    Calculate the scalar product between two vectors.
+
+    Args:
+        a: vector a.
+        b: vector b.
+
+    Returns:
+        scalar product of vectors a and b.
+    """
     return torch.sum(a * b, dim=-1, keepdim=True)
 
 def visualize_counterfactuals(image: torch.Tensor, *args: torch.Tensor) -> Tuple[torch.Tensor, ...]:

@@ -1,8 +1,5 @@
 """Implementation of AdaptGrad from https://arxiv.org/html/2410.07711v2"""
-from typing import List
-
 import torch
-from omegaconf import DictConfig
 from scipy.special import erfinv    # pylint: disable=no-name-in-module
 from torch import nn
 
@@ -11,18 +8,16 @@ class AdaptGrad(nn.Module):
     """
     Implementation of AdaptGrad from https://arxiv.org/html/2410.07711v2
     """
-    x_min: torch.Tensor
-    x_max: torch.Tensor
+    z_min: torch.Tensor
+    z_max: torch.Tensor
     denominator: torch.Tensor
 
     def __init__(
             self,
             N: int,
             c: float,
-            data_min: List[float],
-            data_max: List[float],
-            data_means: List[float],
-            data_stds: List[float]
+            z_min: torch.Tensor,
+            z_max: torch.Tensor,
     ):
         """
         Implementation of AdaptGrad from https://arxiv.org/html/2410.07711v2.
@@ -38,12 +33,8 @@ class AdaptGrad(nn.Module):
         super().__init__()
         self.N = N     # pylint: disable=invalid-name
         self.c = c
-        x_min = ((data_min - torch.tensor(data_means)) /
-                 torch.tensor(data_stds))
-        x_max = ((data_max - torch.tensor(data_means)) /
-                 torch.tensor(data_stds))
-        self.register_buffer('x_min', x_min[None, :, None, None])
-        self.register_buffer('x_max', x_max[None, :, None, None])
+        self.register_buffer('z_min', z_min[None])
+        self.register_buffer('z_max', z_max[None])
         self.register_buffer('denominator', torch.sqrt(torch.tensor(2.0)) * erfinv(self.c))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -60,8 +51,8 @@ class AdaptGrad(nn.Module):
             return x
 
         with torch.no_grad():
-            sigma = torch.min(self.x_max - x, torch.abs(self.x_min - x)) / self.denominator
-            sigma = torch.where((x <= self.x_min) | (x >= self.x_max), torch.zeros_like(sigma),
+            sigma = torch.min(self.z_max - x, torch.abs(self.z_min - x)) / self.denominator
+            sigma = torch.where((x <= self.z_min) | (x >= self.z_max), torch.zeros_like(sigma),
                                 sigma)
             noise = torch.randn((self.N, *x.shape), requires_grad=False, device=x.device) * sigma
 

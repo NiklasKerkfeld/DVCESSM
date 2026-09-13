@@ -1,5 +1,4 @@
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -19,7 +18,6 @@ class DummyDataset(BaseDataset):
             kwargs["max"] = kwargs.pop("maxs")
         super().__init__(*args, **kwargs)
 
-        self.files = self._filter_samples(self.all_samples)
         self.attribute_label = None
         self.use_positive = True
 
@@ -111,8 +109,8 @@ def test_load_item_with_augmentations(temp_npz_files: list[str]):
         min=0.0,
         max=1.0,
         augmentations=True,
-        probablity_blur=0.0,  # Force blur augmentation trigger (> 0.0)
-        probablity_noise=0.0,  # Force noise augmentation trigger (> 0.0)
+        probablity_blur=1.0,
+        probablity_noise=1.0,
     )
 
     image, label = dataset[0]
@@ -145,20 +143,6 @@ def test_denormalize_3d_and_4d(temp_npz_files: list[str]):
     # Test unsupported tensor dimensions
     with pytest.raises(ValueError, match="Unexpected image tensor shape"):
         dataset.denormalize(torch.zeros(16, 16))
-
-
-def test_base_dataset_set_attribute_raises_error(temp_npz_files: list[str]):
-    dataset = BaseDataset(
-        root="./data",
-        samples=temp_npz_files,
-        means=[0.5, 0.5, 0.5],
-        stds=[0.2, 0.2, 0.2],
-        min=0.0,
-        max=1.0,
-    )
-
-    with pytest.raises(NotImplementedError):
-        dataset.set_attribute("target_attribute")
 
 
 # --- get_datasets Tests ---

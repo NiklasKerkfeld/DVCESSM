@@ -1,3 +1,5 @@
+"""Metrics for measuring segmentations"""
+
 from typing import Tuple
 
 import torch
@@ -34,9 +36,10 @@ def calc_iou(labels: torch.Tensor, preds: torch.Tensor, num_classes: int = 5) ->
     return iou.mean().item()
 
 
-def calc_f1_score(
-    labels: torch.Tensor, preds: torch.Tensor, num_classes: int = 5
-) -> Tuple[float, float, float]:
+def calc_f1_score(labels: torch.Tensor,
+                  preds: torch.Tensor,
+                  num_classes: int = 5,
+                  eps: float= 1e-7) -> Tuple[float, float, float]:
     """Calculates Macro Precision, Recall, and F1-Score for multi-class segmentation.
 
     Args:
@@ -61,7 +64,6 @@ def calc_f1_score(
     fp = conf_matrix.sum(dim=0) - tp
     fn = conf_matrix.sum(dim=1) - tp
 
-    eps = 1e-7
     precision = tp / (tp + fp + eps)
     recall = tp / (tp + fn + eps)
     f1 = (2 * tp) / (2 * tp + fp + fn + eps)
@@ -72,8 +74,6 @@ def calc_f1_score(
     if not gt_present.any():
         return 0.0, 0.0, 0.0
 
-    macro_f1 = f1[gt_present].mean().item()
-    macro_precision = precision[gt_present].mean().item()
-    macro_recall = recall[gt_present].mean().item()
-
-    return macro_f1, macro_precision, macro_recall
+    return (f1[gt_present].mean().item(),
+            precision[gt_present].mean().item(),
+            recall[gt_present].mean().item())
