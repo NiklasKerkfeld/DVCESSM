@@ -8,6 +8,7 @@ class AdaptGrad(nn.Module):
     """
     Implementation of AdaptGrad from https://arxiv.org/html/2410.07711v2
     """
+    N: int
     z_min: torch.Tensor
     z_max: torch.Tensor
     denominator: torch.Tensor

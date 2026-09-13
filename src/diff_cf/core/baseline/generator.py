@@ -17,6 +17,8 @@ class BaselineGenerator(BaseGenerator):
     Baseline Generator.
     Optimizes a parameter map added to the input image to satisfy a target prediction.
     """
+    alpha: float
+    beta: float
 
     def __init__(self,
                  segmentation_model: nn.Module,
@@ -84,7 +86,9 @@ class BaselineGenerator(BaseGenerator):
         parameter = nn.Parameter(torch.zeros_like(image))
         optimizer = AdamW([parameter], lr=self.lr)
 
-        loss_fn = self.segmentation_loss_factory(target=target.repeat((self.adaptgrad.N, 1, 1)))
+        loss_fn = self.segmentation_loss_factory(
+            target=target.repeat((self.target_repetitions, 1, 1))
+        )
 
         s_filter = self.filter.repeat(image.shape[1], 1, 1, 1).to(self.device)
 

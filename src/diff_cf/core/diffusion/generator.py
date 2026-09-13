@@ -91,7 +91,9 @@ class CounterfactualGenerator(BaseGenerator):
         # reset gradients
         self.reset_state()
 
-        loss_fn = self.segmentation_loss_factory(target=target.repeat((self.adaptgrad.N, 1, 1)))
+        loss_fn = self.segmentation_loss_factory(
+            target=target.repeat((self.target_repetitions, 1, 1))
+        )
 
         start_t = min(int(self.engine.T * self.start_fraction), self.engine.T - 1)
         t_tensor = torch.full((image.shape[0],), start_t, device=self.device)

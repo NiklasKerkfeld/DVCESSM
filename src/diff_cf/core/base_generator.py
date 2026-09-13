@@ -64,6 +64,7 @@ class BaseGenerator:
                 "When robust model is provided alpha value for cone projection must be set!")
 
         self.adaptgrad = adapt_grad if adapt_grad else torch.nn.Identity()
+        self.target_repetitions: int = adapt_grad.N if adapt_grad else 1
 
         # Initialize TensorBoard
         if self.log_to_tensorboard:

@@ -22,6 +22,7 @@ from ...utils.utils import visualize_seg
 
 class Trainer(BaseTrainer):
     """Trainer for the Diffusion model."""
+    model: DiffusionModel
 
     def __init__(self,
                  dataset: BaseDataset,
@@ -244,9 +245,10 @@ class Trainer(BaseTrainer):
         model = self.ema_model if use_ema else self.model
         model.eval()
 
-        x = torch.randn(batch_size, model.channels, model.width, model.height).to(self.device)
+        x = torch.randn((batch_size, model.channels, model.width, model.height)).to(self.device)
 
         if self.use_target:
+            assert targets is not None, f"No targets provided!"
             targets = targets.to(self.device)
 
         model.to(self.device)
@@ -295,8 +297,8 @@ class Trainer(BaseTrainer):
         self.model.eval()
 
         samples = self.generate_image(batch_size=4, use_ema=use_ema, targets=targets)
-        samples = [self._visualize_image(s, i) for i, s in enumerate(samples)]
-        grid = make_grid(samples, nrow=4, normalize=True, value_range=(0, 255))
+        samples_list = [self._visualize_image(s, i) for i, s in enumerate(samples)]
+        grid = make_grid(samples_list, nrow=4, normalize=True, value_range=(0, 255))
         self.writer.add_image("Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
@@ -314,6 +316,7 @@ class Trainer(BaseTrainer):
         images = images.to(self.device)
 
         if self.use_target:
+            assert targets is not None, f"No targets provided!"
             targets = targets.to(self.device)
 
         check_steps = [
@@ -342,9 +345,9 @@ class Trainer(BaseTrainer):
 
     def _log_one_step(self,
                       t: int,
-                      x_0_recon: torch.Tensor,
+                      x_0: torch.Tensor,
                       x_t: torch.Tensor) -> None:
 
-        x_t = [self._visualize_image(x, i) for i, x in enumerate(x_t)]
-        x_0 = [self._visualize_image(x, i) for i, x in enumerate(x_0_recon)]
-        self._log_images(x_t + x_0, f"Visual_Check/T_{t}")
+        x_t_list = [self._visualize_image(x, i) for i, x in enumerate(x_t)]
+        x_0_list = [self._visualize_image(x, i) for i, x in enumerate(x_0)]
+        self._log_images(x_t_list + x_0_list, f"Visual_Check/T_{t}")

@@ -15,6 +15,9 @@ class DiffusionModel(nn.Module):
     and target-prior segmentation mask conditioning.
     """
     emb: torch.Tensor
+    channels: int
+    width: int
+    height: int
 
     def __init__(self,
                  channels: int,
@@ -131,8 +134,10 @@ class DiffusionModel(nn.Module):
 
         # Optional: Prepare target prior mask
         if self.use_prior:
-            t_h1 = F.one_hot(target,                                                            # pylint: disable=not-callable
-                             num_classes=self.num_prior_channels).permute(0, 3, 1, 2).float()
+            t_h1 = F.one_hot(
+                target,     # type: ignore # pylint: disable=not-callable
+                num_classes=self.num_prior_channels
+            ).permute(0, 3, 1, 2).float()
             x = torch.concat((t_h1, x), dim=1)
 
         # First convolution
