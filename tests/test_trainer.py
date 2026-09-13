@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
+from monai.networks.nets import BasicUNet
 from torch.utils.data import DataLoader
 
 from src.diff_cf.core.base_dataset import BaseDataset
@@ -18,9 +19,16 @@ def mock_dataset():
     dataset.denormalize.side_effect = lambda img, idx=None: img
     return dataset
 
+@pytest.fixture
+def mock_model():
+    """Fixture providing a mocked BaseDataset instance."""
+    model = BasicUNet(in_channels=3, out_channels=3)
+
+    return model
+
 
 @pytest.fixture
-def trainer(mock_dataset, tmp_path):
+def trainer(mock_dataset, mock_model, tmp_path):
     """Fixture providing a BaseTrainer instance with mocked SummaryWriter."""
     device = torch.device("cpu")
     log_dir = str(tmp_path / "logs")
@@ -29,6 +37,7 @@ def trainer(mock_dataset, tmp_path):
     with patch("src.diff_cf.core.trainer.SummaryWriter"):
         trainer_inst = BaseTrainer(
             dataset=mock_dataset,
+            model=mock_model,
             device=device,
             lr=1e-4,
             batch_size=16,
@@ -41,7 +50,7 @@ def trainer(mock_dataset, tmp_path):
     return trainer_inst
 
 
-def test_init_attributes_and_dataloader(mock_dataset, tmp_path):
+def test_init_attributes_and_dataloader(mock_dataset, mock_model, tmp_path):
     device = torch.device("cpu")
     log_dir = str(tmp_path / "logs")
     checkpoint_path = str(tmp_path / "checkpoints")
@@ -49,6 +58,7 @@ def test_init_attributes_and_dataloader(mock_dataset, tmp_path):
     with patch("src.diff_cf.core.trainer.SummaryWriter") as mock_writer_cls:
         trainer_inst = BaseTrainer(
             dataset=mock_dataset,
+            model=mock_model,
             device=device,
             lr=1e-4,
             batch_size=16,
@@ -76,15 +86,6 @@ def test_init_attributes_and_dataloader(mock_dataset, tmp_path):
         # Verify SummaryWriter log directory path
         mock_writer_cls.assert_called_once_with(f"{log_dir}/TestTrainer")
 
-
-def test_abstract_methods_raise_not_implemented(trainer):
-    with pytest.raises(NotImplementedError):
-        trainer.save_checkpoint()
-
-    with pytest.raises(NotImplementedError):
-        trainer.load_checkpoint("path/to/checkpoint.pt")
-
-
 def test_visualize_image_rgb(trainer, mock_dataset):
     sample_image = torch.randn(3, 32, 32)
     result = trainer._visualize_image(sample_image, index=2)
@@ -93,11 +94,12 @@ def test_visualize_image_rgb(trainer, mock_dataset):
     assert torch.equal(result, sample_image)
 
 
-def test_visualize_image_mri(mock_dataset, tmp_path):
+def test_visualize_image_mri(mock_dataset, mock_model, tmp_path):
     device = torch.device("cpu")
     with patch("src.diff_cf.core.trainer.SummaryWriter"):
         mri_trainer = BaseTrainer(
             dataset=mock_dataset,
+            model=mock_model,
             device=device,
             image_type="mri",
             log_dir=str(tmp_path),
