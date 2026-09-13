@@ -248,7 +248,7 @@ class Trainer(BaseTrainer):
         x = torch.randn((batch_size, model.channels, model.width, model.height)).to(self.device)
 
         if self.use_target:
-            assert targets is not None, f"No targets provided!"
+            assert targets is not None, "No targets provided!"
             targets = targets.to(self.device)
 
         model.to(self.device)
@@ -316,7 +316,7 @@ class Trainer(BaseTrainer):
         images = images.to(self.device)
 
         if self.use_target:
-            assert targets is not None, f"No targets provided!"
+            assert targets is not None, "No targets provided!"
             targets = targets.to(self.device)
 
         check_steps = [
