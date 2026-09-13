@@ -37,7 +37,7 @@ class BaseGenerator:
             segmentation_model: segmentation model.
             segmentation_loss_config: Factory for the SegmentationLoss.
             distance_loss: loss function for messaging the distance to original image.
-            robust_model: robust segmentation model to improve segmentation gradients using cone projection.
+            robust_model: robust segmentation model to improve gradients using cone projection.
             adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
             cone_projection_alpha: alpha angle in radians for cone projection.
             n_classes: number of classes.
@@ -137,7 +137,7 @@ class BaseGenerator:
 
     def _cone_projection(self, grad_seg: torch.Tensor, grad_rob: torch.Tensor) -> torch.Tensor:
         """
-        Does the cone projection from this paper https://arxiv.org/pdf/2210.11841 to ensure use full gradients.
+        Cone projection from this paper https://arxiv.org/pdf/2210.11841.
 
         Args:
             grad_seg: gradient of the segmentation model.
@@ -172,7 +172,7 @@ class BaseGenerator:
             target: torch.Tensor,
             logits: torch.Tensor,
             step: int,
-            **kwargs):
+            **kwargs):  # pylint: disable=unused-argument
         """
         Base logging method for TensorBoard.
 

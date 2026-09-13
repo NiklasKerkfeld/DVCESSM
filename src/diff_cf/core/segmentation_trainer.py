@@ -1,12 +1,10 @@
 """Trainer for the Segmentation model."""
 
-import os
 from typing import Optional, Tuple, Literal
 
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
-from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -60,9 +58,16 @@ class SegmentationTrainer(BaseTrainer):
             image_type: type of image for visualization (default 'rgb').
             log_dir: Path to logging folder (default '.logs/').
         """
-        super().__init__(train_dataset, device, lr, batch_size, num_workers, image_type, name, checkpoint_path,
+        super().__init__(train_dataset,
+                         model,
+                         device,
+                         lr,
+                         batch_size,
+                         num_workers,
+                         image_type,
+                         name,
+                         checkpoint_path,
                          log_dir)
-        self.model = model
         self.num_classes = n_classes
 
         # parameter for robust training
@@ -76,44 +81,10 @@ class SegmentationTrainer(BaseTrainer):
 
         self.loss_fn = CrossEntropyLoss()
 
-        self.model.to(self.device)
-
-        self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
-
         self.valid_dataloader = DataLoader(valid_dataset,
                                            batch_size=self.batch_size,
                                            shuffle=False,
                                            num_workers=self.num_workers)
-
-    def save_checkpoint(self) -> None:
-        """Saves current state in checkpoint."""
-        os.makedirs(self.checkpoint, exist_ok=True)
-        checkpoint = {
-            'epoch': self.epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'rng_state': torch.get_rng_state(),
-            'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
-        }
-        torch.save(checkpoint, f'{self.checkpoint}/{self.name}.pt')
-
-    def load_checkpoint(self, checkpoint_path: str) -> None:
-        """
-        Loads given checkpoint.
-
-        Args:
-            checkpoint_path: path to checkpoint.
-        """
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
-
-        self.epoch = checkpoint["epoch"]
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-
-        if 'rng_state' in checkpoint:
-            torch.set_rng_state(checkpoint['rng_state'].cpu())
-        if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
-            torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
     def train(self, epochs: int) -> None:
         """
@@ -317,6 +288,15 @@ class SegmentationTrainer(BaseTrainer):
 
     @torch.no_grad()
     def predict(self, images: torch.Tensor):
+        """
+        Predicts segmentation masks.
+
+        Args:
+            images: image (B, C, H, W)
+
+        Returns:
+            prediction (B, H, W)
+        """
         self.model.eval()
 
         out = self.model(images.to(self.device)).cpu()

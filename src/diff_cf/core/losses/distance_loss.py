@@ -1,19 +1,24 @@
+"""Loss functions for similarity loss between counterfactual and original image."""
 import torch
 from torch import nn
 
 
 class BaseDistanceLoss(nn.Module):
+    """Base class for all similarity loss functions."""
     def __init__(self):
         super().__init__()
 
     def forward(self, image: torch.Tensor, approx_image: torch.Tensor) -> torch.Tensor:
+        """Forward pass for similarity loss between counterfactual and original image."""
         raise NotImplementedError
 
     def loss(self, diff: torch.Tensor) -> torch.Tensor:
+        """Loss calculation based on difference between original and counterfactual image."""
         raise NotImplementedError
 
 
 class NormDistance(BaseDistanceLoss):
+    """Similarity loss based on norm."""
     def __init__(self, p: float = 2.0):
         super().__init__()
         self.p = p
@@ -26,6 +31,7 @@ class NormDistance(BaseDistanceLoss):
 
 
 class LogDistance(BaseDistanceLoss):
+    """Similarity loss based logarithmic absolute difference."""
     def __init__(self, scale: float = 1.4427):
         super().__init__()
         self.scale = scale
@@ -39,6 +45,7 @@ class LogDistance(BaseDistanceLoss):
 
 
 class GemanMcClureDistance(BaseDistanceLoss):
+    """Similarity loss based on GemanMcClure distance."""
     def __init__(self, gamma: float = 0.1):
         super().__init__()
         self.gamma = gamma
@@ -52,6 +59,7 @@ class GemanMcClureDistance(BaseDistanceLoss):
 
 
 class DifferentiableSoftL0Count(BaseDistanceLoss):
+    """Similarity loss based on differentiable SoftL0."""
     def __init__(self, epsilon: float = 0.05, tau: float = 20.0):
         super().__init__()
         self.epsilon = epsilon
@@ -66,6 +74,7 @@ class DifferentiableSoftL0Count(BaseDistanceLoss):
 
 
 class CharbonnierLoss(BaseDistanceLoss):
+    """Similarity loss based on Charbonnier distance."""
     def __init__(self, eps: float = 1e-3):
         super().__init__()
         self.eps = eps

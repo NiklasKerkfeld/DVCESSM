@@ -1,3 +1,4 @@
+"""Diffusion model."""
 import math
 from typing import Optional, List
 
@@ -112,6 +113,7 @@ class DiffusionModel(nn.Module):
                                              padding=1, activation=nn.Identity(), apply_norm=False)
 
     def get_timestep_embedding(self, timesteps: torch.Tensor) -> torch.Tensor:
+        """Embedding for timesteps."""
         emb = timesteps[:, None] * self.emb[None, :]
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb
@@ -129,8 +131,8 @@ class DiffusionModel(nn.Module):
 
         # Optional: Prepare target prior mask
         if self.use_prior:
-            t_h1 = F.one_hot(target, num_classes=self.num_prior_channels).permute(0, 3, 1,
-                                                                                  2).float()
+            t_h1 = F.one_hot(target,                                                            # pylint: disable=not-callable
+                             num_classes=self.num_prior_channels).permute(0, 3, 1, 2).float()
             x = torch.concat((t_h1, x), dim=1)
 
         # First convolution
@@ -178,8 +180,6 @@ class DiffusionModel(nn.Module):
         if self.use_prior:
             u = torch.concat((u, t_h4), dim=1)
         u = self.up2(u, h4, t_emb)
-        # Note: up2_att was declared but omitted in both of your original forward passes. 
-        # Kept uncalled to preserve original structure.
 
         if self.use_prior:
             u = torch.concat((u, t_h3), dim=1)

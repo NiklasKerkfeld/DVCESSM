@@ -12,34 +12,37 @@ from torch.utils.data import Dataset
 
 
 class BaseDataset(Dataset):
+    """
+    Base dataset class for Counterfactual generation and segmentation training
+    """
     def __init__(self,
                  root: str,
                  samples: List[str],
                  means: list[float],
                  stds: list[float],
-                 min: float,
-                 max: float,
+                 x_min: float,
+                 x_max: float,
                  augmentations: bool = False,
-                 probablity_blur: float = 0.2,
-                 blur_sigma: Sequence[float] = [0.2, 2.0],
+                 probability_blur: float = 0.2,
+                 blur_sigma: Sequence[float] = (0.2, 2.0),
                  blur_kernel: int = 3,
-                 probablity_noise: float = 0.2,
-                 noise_sigma: Sequence[float] = [0.2, 2]
+                 probability_noise: float = 0.2,
+                 noise_sigma: Sequence[float] = (0.2, 2)
                  ) -> None:
         self.root = root
         self.files = samples
 
         self.augmentations = augmentations
-        self.blur_p = probablity_blur
+        self.blur_p = probability_blur
         self.blur_sigma = [float(x) for x in blur_sigma]
         self.blur_kernel = blur_kernel
-        self.noise_p = probablity_noise
+        self.noise_p = probability_noise
         self.noise_sigma = [float(x) for x in noise_sigma]
 
         self.means = torch.tensor(means)
         self.stds = torch.tensor(stds)
-        self.z_min = ((min - self.means) / self.stds).view(3, 1, 1)
-        self.z_max = ((max - self.means) / self.stds).view(3, 1, 1)
+        self.z_min = ((x_min - self.means) / self.stds).view(3, 1, 1)
+        self.z_max = ((x_max - self.means) / self.stds).view(3, 1, 1)
 
         self._normalize_transform: Optional[v2.Transform] = None
 
@@ -97,6 +100,16 @@ class BaseDataset(Dataset):
         return self._load(index)
 
     def denormalize(self, image: torch.Tensor, index: Optional[int] = None) -> torch.Tensor:
+        """
+        Reverses the z-score normalization done for the diffusion.
+
+        Args:
+            image: image with 0 mean and 1 standard deviation.
+            index: index of the image in the dataset.
+
+        Returns:
+            image with values as original dataset.
+        """
         means, stds = self._stats(index)
         means, stds = means.to(image.device), stds.to(image.device)
 
@@ -111,6 +124,7 @@ class BaseDataset(Dataset):
 
 
 def get_splits(root: str) -> Tuple[BaseDataset, BaseDataset]:
+    """Does a training and testing split."""
     files = sorted(glob.glob(f"{root}/preprocessed/*/*.npz"))
 
     train_samples, test_samples = train_test_split(

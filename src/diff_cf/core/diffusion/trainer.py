@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """Trainer for the Diffusion model."""
 
 import copy
@@ -8,12 +9,11 @@ from typing import Optional, Literal
 import torch
 from matplotlib import pyplot as plt
 from torch import nn
-from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-from base_dataset import BaseDataset
+from ..base_dataset import BaseDataset
 from .engine import Engine
 from ..trainer import BaseTrainer
 from ...models.diffusion_model import DiffusionModel
@@ -42,10 +42,9 @@ class Trainer(BaseTrainer):
                  checkpoint_path: str = './checkpoints',
                  log_dir: str = '.logs/'
                  ):
-        super().__init__(dataset, device, lr, batch_size, num_workers, image_type, name,
+        super().__init__(dataset, model, device, lr, batch_size, num_workers, image_type, name,
                          checkpoint_path,
                          log_dir)
-        self.model = model
         self.engine = engine
         self.gamma = gamma
         self.accumulation_steps = accumulation_steps
@@ -58,11 +57,8 @@ class Trainer(BaseTrainer):
         self.ema_model.eval()
         self.step = 0
 
-        self.model.to(self.device)
         self.engine.to(self.device)
-
         self.loss_fn = nn.MSELoss()
-        self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
         self.num_warmup_steps = warm_up
         total_training_steps = (epochs * len(self.train_dataloader)) // self.accumulation_steps
@@ -271,7 +267,8 @@ class Trainer(BaseTrainer):
             else:
                 epsilon_pred = model(x, t_tensor)
 
-            current_step = step if i > 0 else (self.engine.T - 1 - time_steps[1] if len(time_steps) > 1 else 1)
+            current_step = step if i > 0 else (self.engine.T - 1 - time_steps[1]
+                                               if len(time_steps) > 1 else 1)
 
             # calculate output at target timestep
             mean = self.engine.reverse(x, epsilon_pred, t_tensor, steps=current_step)

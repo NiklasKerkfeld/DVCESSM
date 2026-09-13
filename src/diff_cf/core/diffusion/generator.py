@@ -3,14 +3,14 @@ from dataclasses import dataclass
 from typing import Tuple, Dict, Optional
 
 import torch
+import torchvision.transforms.functional as F
 import torchvision.utils as vutils
 from torch import nn
-import torchvision.transforms.functional as F
 from tqdm import tqdm
 
-from ..losses import BaseDistanceLoss, SegmentationLoss, SegmentationLossConfig
-from ..base_generator import BaseGenerator
 from .engine import Engine
+from ..base_generator import BaseGenerator
+from ..losses import BaseDistanceLoss, SegmentationLoss, SegmentationLossConfig
 from ...utils.adapt_grad import AdaptGrad
 from ...utils.utils import visualize_adaption
 
@@ -56,7 +56,7 @@ class CounterfactualGenerator(BaseGenerator):
             segmentation_model: segmentation model.
             segmentation_loss_config: configuration for the SegmentationLoss.
             distance_loss: loss function for messaging the distance to original image.
-            robust_model: robust segmentation model to improve segmentation gradients using cone projection.
+            robust_model: robust segmentation model to improve gradients using cone projection.
             adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
             cone_projection_alpha: alpha angle in radians for cone projection.
             smoothing_cfg: configuration of gradient smoothing.

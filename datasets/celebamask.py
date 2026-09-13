@@ -16,8 +16,8 @@ class CelebAMaskDataset(BaseDataset):
                  samples: List[str],
                  means: list[float],
                  stds: list[float],
-                 min: float,
-                 max: float,
+                 x_min: float,
+                 x_max: float,
                  augmentations: bool = False,
                  probability_blur: float = 0.2,
                  blur_sigma: list[float] = [0.2, 2],
@@ -26,7 +26,7 @@ class CelebAMaskDataset(BaseDataset):
                  noise_sigma: list[float] = [0.2, 2],
                  label: Optional[str] = None,
                  use_positive: bool = True):
-        super().__init__(root, samples, means, stds, min, max, augmentations, probability_blur,
+        super().__init__(root, samples, means, stds, x_min, x_max, augmentations, probability_blur,
                          blur_sigma, blur_kernel, probability_noise, noise_sigma)
         self.label = label
         self.use_positive = use_positive

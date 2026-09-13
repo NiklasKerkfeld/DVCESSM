@@ -28,7 +28,7 @@ class SegmentationLoss(nn.Module):
 
         Args:
             target: target segmentation map.
-            config: CounterfactualLossConfig with the parameter border_width, use_mask and reduction.
+            config: CounterfactualLossConfig.
         """
         super().__init__()
         self.target = target.clone()
@@ -58,13 +58,18 @@ class SegmentationLoss(nn.Module):
 
     def _set_boarders(self) -> None:
         if self.border_width > 0:
-            k_size = self.border_width + 1
+            padding = max(1, self.border_width // 2)
+            k_size = 2 * padding + 1
 
-            dilated = F.max_pool2d(self.target.float(), kernel_size=k_size, stride=1,
-                                   padding=self.border_width // 2)
+            dilated = F.max_pool2d(self.target.float(),
+                                   kernel_size=k_size,
+                                   stride=1,
+                                   padding=padding)
 
-            eroded = -F.max_pool2d(-self.target.float(), kernel_size=k_size, stride=1,
-                                   padding=self.border_width // 2)
+            eroded = -F.max_pool2d(-self.target.float(),
+                                   kernel_size=k_size,
+                                   stride=1,
+                                   padding=padding)
 
             mask = dilated != eroded
 
@@ -79,6 +84,3 @@ class SegmentationLossFactory:
 
     def __call__(self, target: torch.Tensor) -> SegmentationLoss:
         return SegmentationLoss(target=target, config=self.config)
-
-
-

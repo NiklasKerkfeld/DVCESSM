@@ -56,8 +56,8 @@ def test_dataset_len_and_filepaths(temp_npz_files: list[str]):
         samples=temp_npz_files,
         means=[0.5, 0.5, 0.5],
         stds=[0.2, 0.2, 0.2],
-        min=0.0,
-        max=1.0,
+        x_min=0.0,
+        x_max=1.0,
     )
 
     assert len(dataset) == len(temp_npz_files)
@@ -70,8 +70,8 @@ def test_find_index(temp_npz_files: list[str]):
         samples=temp_npz_files,
         means=[0.5, 0.5, 0.5],
         stds=[0.2, 0.2, 0.2],
-        min=0.0,
-        max=1.0,
+        x_min=0.0,
+        x_max=1.0,
     )
 
     # Find index by full path or stem
@@ -86,8 +86,8 @@ def test_load_item_shapes_and_types(temp_npz_files: list[str]):
         samples=temp_npz_files,
         means=[0.5, 0.5, 0.5],
         stds=[0.2, 0.2, 0.2],
-        min=0.0,
-        max=1.0,
+        x_min=0.0,
+        x_max=1.0,
         augmentations=False,
     )
 
@@ -106,11 +106,11 @@ def test_load_item_with_augmentations(temp_npz_files: list[str]):
         samples=temp_npz_files,
         means=[0.5, 0.5, 0.5],
         stds=[0.2, 0.2, 0.2],
-        min=0.0,
-        max=1.0,
+        x_min=0.0,
+        x_max=1.0,
         augmentations=True,
-        probablity_blur=1.0,
-        probablity_noise=1.0,
+        probability_blur=1.0,
+        probability_noise=1.0,
     )
 
     image, label = dataset[0]
@@ -125,8 +125,8 @@ def test_denormalize_3d_and_4d(temp_npz_files: list[str]):
         samples=temp_npz_files,
         means=[0.5, 0.5, 0.5],
         stds=[0.2, 0.2, 0.2],
-        min=0.0,
-        max=1.0,
+        x_min=0.0,
+        x_max=1.0,
     )
 
     # Test 3D image tensor [C, H, W]

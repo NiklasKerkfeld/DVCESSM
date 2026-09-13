@@ -41,7 +41,7 @@ class BaselineGenerator(BaseGenerator):
             segmentation_model: segmentation model.
             segmentation_loss_config: Factory for the SegmentationLoss.
             distance_loss: loss function for messaging the distance to original image.
-            robust_model: robust segmentation model to improve segmentation gradients using cone projection.
+            robust_model: robust segmentation model to improve gradients using cone projection.
             adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
             lr: learning rate for AdamW to update adaption parameters.
             steps: number of steps.

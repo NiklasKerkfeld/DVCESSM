@@ -3,7 +3,6 @@
 from typing import Tuple, Literal
 
 import torch
-from omegaconf import DictConfig
 from torch import nn
 
 
@@ -190,9 +189,21 @@ class Engine(nn.Module):
 
         return (x_t - sqrt_one_minus_alpha_hat * epsilon_pred) / sqrt_alpha_hat
 
-    def epsilon_approximation(self, x_t: torch.Tensor,
+    def epsilon_approximation(self,
+                              x_t: torch.Tensor,
                               x_0: torch.Tensor,
                               t_tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Used current x_t and predicted x_0 to approximate the noise on the image x_t.
+
+        Args:
+            x_t: noised image (B, C, H, W).
+            x_0: approximation of x_0 (B, C, H, W).
+            t_tensor: timestep.
+
+        Returns:
+            approximated epsilon (B, C, H, W).
+        """
         sqrt_alpha_bar = self._extract(self.sqrt_alphas_cumprod, t_tensor, x_t.shape)
         sqrt_one_minus_alpha_bar = self._extract(self.sqrt_one_minus_alphas_cumprod, t_tensor,
                                                  x_t.shape)

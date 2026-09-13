@@ -1,7 +1,10 @@
 """Abstract class for all Trainer."""
+import os
 from typing import Optional, Literal
 
 import torch
+from torch import nn
+from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
@@ -15,6 +18,7 @@ class BaseTrainer:
     """
     def __init__(self,
                  dataset: BaseDataset,
+                 model: nn.Module,
                  device: torch.device,
                  lr: float = 1e-3,
                  batch_size: int = 64,
@@ -32,6 +36,7 @@ class BaseTrainer:
             log_dir: Path to logging folder.
         """
         self.dataset = dataset
+        self.model = model
         self.device = device
         self.lr = lr
         self.batch_size = batch_size
@@ -40,6 +45,9 @@ class BaseTrainer:
         self.log_dir = log_dir
         self.checkpoint = checkpoint_path
         self.image_type = image_type
+
+        self.model.to(self.device)
+        self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
 
         self.epoch = 0
 
@@ -52,7 +60,15 @@ class BaseTrainer:
 
     def save_checkpoint(self) -> None:
         """Saves current state in checkpoint."""
-        raise NotImplementedError
+        os.makedirs(self.checkpoint, exist_ok=True)
+        checkpoint = {
+            'epoch': self.epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'rng_state': torch.get_rng_state(),
+            'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
+        }
+        torch.save(checkpoint, f'{self.checkpoint}/{self.name}.pt')
 
     def load_checkpoint(self, checkpoint_path: str) -> None:
         """
@@ -61,7 +77,16 @@ class BaseTrainer:
         Args:
             checkpoint_path: path to checkpoint.
         """
-        raise NotImplementedError
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+
+        self.epoch = checkpoint["epoch"]
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        if 'rng_state' in checkpoint:
+            torch.set_rng_state(checkpoint['rng_state'].cpu())
+        if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
+            torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
     def _visualize_image(self, image: torch.Tensor, index: Optional[int] = None) -> torch.Tensor:
         """
