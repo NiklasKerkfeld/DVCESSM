@@ -2,9 +2,6 @@
 from typing import Optional, Tuple
 
 import torch
-from prettytable import PrettyTable
-from torch import nn
-
 
 def scalar_product(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     """
@@ -101,26 +98,3 @@ def visualize_adaption(adaption: torch.Tensor,
         palate /= maximas
 
     return palate.permute(0, 1, 4, 2, 3)
-
-
-def count_parameters(model: nn.Module) -> int:
-    """
-    Counts the parameters of a given model.
-
-    Args:
-        model: model for counting the parameters.
-
-    Returns:
-        None
-    """
-    table = PrettyTable(["Modules", "Parameters"])
-    total_params = 0
-    for name, parameter in model.named_parameters():
-        if not parameter.requires_grad:
-            continue
-        params = parameter.numel()
-        table.add_row([name, params])
-        total_params += params
-    print(table)
-    print(f"Total Trainable Params: {total_params}")
-    return total_params

@@ -5,6 +5,7 @@ from pathlib import Path
 import torch
 import torchvision
 from omegaconf import DictConfig, OmegaConf
+from prettytable import PrettyTable
 from torch import Tensor
 from torchvision.utils import make_grid
 
@@ -235,3 +236,26 @@ def parse_attributes(file_path):
                 dataset_split[attr]['negative'].append(img_name)
 
     return dataset_split
+
+
+def count_parameters(model: nn.Module) -> int:
+    """
+    Counts the parameters of a given model.
+
+    Args:
+        model: model for counting the parameters.
+
+    Returns:
+        None
+    """
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        params = parameter.numel()
+        table.add_row([name, params])
+        total_params += params
+    print(table)
+    print(f"Total Trainable Params: {total_params}")
+    return total_params
