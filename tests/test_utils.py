@@ -1,14 +1,29 @@
 import pytest
 import torch
 import torch.nn.functional as F
+from torch import nn
 
-from src.diff_cf.utils import cone_projection, AdaptGrad
+from src.diff_cf.core.base_generator import BaseGenerator
+from src.diff_cf.core.losses import SegmentationLossConfig, LogDistance
+from src.diff_cf.utils import AdaptGrad
 
 
 # =====================================================================
 # Test for Cone Projection
 # =====================================================================
 
+@pytest.fixture
+def generator():
+    """Default parameters using for initialization of the BaseGenerator."""
+    segmentation_loss_config = SegmentationLossConfig()
+
+    return BaseGenerator(
+        segmentation_model = nn.Identity(),
+        segmentation_loss_config = segmentation_loss_config,
+        distance_loss = LogDistance(),
+        z_bounds = (torch.zeros(3), torch.zeros(3)),
+        cone_projection_alpha = torch.pi / 6  # 30 degrees
+    )
 
 def compute_tensor_angle_degrees(v1: torch.Tensor, v2: torch.Tensor) -> torch.Tensor:
     """Calculates angle in degrees between two (B, C, H, W) tensors per batch item."""
@@ -19,19 +34,18 @@ def compute_tensor_angle_degrees(v1: torch.Tensor, v2: torch.Tensor) -> torch.Te
     return torch.acos(cos_sim) * (180.0 / torch.pi)
 
 
-def test_inside_cone_no_op_4d():
+def test_inside_cone_no_op_4d(generator):
     """If the angle between grad_seg and grad_rob is <= alpha, return grad_rob unchanged."""
     B, C, H, W = 2, 3, 32, 32
     grad_seg = torch.randn(B, C, H, W)
     # Add a small perturbation so angle is small (< 30 degrees)
     grad_rob = grad_seg + 0.1 * torch.randn(B, C, H, W)
-    alpha_rad = torch.pi / 6  # 30 degrees
 
-    out = cone_projection(grad_seg, grad_rob, alpha=alpha_rad)
+    out = generator._cone_projection(grad_seg, grad_rob)
     torch.testing.assert_close(out, grad_rob)
 
 
-def test_outside_cone_projected_to_boundary_4d():
+def test_outside_cone_projected_to_boundary_4d(generator):
     """If angle > alpha, projected tensor must lie on the boundary at angle alpha."""
     B, C, H, W = 1, 3, 16, 16
     grad_seg = torch.zeros(B, C, H, W)
@@ -40,24 +54,20 @@ def test_outside_cone_projected_to_boundary_4d():
     grad_rob = torch.zeros(B, C, H, W)
     grad_rob[:, 1, :, :] = 1.0  # Channel 1 active (orthogonal / 90 degree angle)
 
-    alpha_deg = 30.0
-    alpha_rad = torch.deg2rad(torch.tensor(alpha_deg)).item()
-
-    out = cone_projection(grad_seg, grad_rob, alpha=alpha_rad)
+    out = generator._cone_projection(grad_seg, grad_rob)
 
     # 1. Output angle relative to grad_seg must equal alpha
     actual_angle = compute_tensor_angle_degrees(grad_seg, out)
-    torch.testing.assert_close(actual_angle, torch.tensor([alpha_deg]), atol=1e-4, rtol=1e-4)
+    torch.testing.assert_close(actual_angle, torch.tensor([30.0]), atol=1e-4, rtol=1e-4)
 
 
-def test_ascent_direction_guarantee_4d():
+def test_ascent_direction_guarantee_4d(generator):
     """Projected gradient must maintain a positive dot product (ascent direction) with grad_seg."""
     torch.manual_seed(42)
     grad_seg = torch.randn(4, 3, 64, 64)
     grad_rob = torch.randn(4, 3, 64, 64)
-    alpha_rad = torch.deg2rad(torch.tensor(30.0)).item()
 
-    out = cone_projection(grad_seg, grad_rob, alpha=alpha_rad)
+    out = generator._cone_projection(grad_seg, grad_rob)
 
     # Dot product per batch element across (C, H, W)
     dot_products = (out * grad_seg).sum(dim=(1, 2, 3))
@@ -69,56 +79,57 @@ def test_ascent_direction_guarantee_4d():
     (4, 3, 512, 512),   # High-res batch
     (8, 1, 64, 64)      # Single-channel mask style
 ])
-def test_tensor_shape_preservation_4d(shape):
+def test_tensor_shape_preservation_4d(shape, generator):
     """Output shape must strictly match input (B, C, H, W) shape."""
     grad_seg = torch.randn(*shape)
     grad_rob = torch.randn(*shape)
 
-    out = cone_projection(grad_seg, grad_rob, alpha=0.5)
+    out = generator._cone_projection(grad_seg, grad_rob)
+
     assert out.shape == shape
 
 
-def test_batch_independence_4d():
+def test_batch_independence_4d(generator):
     """Batch items must be processed independently without cross-batch leakage."""
     grad_seg = torch.randn(2, 3, 16, 16)
     grad_rob = torch.randn(2, 3, 16, 16)
-    alpha_rad = torch.pi / 6
 
-    out = cone_projection(grad_seg, grad_rob, alpha=alpha_rad)
+    out = generator._cone_projection(grad_seg, grad_rob)
 
-    out_b0 = cone_projection(grad_seg[0:1], grad_rob[0:1], alpha=alpha_rad)
-    out_b1 = cone_projection(grad_seg[1:2], grad_rob[1:2], alpha=alpha_rad)
+    out_b0 = generator._cone_projection(grad_seg[0:1], grad_rob[0:1])
+    out_b1 = generator._cone_projection(grad_seg[1:2], grad_rob[1:2])
 
     torch.testing.assert_close(out[0:1], out_b0)
     torch.testing.assert_close(out[1:2], out_b1)
 
 
-def test_opposite_tensors_180_degrees_4d():
+def test_opposite_tensors_180_degrees_4d(generator):
     """Handling antipodal 4D tensors (-1 * grad_seg) safely without NaNs."""
     grad_seg = torch.randn(2, 3, 32, 32)
     grad_rob = -1.0 * grad_seg
-    alpha_rad = torch.pi / 6
 
-    out = cone_projection(grad_seg, grad_rob, alpha=alpha_rad)
+    out = generator._cone_projection(grad_seg, grad_rob)
     assert not torch.isnan(out).any(), "NaN detected in antipodal projection."
 
 
-def test_zero_vector_inputs_4d():
+def test_zero_vector_inputs_4d(generator):
     """Handling zero spatial tensors gracefully."""
     grad_seg = torch.zeros(2, 3, 32, 32)
     grad_rob = torch.randn(2, 3, 32, 32)
 
-    out = cone_projection(grad_seg, grad_rob, alpha=0.5)
+    out = generator._cone_projection(grad_seg, grad_rob)
+
     assert not torch.isnan(out).any()
     assert not torch.isinf(out).any()
 
 
-def test_autograd_gradient_flow_4d():
+def test_autograd_gradient_flow_4d(generator):
     """Ensure autograd gradients flow properly through 4D spatial tensors."""
     grad_seg = torch.randn(2, 3, 16, 16, requires_grad=True)
     grad_rob = torch.randn(2, 3, 16, 16, requires_grad=True)
 
-    out = cone_projection(grad_seg, grad_rob, alpha=0.5)
+    out = generator._cone_projection(grad_seg, grad_rob)
+
     loss = out.sum()
     loss.backward()
 
