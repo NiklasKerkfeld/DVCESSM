@@ -5,7 +5,7 @@ import torch
 import torchvision
 from omegaconf import DictConfig, OmegaConf
 from prettytable import PrettyTable
-from torch import Tensor
+from torch import Tensor, nn
 from torchvision.utils import make_grid
 
 from datasets.brats import BraTSDataset

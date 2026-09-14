@@ -10,7 +10,7 @@
   image_type: rgb
 
   dataset:
-    _target_: datasets.celebamask.CelebAMaskDataset
+    _target_: datasets.CelebAMaskDataset
     root: ${data.root}
     means: [131.35527639, 105.74096873, 92.14054272]
     stds: [76.84347721, 69.50841492, 68.22302474]
