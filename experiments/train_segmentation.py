@@ -87,7 +87,7 @@ def main(cfg: DictConfig):
         trainer.load_checkpoint(checkpoint)
         print(f"continue training form {checkpoint}...")
 
-    trainer.train(cfg.segmentation.epochs)
+    trainer.train()
 
 
 if __name__ == '__main__':
