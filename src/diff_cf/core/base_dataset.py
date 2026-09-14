@@ -39,10 +39,12 @@ class BaseDataset(Dataset):
         self.noise_p = probability_noise
         self.noise_sigma = [float(x) for x in noise_sigma]
 
+        self.x_min = x_min
+        self.x_max = x_max
         self.means = torch.tensor(means)
         self.stds = torch.tensor(stds)
-        self.z_min = ((x_min - self.means) / self.stds).view(3, 1, 1)
-        self.z_max = ((x_max - self.means) / self.stds).view(3, 1, 1)
+        self.z_min = ((self.x_min - self.means) / self.stds).view(3, 1, 1)
+        self.z_max = ((self.x_max - self.means) / self.stds).view(3, 1, 1)
 
         self._normalize_transform: Optional[v2.Transform] = None
 

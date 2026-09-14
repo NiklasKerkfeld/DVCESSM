@@ -86,7 +86,7 @@ class SegmentationTrainer(BaseTrainer):
                                            shuffle=False,
                                            num_workers=self.num_workers)
 
-    def train(self, epochs: int) -> None:
+    def train(self) -> None:
         """
         Trains model for given epochs.
 
@@ -100,7 +100,7 @@ class SegmentationTrainer(BaseTrainer):
 
         self.model.train()
 
-        for self.epoch in range(self.epoch + 1, epochs + 1):
+        for self.epoch in range(self.epoch + 1, self.epochs + 1):
             self.train_one_epoch()
             self.evaluate()
 

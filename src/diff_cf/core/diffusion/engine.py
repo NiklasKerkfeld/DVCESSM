@@ -24,12 +24,13 @@ def cosine_beta_schedule(T: int, s: float = 0.008) -> torch.Tensor:  # pylint: d
 # pylint: disable=abstract-method
 class Engine(nn.Module):
     """Engine for the Diffusion process."""
+    beta: torch.Tensor
     alphas_cumprod: torch.Tensor
+    posterior_variance: torch.Tensor
     sqrt_alphas_cumprod: torch.Tensor
     sqrt_one_minus_alphas_cumprod: torch.Tensor
     coeff1: torch.Tensor
     coeff2: torch.Tensor
-    sqrt_beta: torch.Tensor
 
     def __init__(self,
                  T: int = 1000,
@@ -62,14 +63,20 @@ class Engine(nn.Module):
 
         alphas = 1.0 - beta
         alphas_cumprod = torch.cumprod(alphas, dim=0)
+        alphas_cumprod_prev = torch.cat([torch.ones(1,
+                                                    dtype=alphas_cumprod.dtype,
+                                                    device=alphas_cumprod.device),
+                                         alphas_cumprod[:-1]])
+        posterior_variance = (beta * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod))
 
         # precalculate values
+        self.register_buffer("beta", beta)
+        self.register_buffer("posterior_variance", posterior_variance.clamp(min=0.0))
         self.register_buffer('alphas_cumprod', alphas_cumprod)
         self.register_buffer('sqrt_alphas_cumprod', torch.sqrt(alphas_cumprod))
         self.register_buffer('sqrt_one_minus_alphas_cumprod', torch.sqrt(1 - alphas_cumprod))
         self.register_buffer('coeff1', torch.sqrt(1.0 / alphas))
         self.register_buffer('coeff2', (1 - alphas) / torch.sqrt(1 - alphas_cumprod))
-        self.register_buffer('sqrt_beta', torch.sqrt(beta))
 
         self.to(self.device)
 
@@ -102,7 +109,7 @@ class Engine(nn.Module):
             noise: the added noise
             t: timestep
         """
-        t = torch.randint(0, self.T, (images.shape[0],), device=self.device)
+        t = torch.randint(0, self.T, (images.shape[0],), device=images.device)
 
         noised_images, noise, snr = self.diffuse(images, t)
         return noised_images, noise, t, snr
@@ -137,37 +144,75 @@ class Engine(nn.Module):
 
         return noised, noise, snr
 
-    def reverse(self,
-                images: torch.Tensor,
-                epsilon_pred: torch.Tensor,
-                t: torch.Tensor,
-                steps: int = 1) -> torch.Tensor:
+    def ddpm_step(
+            self,
+            images: torch.Tensor,
+            epsilon_pred: torch.Tensor,
+            t: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Reversed the diffusion process.
+        Returns the mean and variance of the adjacent DDPM transition
+        from timestep t to timestep t - 1.
 
-        Args:
-            images: noised image (batch) at timestep t (B, C, H, W).
-            epsilon_pred: predicted noise (B, C, H, W).
-            t: timestep.
-            steps: number of steps to make
-
-        Returns:
-            denoised image: imaged reversed by {steps} steps.
+        Timestep -1 denotes the final clean-image endpoint.
         """
-        if steps == 1:
-            coeff1 = self._extract(self.coeff1, t, images.shape)
-            coeff2 = self._extract(self.coeff2, t, images.shape)
+        coeff1 = self._extract(self.coeff1, t, images.shape)
+        coeff2 = self._extract(self.coeff2, t, images.shape)
 
-            return coeff1 * (images - coeff2 * epsilon_pred)
+        mean = coeff1 * (images - coeff2 * epsilon_pred)
+        variance = self._extract(
+            self.posterior_variance,
+            t,
+            images.shape,
+        )
+
+        return mean, variance
+
+    def ddim_step(
+            self,
+            images: torch.Tensor,
+            epsilon_pred: torch.Tensor,
+            t: torch.Tensor,
+            target_t: torch.Tensor,
+            eta: float = 0.0,
+    ) -> torch.Tensor:
+        """
+        Performs one generalized DDIM transition from t to target_t.
+
+        target_t may contain -1, which represents the clean-image endpoint.
+        eta=0 gives deterministic DDIM sampling.
+        """
+        if not 0.0 <= eta <= 1.0:
+            raise ValueError("eta must be between 0 and 1")
+
+        if torch.any(target_t >= t):
+            raise ValueError("target_t must be smaller than t")
+
+        alpha_t = self._extract(
+            self.alphas_cumprod,
+            t,
+            images.shape,
+        )
+
+        target_clamped = target_t.clamp(min=0)
+        alpha_target = self._extract(self.alphas_cumprod, target_clamped, images.shape)
+
+        endpoint_mask = (target_t < 0).reshape(target_t.shape[0], *((1,) * (images.ndim - 1)))
+        alpha_target = torch.where(endpoint_mask, torch.ones_like(alpha_target), alpha_target)
 
         x0_pred = self.image_approximation(images, epsilon_pred, t)
-        target_t = (t - steps).clamp(min=0)
 
-        sqrt_alpha_hat = self._extract(self.sqrt_alphas_cumprod, target_t, images.shape)
-        sqrt_one_minus_alpha_hat = self._extract(self.sqrt_one_minus_alphas_cumprod, target_t,
-                                                 images.shape)
+        sigma_squared = (eta ** 2 * (1.0 - alpha_target) /
+                         (1.0 - alpha_t) * (1.0 - alpha_t / alpha_target)).clamp(min=0.0)
 
-        return sqrt_alpha_hat * x0_pred + sqrt_one_minus_alpha_hat * epsilon_pred
+        epsilon_coefficient = torch.sqrt((1.0 - alpha_target - sigma_squared).clamp(min=0.0))
+
+        result = torch.sqrt(alpha_target) * x0_pred + epsilon_coefficient * epsilon_pred
+
+        if eta > 0.0:
+            result += torch.sqrt(sigma_squared) * torch.randn_like(images)
+
+        return result
 
     def image_approximation(self,
                             x_t: torch.Tensor,
@@ -208,13 +253,3 @@ class Engine(nn.Module):
         sqrt_one_minus_alpha_bar = self._extract(self.sqrt_one_minus_alphas_cumprod, t_tensor,
                                                  x_t.shape)
         return (x_t - sqrt_alpha_bar * x_0) / sqrt_one_minus_alpha_bar
-
-    def get_sigma(self, t: torch.Tensor, shape: torch.Size) -> torch.Tensor:
-        """
-        Getter function for sigma.
-
-        Args:
-            t: timestep.
-            shape: shape of sigma.
-        """
-        return self._extract(self.sqrt_beta, t, shape)

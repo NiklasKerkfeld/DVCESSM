@@ -20,6 +20,7 @@ class BaseTrainer:
                  dataset: BaseDataset,
                  model: nn.Module,
                  device: torch.device,
+                 epochs: int = 50,
                  lr: float = 1e-3,
                  batch_size: int = 64,
                  num_workers: int = 4,
@@ -38,6 +39,7 @@ class BaseTrainer:
         self.dataset = dataset
         self.model = model
         self.device = device
+        self.epochs = epochs
         self.lr = lr
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -54,7 +56,8 @@ class BaseTrainer:
         self.train_dataloader = DataLoader(dataset=dataset,
                                            batch_size=self.batch_size,
                                            shuffle=True,
-                                           num_workers=self.num_workers)
+                                           num_workers=self.num_workers,
+                                           drop_last=True)
 
         self.writer = SummaryWriter(f'{self.log_dir}/{self.name}')
 
@@ -87,6 +90,9 @@ class BaseTrainer:
             torch.set_rng_state(checkpoint['rng_state'].cpu())
         if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
+
+    def train(self) -> None:
+        raise NotImplementedError
 
     def _visualize_image(self, image: torch.Tensor, index: Optional[int] = None) -> torch.Tensor:
         """

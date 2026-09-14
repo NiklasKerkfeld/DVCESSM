@@ -7,7 +7,6 @@ import os
 from typing import Optional, Literal
 
 import torch
-from matplotlib import pyplot as plt
 from torch import nn
 from torch.optim.lr_scheduler import LambdaLR
 from torchvision.utils import make_grid
@@ -29,10 +28,10 @@ class Trainer(BaseTrainer):
                  model: DiffusionModel,
                  engine: Engine,
                  device: torch.device,
-                 use_target: bool = False,
                  epochs: int = 500,
+                 use_target: bool = False,
                  warm_up: int = 500,
-                 lr: float = 1e-3,
+                 lr: float = 1e-4,
                  batch_size: int = 64,
                  accumulation_steps: int = 1,
                  num_workers: int = 4,
@@ -43,9 +42,20 @@ class Trainer(BaseTrainer):
                  checkpoint_path: str = './checkpoints',
                  log_dir: str = '.logs/'
                  ):
-        super().__init__(dataset, model, device, lr, batch_size, num_workers, image_type, name,
-                         checkpoint_path,
-                         log_dir)
+        super().__init__(dataset=dataset,
+                         model=model,
+                         device=device,
+                         epochs=epochs,
+                         lr=lr,
+                         batch_size=batch_size,
+                         num_workers=num_workers,
+                         image_type=image_type,
+                         name=name,
+                         checkpoint_path=checkpoint_path,
+                         log_dir=log_dir)
+        if accumulation_steps < 1:
+            raise ValueError("accumulation_steps must be at least 1")
+
         self.engine = engine
         self.gamma = gamma
         self.accumulation_steps = accumulation_steps
@@ -54,15 +64,16 @@ class Trainer(BaseTrainer):
         # --- EMA Setup ---
         self.ema_decay = ema_decay
         self.ema_model = copy.deepcopy(self.model)
+        self.ema_model.requires_grad_(False)
         self.ema_model.to(self.device)
         self.ema_model.eval()
         self.step = 0
 
         self.engine.to(self.device)
-        self.loss_fn = nn.MSELoss()
 
         self.num_warmup_steps = warm_up
-        total_training_steps = (epochs * len(self.train_dataloader)) // self.accumulation_steps
+        updates_per_epoch = math.ceil(len(self.train_dataloader) / self.accumulation_steps)
+        total_training_steps = self.epochs * updates_per_epoch
 
         def lr_lambda(current_step: int):
             if current_step < self.num_warmup_steps:
@@ -76,11 +87,17 @@ class Trainer(BaseTrainer):
     @torch.no_grad()
     def update_ema(self) -> None:
         """Step the EMA weights."""
-        ema_step = self.step // self.accumulation_steps
+        ema_step = self.step
         current_decay = min(self.ema_decay, (1 + ema_step) / (10 + ema_step))
 
+        # copy parameter
         for ema_param, param in zip(self.ema_model.parameters(), self.model.parameters()):
-            ema_param.data.mul_(current_decay).add_(param.data, alpha=1 - current_decay)
+            ema_param.mul_(current_decay).add_(param, alpha=1.0 - current_decay)
+
+        # copy statistics for BatchNorm
+        model_buffers = dict(self.model.named_buffers())
+        for name, ema_buffer in self.ema_model.named_buffers():
+            ema_buffer.copy_(model_buffers[name])
 
     def save_checkpoint(self) -> None:
         """Saves current state in checkpoint."""
@@ -121,16 +138,16 @@ class Trainer(BaseTrainer):
         if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
-    def train(self, epochs: int) -> None:
-        """
-        Trains model for given epochs.
+    def train(self) -> None:
+        """Trains model."""
+        num_batches = len(self.train_dataloader)
+        if num_batches == 0:
+            raise ValueError(
+                "Training DataLoader is empty; reduce batch_size or disable drop_last."
+            )
+        if len(self.dataset) < 4:
+            raise ValueError("At least four samples are required for visualization.")
 
-        Args:
-            epochs: number of trainings epochs.
-
-        Returns:
-            None
-        """
         samples = torch.stack([self.dataset[i][0] for i in range(4)])
         sample_targets = torch.stack([self.dataset[i][1] for i in range(4)])
 
@@ -141,7 +158,7 @@ class Trainer(BaseTrainer):
         self.model.train()
         self.optimizer.zero_grad()
 
-        for self.epoch in range(self.epoch + 1, epochs + 1):
+        for self.epoch in range(self.epoch + 1, self.epochs + 1):
             losses = torch.zeros((len(self.train_dataloader),))
             epoch_t_loss = torch.zeros(self.engine.T, device=self.device)
             epoch_t_counts = torch.zeros(self.engine.T, device=self.device)
@@ -152,7 +169,6 @@ class Trainer(BaseTrainer):
                                 desc=f"Epoch {self.epoch}")
 
             for i, (x, y) in enumerate(progress_bar):
-                self.step += 1
                 x = x.to(self.device)
                 x_t, noise, t, snr = self.engine.sample(x)
 
@@ -162,10 +178,17 @@ class Trainer(BaseTrainer):
                 else:
                     pred = self.model(x_t, t)
 
+                # calculate snr weighted loss
                 per_sample_loss = (pred - noise).pow(2).mean(dim=list(range(1, pred.ndim)))
                 snr_weight = torch.minimum(snr, torch.full_like(snr, self.gamma)) / snr
+                raw_loss = (per_sample_loss * snr_weight).mean()
 
-                loss = (per_sample_loss * snr_weight).mean()
+                # scale loss by size of group
+                group_start = (i // self.accumulation_steps) * self.accumulation_steps
+                group_size = min(self.accumulation_steps, num_batches - group_start)
+                loss = raw_loss / group_size
+
+                # backwards
                 loss.backward()
 
                 # Track unreduced loss per timestep
@@ -174,7 +197,9 @@ class Trainer(BaseTrainer):
                     epoch_t_counts.index_add_(0, t, torch.ones_like(t, dtype=torch.float,
                                                                     device=self.device))
 
-                if self.step % self.accumulation_steps == 0:
+                if (i + 1) % self.accumulation_steps == 0 or (i + 1) == num_batches:
+                    self.step += 1
+
                     # tracking grad norm
                     grad_norm = nn.utils.clip_grad_norm_(self.model.parameters(),
                                                          max_norm=float('inf'))
@@ -185,8 +210,8 @@ class Trainer(BaseTrainer):
                     self.optimizer.zero_grad()
                     self.update_ema()
 
-                progress_bar.set_postfix({"loss": loss.detach().item()})
-                losses[i] = loss.detach().item()
+                progress_bar.set_postfix({"loss": raw_loss.detach().item()})
+                losses[i] = raw_loss.detach().item()
 
             # visualization
             num_bins = 10
@@ -228,65 +253,72 @@ class Trainer(BaseTrainer):
                        use_ema: bool = True,
                        targets: Optional[torch.Tensor] = None,
                        show_progress: bool = False,
-                       step: int = 1) -> torch.Tensor:
+                       step: int = 1,
+                       eta: float = 0.0) -> torch.Tensor:
         """
         Generates images.
+
+        eta=0 gives deterministic DDIM sampling.
+
         Args:
             batch_size: number of images.
             targets: tensor with targets if model was trained with prior targets
             use_ema: use ema model
             show_progress: shows results every 50 steps
             step: number of steps taken at once in reverse diffusion process
-
+            eta:
 
         Returns:
             images: generated images (B, C, H, W).
         """
-        model = self.ema_model if use_ema else self.model
-        model.eval()
-
-        x = torch.randn((batch_size, model.channels, model.width, model.height)).to(self.device)
+        # check if parameter are valid
+        if step < 1:
+            raise ValueError("step must be at least 1")
 
         if self.use_target:
             assert targets is not None, "No targets provided!"
             targets = targets.to(self.device)
 
+        # make sure model is on device and in eval mode
+        model = self.ema_model if use_ema else self.model
+        model.eval()
         model.to(self.device)
 
-        time_steps = list(reversed(range(0, self.engine.T, step)))
-        if time_steps[0] != self.engine.T - 1:
-            time_steps.insert(0, self.engine.T - 1)
+        # init time steps.
+        time_steps = list(range(self.engine.T - 1, -1, -step))
+        if time_steps[-1] != 0:
+            time_steps.append(0)
+        target_steps = time_steps[1:] + [-1]
+        transitions = list(zip(time_steps, target_steps))
 
-        progress_steps = time_steps
+        # init progress bar if show_progress == True
+        progress_steps = transitions
         if show_progress:
-            progress_steps = tqdm(time_steps, desc="Generating images", total=len(time_steps),
+            progress_steps = tqdm(transitions,
+                                  desc="Generating images",
+                                  total=len(transitions),
                                   leave=False)
 
-        for i, t in enumerate(progress_steps):
-            t_tensor = torch.full((x.shape[0],), t, device=self.device)
+        # init noise image
+        x = torch.randn((batch_size, model.channels, model.height, model.width)).to(self.device)
+
+        for t, target_t in progress_steps:  #
+            # init t_tensor and target_t_tensor for ddim_step
+            t_tensor = torch.full((x.shape[0],), t, device=self.device, dtype=torch.long)
+            target_t_tensor = torch.full_like(t_tensor, target_t)
+
             if self.use_target:
                 epsilon_pred = model(x, t_tensor, targets)
             else:
                 epsilon_pred = model(x, t_tensor)
 
-            current_step = step if i > 0 else (self.engine.T - 1 - time_steps[1]
-                                               if len(time_steps) > 1 else 1)
-
-            # calculate output at target timestep
-            mean = self.engine.reverse(x, epsilon_pred, t_tensor, steps=current_step)
-
-            if t != 0:
-                sigma = self.engine.get_sigma(t_tensor, mean.shape)
-                x = mean + sigma * torch.randn_like(mean)
-            else:
-                x = mean
-
-            if t % 50 == 0:
-                image = (self._visualize_image(x) / 256.0).clamp(0.0, 1.0)
-                plt.imshow(image[0].permute(1, 2, 0).cpu().numpy())
-                plt.title(f"Step {t}")
-                plt.axis('off')
-                plt.show()
+            x = self.engine.ddim_step(
+                images=x,
+                epsilon_pred=epsilon_pred,
+                t=t_tensor,
+                target_t=target_t_tensor,
+                eta=eta,
+            )
 
         return x.detach().clamp(self.dataset.z_min, self.dataset.z_max)
 
@@ -298,7 +330,10 @@ class Trainer(BaseTrainer):
 
         samples = self.generate_image(batch_size=4, use_ema=use_ema, targets=targets)
         samples_list = [self._visualize_image(s, i) for i, s in enumerate(samples)]
-        grid = make_grid(samples_list, nrow=4, normalize=True, value_range=(0, 255))
+        grid = make_grid(samples_list,
+                         nrow=4,
+                         normalize=True,
+                         value_range=(0, 255))
         self.writer.add_image("Visual_Check/samples", grid, self.epoch)
 
         self.model.train()
@@ -316,7 +351,7 @@ class Trainer(BaseTrainer):
         images = images.to(self.device)
 
         if self.use_target:
-            assert targets is not None, "No targets provided!"
+            if targets is None: raise ValueError("No targets provided!")
             targets = targets.to(self.device)
 
         check_steps = [
@@ -333,9 +368,9 @@ class Trainer(BaseTrainer):
             x_t, _, _ = self.engine.diffuse(images, t_tensor)
 
             if self.use_target:
-                epsilon_pred = model(images, t_tensor, targets)
+                epsilon_pred = model(x_t, t_tensor, targets)
             else:
-                epsilon_pred = model(images, t_tensor)
+                epsilon_pred = model(x_t, t_tensor)
 
             x_0_recon = self.engine.image_approximation(x_t, epsilon_pred, t_tensor)
 
