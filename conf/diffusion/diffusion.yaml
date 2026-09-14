@@ -1,6 +1,6 @@
 checkpoint_path: "./checkpoints/Diffusion"
 name: null
-epochs: 250
+epochs: 500
 lr: 1e-4
 gamma: 5.0
 warm_up: 500

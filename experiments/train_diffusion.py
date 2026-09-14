@@ -7,7 +7,7 @@ import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from base_dataset import get_splits
+from src.diff_cf.core.base_dataset import get_splits
 from src.diff_cf.models.diffusion_model import DiffusionModel
 from src.diff_cf.core.diffusion.trainer import Trainer
 
