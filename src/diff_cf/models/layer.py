@@ -1,96 +1,9 @@
 """Layers used for models."""
+import math
+from typing import Optional
 
 import torch
 from torch import nn
-
-
-class ConvLayer(nn.Module):
-    """
-    Convolution Layer with Batch Normalization and activation.
-    """
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: int = 3,
-                 padding: int = 1,
-                 stride: int = 1,
-                 activation: nn.Module = nn.ReLU()):
-        """
-        Convolution Layer with Batch Normalization and activation.
-
-        Args:
-            in_channels: number of input channels.
-            out_channels: number of output channels.
-            kernel_size: kernel size.
-            padding: padding size (default: 3).
-            stride: stride size (default: 1).
-            activation: activation function (default: ReLU).
-        """
-        super().__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding,
-                              stride=stride)
-
-        self.norm = nn.BatchNorm2d(out_channels)
-
-        self.activation = activation
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward function."""
-        x = self.conv(x)
-        x = self.norm(x)
-        x = self.activation(x)
-
-        return x
-
-
-class ResidualBlock(nn.Module):
-    """
-    Residual Block Layer with 3 Convolution Layer and Max Pooling.
-    """
-    def __init__(self, in_channels: int, out_channels: int, pool: bool = True):
-        """
-        Residual Block Layer with 3 Convolution Layer and Max Pooling.
-
-        Args:
-            in_channels: number of input channels.
-            out_channels: number of output channels.
-            pool: whether to use pooling or not.
-        """
-        super().__init__()
-        self.pool = pool
-
-        self.layer1 = nn.Conv2d(in_channels, out_channels // 4, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(out_channels // 4)
-        self.relu1 = nn.ReLU(inplace=True)
-
-        self.layer2 = nn.Conv2d(out_channels // 4, out_channels, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.relu2 = nn.ReLU(inplace=True)
-
-        self.layer3 = nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
-        self.bn3 = nn.BatchNorm2d(out_channels)
-        self.relu3 = nn.ReLU(inplace=True)
-
-        self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward function."""
-        h = self.layer1(x)
-        h = self.bn1(h)
-        h = self.relu1(h)
-
-        h = self.layer2(h)
-        h = self.bn2(h)
-        h = self.relu2(h)
-
-        x = h + self.layer3(x)
-        x = self.bn3(x)
-        x = self.relu3(x)
-
-        if self.pool:
-            x = self.max_pool(x)
-
-        return x
 
 
 class AttentionBlock(nn.Module):
@@ -111,15 +24,25 @@ class AttentionBlock(nn.Module):
         self.channels = channels
         self.num_heads = num_heads
 
-        self.norm = nn.GroupNorm(num_groups=32, num_channels=channels)
+        if self.channels % self.num_heads != 0:
+            raise ValueError('channels should be dividable by num_heads')
 
-        self.pos_embedding = nn.Parameter(torch.randn(1, width * height, channels))
+        self.norm = nn.GroupNorm(num_groups=math.gcd(32, self.channels),
+                                 num_channels=channels)
+
+        self.pos_embedding = nn.Parameter(torch.empty(1, width * height, channels))
 
         self.mha = nn.MultiheadAttention(
             embed_dim=channels,
             num_heads=num_heads,
-            batch_first=True
+            batch_first=True,
         )
+
+        # init parameter
+        nn.init.normal_(self.pos_embedding, std=0.02)
+        nn.init.zeros_(self.mha.out_proj.weight)
+        if self.mha.out_proj.bias is not None:
+            nn.init.zeros_(self.mha.out_proj.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward function."""
@@ -129,7 +52,7 @@ class AttentionBlock(nn.Module):
         h_flat = h_norm.view(b, c, h * w).transpose(1, 2)
         h_flat = h_flat + self.pos_embedding
 
-        attn_output, _ = self.mha(h_flat, h_flat, h_flat)
+        attn_output, _ = self.mha(h_flat, h_flat, h_flat, need_weights=False)
 
         attn_output = attn_output.transpose(1, 2).view(b, c, h, w)
 
@@ -145,8 +68,9 @@ class DiffusionConvLayer(nn.Module):
                  kernel_size: int = 3,
                  padding: int = 1,
                  stride: int = 1,
-                 activation: nn.Module = nn.SiLU(),
-                 apply_norm: bool = True):
+                 activation: Optional[nn.Module] = None,
+                 apply_norm: bool = True,
+                 zero_initialization: bool = False):
         """
         Convolutional layer for diffusion model.
 
@@ -158,6 +82,7 @@ class DiffusionConvLayer(nn.Module):
             stride: Stride (default: 1).
             activation: Activation function (default: SiLU).
             apply_norm: use GroupNorm (default: True).
+            zero_initialization: initializes layer weights with zeros.
         """
         super().__init__()
         self.conv = nn.Conv2d(in_channels, out_channels,
@@ -165,10 +90,17 @@ class DiffusionConvLayer(nn.Module):
                               padding=padding,
                               stride=stride)
 
-        num_groups = 32 if out_channels >= 32 else 1
-        self.norm = nn.GroupNorm(num_groups, out_channels) if apply_norm else nn.Identity()
 
-        self.activation = activation
+
+        self.norm = nn.GroupNorm(math.gcd(32, out_channels),
+                                 out_channels) if apply_norm else nn.Identity()
+
+        self.activation = activation if activation is not None else nn.SiLU()
+
+        if zero_initialization:
+            nn.init.zeros_(self.conv.weight)
+            if self.conv.bias is not None:
+                nn.init.zeros_(self.conv.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward function."""
@@ -179,43 +111,64 @@ class DiffusionConvLayer(nn.Module):
         return x
 
 
-class DownBlock(nn.Module):
+class TimeConditionedResBlock(nn.Module):
     """
-    Decoder Block for Diffusion model.
+    Residual Block with time condition.
     """
-    def __init__(self, in_channels: int, out_channels: int, time_emb_dim: int):
+    def __init__(self, in_channels: int, out_channels: int, time_emb_dim: int, dropout: float = 0.05):
         """
-        Decoder Block for Diffusion model.
+        Residual Block with time condition.
 
         Args:
             in_channels: Number of input channels.
             out_channels: Number of output channels.
             time_emb_dim: number of dimensions of time embedding.
+            dropout: dropout rate (default: 0.05).
         """
         super().__init__()
-        self.conv1 = DiffusionConvLayer(in_channels, out_channels, kernel_size=3, padding=1)
-        self.conv2 = DiffusionConvLayer(out_channels, out_channels, kernel_size=3, padding=1)
-        self.conv3 = DiffusionConvLayer(out_channels, out_channels, kernel_size=3, padding=1)
+        self.norm1 = nn.GroupNorm(
+            math.gcd(32, in_channels), in_channels
+        )
+        self.conv1 = nn.Conv2d(
+            in_channels, out_channels, kernel_size=3, padding=1
+        )
 
-        self.skip: nn.Module = nn.Identity()
-        if in_channels != out_channels:
-            self.skip = DiffusionConvLayer(in_channels, out_channels, kernel_size=3, padding=1)
+        self.norm2 = nn.GroupNorm(
+            math.gcd(32, out_channels), out_channels
+        )
+        self.time_mlp = nn.Sequential(
+            nn.SiLU(),
+            nn.Linear(time_emb_dim, 2 * out_channels)
+        )
 
-        self.time_mlp = nn.Linear(time_emb_dim, out_channels)
+        self.activation = nn.SiLU()
+        self.dropout = nn.Dropout(dropout)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
 
+        nn.init.zeros_(self.conv2.weight)
+        if self.conv2.bias is not None:
+            nn.init.zeros_(self.conv2.bias)
 
-    def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
-        """Forward function."""
-        h = self.conv1(x)
-        h = h + self.time_mlp(t_emb)[:, :, None, None]
+        self.skip = (
+            nn.Identity()
+            if in_channels == out_channels
+            else nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        )
 
+    def forward(self, x, t_emb):
+        h = self.conv1(self.activation(self.norm1(x)))
+
+        scale, shift = self.time_mlp(t_emb).chunk(2, dim=1)
+        scale = scale[:, :, None, None]
+        shift = shift[:, :, None, None]
+
+        h = self.norm2(h)
+        h = h * (1 + scale) + shift
+        h = self.activation(h)
+        h = self.dropout(h)
         h = self.conv2(h)
-        h = self.conv3(h)
 
-        x = self.skip(x)
-
-        return x + h
-
+        return self.skip(x) + h
 
 class UpBlock(nn.Module):
     """
@@ -226,7 +179,8 @@ class UpBlock(nn.Module):
                  skip_size: int,
                  out_channels: int,
                  time_emb_dim: int,
-                 scale_factor: float = 2):
+                 scale_factor: float = 2,
+                 dropout: float = 0.05):
         """
         Decoder block of Diffusion model.
 
@@ -236,26 +190,24 @@ class UpBlock(nn.Module):
             out_channels: number of output channels.
             time_emb_dim: number of dimensions of time embedding.
             scale_factor: factor to upscale feature map (default: 2).
+            dropout: dropout rate (default: 0.05).
         """
         super().__init__()
         self.scale_factor = scale_factor
 
-        self.conv = nn.Sequential(
-            DiffusionConvLayer(in_channels + skip_size, out_channels, kernel_size=3, padding=1),
-            DiffusionConvLayer(out_channels, out_channels, kernel_size=3, padding=1)
+        self.block = TimeConditionedResBlock(
+            in_channels + skip_size,
+            out_channels,
+            time_emb_dim,
+            dropout=dropout,
         )
 
-        self.time_mlp = nn.Linear(time_emb_dim, out_channels)
         self.upsample = nn.Upsample(scale_factor=scale_factor, mode='bilinear', align_corners=False)
 
 
     def forward(self, u: torch.Tensor, c: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
         """Forward function."""
-        t_proj = self.time_mlp(t_emb)[:, :, None, None]
-
-        d = torch.cat([u, c], dim=1)
-        u = self.conv(d)
-        u += t_proj
+        u = self.block(torch.cat([u, c], dim=1), t_emb)
 
         if self.scale_factor != 1.0:
             u = self.upsample(u)
