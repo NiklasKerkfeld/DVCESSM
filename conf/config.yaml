@@ -1,5 +1,6 @@
 defaults:
   - segmentation: segmentation
+  - augmentation: none
   - data: celebamask
   - engine: linear
   - generation: diffusion

@@ -1,0 +1,13 @@
+# augmentation/segmentation.yaml
+enable: true
+
+blur:
+  p: 0.2
+  sigma_min: 0.1
+  sigma_max: 2.0
+  kernel: 5
+
+noise:
+  p: 0.2
+  sigma_min: 0.0
+  sigma_max: 10.0

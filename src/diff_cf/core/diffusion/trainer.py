@@ -320,7 +320,7 @@ class Trainer(BaseTrainer):
                 eta=eta,
             )
 
-        return x.detach().clamp(self.dataset.z_min, self.dataset.z_max)
+        return x.detach().cpu().clamp(self.dataset.z_min, self.dataset.z_max)
 
     @torch.no_grad()
     def _visualize_sampling(self,

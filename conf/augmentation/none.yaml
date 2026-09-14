@@ -1,0 +1,14 @@
+# augmentation/none.yaml
+enable: false
+
+# Keep valid placeholder values in case the dataset reads them anyway.
+blur:
+  p: 0.0
+  sigma_min: 0.1
+  sigma_max: 0.1
+  kernel: 5
+
+noise:
+  p: 0.0
+  sigma_min: 0.0
+  sigma_max: 0.0
