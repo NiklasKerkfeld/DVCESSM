@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from torchvision.transforms import v2
 
-from base_dataset import BaseDataset
+from src.diff_cf.core.base_dataset import BaseDataset
 
 
 class CelebAMaskDataset(BaseDataset):

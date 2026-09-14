@@ -10,10 +10,10 @@ from omegaconf import DictConfig, OmegaConf
 from torchvision.utils import save_image
 from tqdm import tqdm
 
-from base_dataset import get_splits
-from diff_cf.core.segmentation_trainer import SegmentationTrainer
-from diff_cf.utils.utils import visualize_seg
-from diff_cf.utils.metrics import calc_iou, calc_f1_score
+from src.diff_cf.core.base_dataset import get_splits
+from src.diff_cf.core.segmentation_trainer import SegmentationTrainer
+from src.diff_cf.utils.utils import visualize_seg
+from src.diff_cf.utils.metrics import calc_iou, calc_f1_score
 
 torch.manual_seed(42)
 if torch.cuda.is_available():
