@@ -159,11 +159,15 @@ class CounterfactualGenerator(BaseGenerator):
             self,
             x: torch.Tensor,
             t_tensor: torch.Tensor,
+            target: Optional[torch.Tensor] = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         t_value = int(t_tensor[0].item())
 
         # Standard prediction used by the DDPM reverse process
-        epsilon_reverse = self.diffusion_model(x, t_tensor).detach()
+        if target is not None:
+            epsilon_reverse = self.diffusion_model(x, t_tensor, target).detach()
+        else:
+            epsilon_reverse = self.diffusion_model(x, t_tensor).detach()
 
         trajectory = [t_value]
         while trajectory[-1] >= 0:
@@ -189,10 +193,18 @@ class CounterfactualGenerator(BaseGenerator):
             if index == 0:
                 epsilon = epsilon_reverse
             else:
-                epsilon = self.diffusion_model(
-                    current_x,
-                    source_tensor,
-                ).detach()
+                if target is not None:
+                    epsilon = self.diffusion_model(
+                        current_x,
+                        source_tensor,
+                        target
+                    ).detach()
+                else:
+                    epsilon = self.diffusion_model(
+                        current_x,
+                        source_tensor
+                    ).detach()
+
 
             current_x = self.engine.ddim_step(
                 images=current_x,
