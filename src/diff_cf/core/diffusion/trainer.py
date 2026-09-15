@@ -39,7 +39,7 @@ class Trainer(BaseTrainer):
                  ema_decay: float = 0.999,
                  image_type: Literal['mri', 'rgb'] = 'rgb',
                  name: str = 'DiffusionTrainer',
-                 checkpoint_path: str = './checkpoints',
+                 checkpoint_path: str = './checkpoints/Diffusion',
                  log_dir: str = '.logs/'
                  ):
         super().__init__(dataset=dataset,

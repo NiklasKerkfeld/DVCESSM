@@ -62,6 +62,7 @@ def main(cfg: DictConfig):
         ema_decay=cfg.diffusion.ema_decay,
         image_type=cfg.data.image_type,
         name=run_name,
+        checkpoint_path=cfg.diffusion.checkpoint_path,
         log_dir=log_dir
     )
 
