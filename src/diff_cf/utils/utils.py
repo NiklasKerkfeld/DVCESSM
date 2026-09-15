@@ -94,9 +94,9 @@ def visualize_adaption(adaption: torch.Tensor,
 
     palate = torch.stack([r, g, b], dim=-1)
 
-    print(f"{palate.shape=}")
 
     if maximas is not None:
+        print(f"{palate.shape=}")
         print(f"{maximas.shape=}")
         palate /= maximas
 

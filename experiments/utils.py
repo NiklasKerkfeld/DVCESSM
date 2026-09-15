@@ -66,7 +66,7 @@ def visualize_rgb(dataset: CelebAMaskDataset,
     pred_original = visualize_seg(prediction_org[0])
     pred_counterfactual = visualize_seg(prediction_cf[0])
 
-    maximas = torch.maximum(torch.abs(dataset.z_min), torch.abs(dataset.z_max))
+    maximas = torch.maximum(torch.abs(dataset.z_min)[:, 0, 0], torch.abs(dataset.z_max)[:, 0, 0])
 
     adaption_visual = visualize_adaption(adaption, maximas)
 
