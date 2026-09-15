@@ -72,7 +72,7 @@ def main(cfg: DictConfig):
     distance_loss = instantiate(cfg.generation.distance_loss)
 
     # AdaptGrad
-    adapt_grad = instantiate(cfg.generation.AdaptGrad, dataset.z_min, dataset.z_max)
+    adapt_grad = instantiate(cfg.generation.AdaptGrad, z_min=dataset.z_min, z_max=dataset.z_max)
 
     if cfg.generation.type == 'Diffusion':
         # Smoothing
