@@ -36,6 +36,7 @@ class CounterfactualGenerator(BaseGenerator):
                  segmentation_loss_config: SegmentationLossConfig,
                  distance_loss: BaseDistanceLoss,
                  z_bounds: Tuple[torch.Tensor, torch.Tensor],
+                 use_target_prior : bool = False,
                  robust_model: Optional[nn.Module] = None,
                  weight_segmentation: float = 0.15,
                  weight_distance: float = 0.15,
@@ -77,6 +78,7 @@ class CounterfactualGenerator(BaseGenerator):
         self.diffusion_model = diffusion_model.to(self.device).eval()
         self.engine = engine.to(self.device)
 
+        self.use_target_prior = use_target_prior
         self.weight_segmentation = weight_segmentation
         self.weight_distance = weight_distance
         self.start_fraction = start_fraction
@@ -110,7 +112,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         for t in tqdm(range(start_t, -1, -1), total=start_t + 1, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)
-            epsilon_guidance, epsilon_reverse = self._pred_epsilon(x, t_tensor)
+            epsilon_guidance, epsilon_reverse = self._pred_epsilon(x, t_tensor, target)
 
             with torch.enable_grad():
                 g_update, logs_dict = self._calc_g_update(
@@ -164,7 +166,7 @@ class CounterfactualGenerator(BaseGenerator):
         t_value = int(t_tensor[0].item())
 
         # Standard prediction used by the DDPM reverse process
-        if target is not None:
+        if self.use_target_prior and target is not None:
             epsilon_reverse = self.diffusion_model(x, t_tensor, target).detach()
         else:
             epsilon_reverse = self.diffusion_model(x, t_tensor).detach()
@@ -193,7 +195,7 @@ class CounterfactualGenerator(BaseGenerator):
             if index == 0:
                 epsilon = epsilon_reverse
             else:
-                if target is not None:
+                if self.use_target_prior and target is not None:
                     epsilon = self.diffusion_model(
                         current_x,
                         source_tensor,

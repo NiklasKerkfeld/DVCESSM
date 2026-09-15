@@ -8,7 +8,7 @@ import torch
 from monai.networks.nets import BasicUNet
 from omegaconf import DictConfig, OmegaConf
 
-from base_dataset import get_splits
+from diff_cf.core.base_dataset import get_splits
 from diff_cf.core.baseline.generator import BaselineGenerator
 from diff_cf.core.diffusion.generator import CounterfactualGenerator
 from diff_cf.models.diffusion_model import DiffusionModel
