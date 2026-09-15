@@ -36,10 +36,10 @@ def main(cfg: DictConfig):
     print(f"using device: {device}")
 
     # load test dataset
-    _, test_data = get_splits(cfg)
-    print(f"dataset size: {len(test_data)}")
-
+    _, test_data = get_splits(root=cfg.data.root)
     dataset = instantiate(cfg.data.dataset, samples=test_data)
+    print(f"dataset size: {len(dataset)}")
+
 
     # get sample by name or by index
     if cfg.generation.sample_name:
