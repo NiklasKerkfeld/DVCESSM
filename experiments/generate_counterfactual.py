@@ -118,6 +118,7 @@ def main(cfg: DictConfig):
             segmentation_loss_config=segmentation_loss_config,
             distance_loss=distance_loss,
             z_bounds=(dataset.z_min, dataset.z_max),
+            use_target_prior=cfg.diffusion.use_target,
             robust_model=robust_model,
             weight_segmentation=cfg.generation.weight_segmentation,
             weight_distance=cfg.generation.weight_distance,
