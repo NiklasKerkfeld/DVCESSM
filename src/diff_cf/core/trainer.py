@@ -49,7 +49,7 @@ class BaseTrainer:
         self.image_type = image_type
 
         self.model.to(self.device)
-        self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
+        self.optimizer = AdamW(self.model.parameters(), lr=self.lr, fused=True)
 
         self.epoch = 0
 
@@ -57,6 +57,8 @@ class BaseTrainer:
                                            batch_size=self.batch_size,
                                            shuffle=True,
                                            num_workers=self.num_workers,
+                                           pin_memory=self.device.type == "cuda",
+                                           persistent_workers=self.num_workers > 1,
                                            drop_last=True)
 
         self.writer = SummaryWriter(f'{self.log_dir}/{self.name}')

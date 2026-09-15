@@ -67,9 +67,13 @@ class Trainer(BaseTrainer):
         self.ema_model.requires_grad_(False)
         self.ema_model.to(self.device)
         self.ema_model.eval()
-        self.step = 0
+
+        self.model_params = list(self.model.parameters())
+        self.ema_params = list(self.ema_model.parameters())
+        self.compiled_model = torch.compile(self.model)
 
         self.engine.to(self.device)
+        self.step = 0
 
         self.num_warmup_steps = warm_up
         updates_per_epoch = math.ceil(len(self.train_dataloader) / self.accumulation_steps)
@@ -87,14 +91,13 @@ class Trainer(BaseTrainer):
     @torch.no_grad()
     def update_ema(self) -> None:
         """Step the EMA weights."""
-        ema_step = self.step
-        current_decay = min(self.ema_decay, (1 + ema_step) / (10 + ema_step))
+        current_decay = min(self.ema_decay,(1 + self.step) / (10 + self.step))
 
-        # copy parameter
-        for ema_param, param in zip(self.ema_model.parameters(), self.model.parameters()):
-            ema_param.mul_(current_decay).add_(param, alpha=1.0 - current_decay)
+        # Equivalent to:
+        # ema = current_decay * ema + (1 - current_decay) * model
+        torch._foreach_lerp_(self.ema_params, self.model_params, 1.0 - current_decay)
 
-        # copy statistics for BatchNorm
+        # Copy BatchNorm statistics and other buffers.
         model_buffers = dict(self.model.named_buffers())
         for name, ema_buffer in self.ema_model.named_buffers():
             ema_buffer.copy_(model_buffers[name])
@@ -155,8 +158,8 @@ class Trainer(BaseTrainer):
                          "samples/images")
         self._log_images([visualize_seg(st) for st in sample_targets], "samples/targets")
 
-        self.model.train()
-        self.optimizer.zero_grad()
+        self.compiled_model.train()
+        self.optimizer.zero_grad(set_to_none=True)
 
         for self.epoch in range(self.epoch + 1, self.epochs + 1):
             losses = torch.zeros((len(self.train_dataloader),))
@@ -169,14 +172,14 @@ class Trainer(BaseTrainer):
                                 desc=f"Epoch {self.epoch}")
 
             for i, (x, y) in enumerate(progress_bar):
-                x = x.to(self.device)
+                x = x.to(self.device, non_blocking=True)
                 x_t, noise, t, snr = self.engine.sample(x)
 
                 if self.use_target:
-                    y = y.to(self.device)
-                    pred = self.model(x_t, t, y)
+                    y = y.to(self.device, non_blocking=True)
+                    pred = self.compiled_model(x_t, t, y)
                 else:
-                    pred = self.model(x_t, t)
+                    pred = self.compiled_model(x_t, t)
 
                 # calculate snr weighted loss
                 per_sample_loss = (pred - noise).pow(2).mean(dim=list(range(1, pred.ndim)))
@@ -207,11 +210,12 @@ class Trainer(BaseTrainer):
 
                     self.optimizer.step()
                     self.scheduler.step()
-                    self.optimizer.zero_grad()
+                    self.optimizer.zero_grad(set_to_none=True)
                     self.update_ema()
 
-                progress_bar.set_postfix({"loss": raw_loss.detach().item()})
-                losses[i] = raw_loss.detach().item()
+                loss_value = raw_loss.detach().item()
+                progress_bar.set_postfix({"loss": loss_value})
+                losses[i] = loss_value
 
             # visualization
             num_bins = 10
