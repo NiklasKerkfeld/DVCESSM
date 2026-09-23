@@ -155,6 +155,7 @@ class CounterfactualGenerator(BaseGenerator):
                     g_update=g_update.detach().cpu(),
                     grad_c=logs_dict['grad_c'],
                     grad_d=logs_dict['grad_d'],
+                    epsilon=epsilon_reverse,
                     approx_image=logs_dict['approx_image'],
                     start_t=start_t,
                     mask=logs_dict['mask']
@@ -368,6 +369,7 @@ class CounterfactualGenerator(BaseGenerator):
             g_update: Optional[torch.Tensor] = None,
             grad_c: Optional[torch.Tensor] = None,
             grad_d: Optional[torch.Tensor] = None,
+            epsilon: Optional[torch.Tensor] = None,
             approx_image: Optional[torch.Tensor] = None,
             mask: Optional[torch.Tensor] = None,
             **kwargs
@@ -407,7 +409,19 @@ class CounterfactualGenerator(BaseGenerator):
             cos_cd = torch.nn.functional.cosine_similarity(grad_c.flatten(start_dim=1),
                                                            grad_d.flatten(start_dim=1),
                                                            dim=1)
-            self.writer.add_scalar('Targets/cosine_similarity', cos_cd, step)
+            self.writer.add_scalar('CosineSimilarity/segmenation_distance', cos_cd, step)
+
+        if grad_c is not None and epsilon is not None:
+            cos_ce = torch.nn.functional.cosine_similarity(grad_c.flatten(start_dim=1),
+                                                           epsilon.flatten(start_dim=1),
+                                                           dim=1)
+            self.writer.add_scalar('CosineSimilarity/segmenation_epsilon', cos_ce, step)
+
+        if grad_d is not None and epsilon is not None:
+            cos_de = torch.nn.functional.cosine_similarity(grad_d.flatten(start_dim=1),
+                                                           epsilon.flatten(start_dim=1),
+                                                           dim=1)
+            self.writer.add_scalar('CosineSimilarity/distance_epsilon', cos_de, step)
 
 
         if approx_image is not None:
@@ -419,10 +433,11 @@ class CounterfactualGenerator(BaseGenerator):
             self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),
                                   step)
 
-        if g_update is not None and grad_c is not None and grad_d is not None:
+        if g_update is not None and grad_c is not None and grad_d is not None and epsilon is not None:
             g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
             grad_c_visual = visualize_adaption(grad_c.sum(dim=1, keepdim=True))[0, 0]
             grad_d_visual = visualize_adaption(grad_d.sum(dim=1, keepdim=True))[0, 0]
+            epsilon_visual = visualize_adaption(epsilon.sum(dim=1, keepdim=True))[0, 0]
 
             self.writer.add_image('Process/g_update',
                                   vutils.make_grid(g_visual, normalize=True), step)
@@ -430,3 +445,5 @@ class CounterfactualGenerator(BaseGenerator):
                                   vutils.make_grid(grad_c_visual, normalize=True), step)
             self.writer.add_image('Process/grad_d',
                                   vutils.make_grid(grad_d_visual, normalize=True), step)
+            self.writer.add_image('Process/epsilon',
+                                  vutils.make_grid(epsilon_visual, normalize=True), step)
