@@ -341,6 +341,14 @@ class Trainer(BaseTrainer):
             loop=0,
         )
 
+        print(
+            "before clamp:",
+            x.amin(dim=(1, 2, 3)).cpu(),
+            x.amax(dim=(1, 2, 3)).cpu(),
+            x.mean(dim=(2, 3)).cpu(),
+            x.std(dim=(2, 3)).cpu(),
+        )
+
         return x.detach().cpu().clamp(self.dataset.z_min, self.dataset.z_max)
 
     @torch.no_grad()
