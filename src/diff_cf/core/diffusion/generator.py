@@ -274,10 +274,6 @@ class CounterfactualGenerator(BaseGenerator):
         distance = self.distance_loss(image, approx_for_loss)
         grad_d = torch.autograd.grad(distance, x)[0]
 
-        # Normalize gradinets
-        grad_c = self._normalize_gradient(grad_c)
-        grad_d = self._normalize_gradient(grad_d)
-
         # smooth the gradients spacial
         if self.smoothing.spacial_gradient_smoothing:
             grad_c = self._apply_dynamic_smoothing(grad_c, t)
@@ -301,6 +297,9 @@ class CounterfactualGenerator(BaseGenerator):
             grad_c = self.grad_c / bias_correction
             # grad_d = self.grad_d / bias_correction
 
+        grad_c = self._normalize_gradient(grad_c)
+        grad_d = self._normalize_gradient(grad_d)
+
         # only change very strong gradients ignore changes of grad_d there
         mask = torch.zeros_like(grad_c)
         if self.smoothing.filter_gradients:
@@ -309,9 +308,6 @@ class CounterfactualGenerator(BaseGenerator):
 
             grad_c = mask * grad_c
             grad_d = (1.0 - self.smoothing.distance_reduction * mask) * grad_d
-
-        grad_c = self._normalize_gradient(grad_c)
-        grad_d = self._normalize_gradient(grad_d)
 
         g_update = self.weight_segmentation * grad_c + self.weight_distance * grad_d
 
