@@ -5,8 +5,8 @@ defaults:
 type: Diffusion
 start_fraction: 0.5
 approximation_step_size: 100
-weight_segmentation: 0.5
-weight_distance: 0.5
+weight_segmentation: 0.15
+weight_distance: 0.15
 
 GradSmoothing:
   _target_: src.diff_cf.core.diffusion.generator.GradSmoothingConfig

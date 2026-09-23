@@ -157,7 +157,7 @@ class CounterfactualGenerator(BaseGenerator):
                     grad_d=logs_dict['grad_d'],
                     approx_image=logs_dict['approx_image'],
                     start_t=start_t,
-                    mask=self.mask
+                    mask=logs_dict['mask']
                 )
 
         return x.clamp(self.z_min, self.z_max).detach()
@@ -295,6 +295,7 @@ class CounterfactualGenerator(BaseGenerator):
             grad_d = self.grad_d / bias_correction
 
         # only change very strong gradients ignore changes of grad_d there
+        mask = torch.zeros_like(grad_c)
         if self.smoothing.filter_gradients:
             # self._update_mask(grad_c)
             mask = self._get_mask(grad_c)
@@ -307,6 +308,7 @@ class CounterfactualGenerator(BaseGenerator):
             'approx_image': approx_image.detach(),
             'grad_c': grad_c.detach(),
             'grad_d': grad_d.detach(),
+            'mask': mask.detach(),
             'logits': logits.detach()
         }
 
@@ -321,10 +323,10 @@ class CounterfactualGenerator(BaseGenerator):
             self.mask = (abs_grad > min(threshold, self.smoothing.gradient_threshold)).clone()
 
     def _get_mask(self, grad: torch.Tensor):
-        abs_grad = torch.abs(grad)
-        threshold = torch.quantile(abs_grad, self.smoothing.percentile)
+        mean, std = grad.mean(), grad.std()
+        rel_grad = ((grad - mean) / std).abs()
 
-        return abs_grad > threshold
+        return rel_grad > 1.0
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
