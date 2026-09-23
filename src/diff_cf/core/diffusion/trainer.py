@@ -306,6 +306,7 @@ class Trainer(BaseTrainer):
         # init noise image
         x = torch.randn((batch_size, model.channels, model.height, model.width)).to(self.device)
 
+        frames = []
         for t, target_t in progress_steps:  #
             # init t_tensor and target_t_tensor for ddim_step
             t_tensor = torch.full((x.shape[0],), t, device=self.device, dtype=torch.long)
@@ -322,7 +323,7 @@ class Trainer(BaseTrainer):
                 t=t_tensor,
                 target_t=target_t_tensor,
                 eta=eta,
-            ).clamp(self.dataset.z_min, self.dataset.z_max)
+            ).clamp(self.dataset.z_min.to(self.device), self.dataset.z_max.to(self.device))
 
         return x.detach().cpu().clamp(self.dataset.z_min, self.dataset.z_max)
 
