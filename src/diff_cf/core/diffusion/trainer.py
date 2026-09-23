@@ -322,7 +322,7 @@ class Trainer(BaseTrainer):
                 t=t_tensor,
                 target_t=target_t_tensor,
                 eta=eta,
-            )
+            ).clamp(self.dataset.z_min, self.dataset.z_max)
 
         return x.detach().cpu().clamp(self.dataset.z_min, self.dataset.z_max)
 

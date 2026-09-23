@@ -594,6 +594,46 @@ def test_ddim_rejects_invalid_eta(
             eta=eta,
         )
 
+def test_complete_ddim_oracle_trajectory(
+        engine: Engine,
+        dummy_images: torch.Tensor,
+):
+    batch_size = dummy_images.shape[0]
+    epsilon = torch.randn_like(dummy_images)
+
+    start_t = engine.T - 1
+    alpha_start = engine.alphas_cumprod[start_t]
+
+    # Construct a mathematically valid point on a deterministic DDIM path.
+    x = (
+        torch.sqrt(alpha_start) * dummy_images
+        + torch.sqrt(1.0 - alpha_start) * epsilon
+    )
+
+    for t in range(start_t, -1, -1):
+        source = torch.full(
+            (batch_size,),
+            t,
+            dtype=torch.long,
+            device=x.device,
+        )
+        target = torch.full_like(source, t - 1)
+
+        x = engine.ddim_step(
+            images=x,
+            epsilon_pred=epsilon,
+            t=source,
+            target_t=target,
+            eta=0.0,
+        )
+
+    torch.testing.assert_close(
+        x,
+        dummy_images,
+        rtol=5e-4,
+        atol=5e-4,
+    )
+
 
 def test_ddim_rejects_non_decreasing_transition(
         engine: Engine,
