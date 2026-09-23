@@ -318,7 +318,7 @@ class Trainer(BaseTrainer):
             else:
                 epsilon_pred = model(x, t_tensor)
 
-            x, _ = self.engine.ddim_step(
+            x = self.engine.ddim_step(
                 images=x,
                 epsilon_pred=epsilon_pred,
                 t=t_tensor,
