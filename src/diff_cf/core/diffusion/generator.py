@@ -150,6 +150,7 @@ class CounterfactualGenerator(BaseGenerator):
                     grad_d=logs_dict['grad_d'],
                     approx_image=logs_dict['approx_image'],
                     start_t=start_t,
+                    mask=self.mask
                 )
 
         return x.clamp(self.z_min, self.z_max).detach()
@@ -314,7 +315,7 @@ class CounterfactualGenerator(BaseGenerator):
         threshold = torch.quantile(abs_grad, self.smoothing.percentile)
         print(f"grad: {abs_grad.mean()}, {abs_grad.std()}, {abs_grad.min()}, {abs_grad.max()}, {threshold=}")
         if self.mask is not None:
-            self.mask = self.mask | (abs_grad < threshold)
+            self.mask = self.mask | (abs_grad < max(threshold, self.smoothing.gradient_threshold))
         else:
             self.mask = (abs_grad < threshold).clone()
 
@@ -356,6 +357,7 @@ class CounterfactualGenerator(BaseGenerator):
             grad_c: Optional[torch.Tensor] = None,
             grad_d: Optional[torch.Tensor] = None,
             approx_image: Optional[torch.Tensor] = None,
+            mask: Optional[torch.Tensor] = None,
             **kwargs
             ):
         """Logs diffusion process state to TensorBoard."""
@@ -404,3 +406,7 @@ class CounterfactualGenerator(BaseGenerator):
                                   vutils.make_grid(grad_c_visual, normalize=True), step)
             self.writer.add_image('Process/grad_d',
                                   vutils.make_grid(grad_d_visual, normalize=True), step)
+
+        if mask is not None:
+            self.writer.add_image('Process/fraction',
+                                  vutils.make_grid(mask.sum() / mask.numel(), normalize=True), step)
