@@ -285,17 +285,17 @@ class CounterfactualGenerator(BaseGenerator):
             # init gradients in the frist round
             if self.grad_c is None:
                 self.grad_c = torch.zeros_like(grad_c)
-            # if self.grad_d is None:
-            #     self.grad_d = torch.zeros_like(grad_d)
+            if self.grad_d is None:
+                self.grad_d = torch.zeros_like(grad_d)
 
             # rolling average
             self.grad_c = self.smoothing.alpha * self.grad_c + (1 - self.smoothing.alpha) * grad_c
-            # self.grad_d = self.smoothing.alpha * self.grad_d + (1 - self.smoothing.alpha) * grad_d
+            self.grad_d = self.smoothing.alpha * self.grad_d + (1 - self.smoothing.alpha) * grad_d
 
             bias_correction = 1.0 - (self.smoothing.alpha ** self.smoothing_step)
 
             grad_c = self.grad_c / bias_correction
-            # grad_d = self.grad_d / bias_correction
+            grad_d = self.grad_d / bias_correction
 
         # only change very strong gradients ignore changes of grad_d there
         mask = torch.zeros_like(grad_c)
@@ -319,18 +319,24 @@ class CounterfactualGenerator(BaseGenerator):
         }
 
     def _get_mask(self, grad: torch.Tensor) -> torch.Tensor:
-        # Shape: (B, 1, H, W); all image channels share the same mask.
         saliency = grad.square().mean(dim=1, keepdim=True).sqrt()
-
         flat = saliency.flatten(start_dim=1)
-        threshold = torch.quantile(
+
+        quantile = torch.quantile(
             flat,
             self.smoothing.percentile,
             dim=1,
             keepdim=True,
+        )
+        mean = flat.mean(dim=1, keepdim=True)
+        std = flat.std(dim=1, keepdim=True, unbiased=False)
+
+        threshold = torch.maximum(
+            quantile,
+            mean + std,
         ).view(-1, 1, 1, 1)
 
-        return saliency >= threshold
+        return saliency > threshold
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
@@ -409,19 +415,25 @@ class CounterfactualGenerator(BaseGenerator):
             cos_cd = torch.nn.functional.cosine_similarity(grad_c.flatten(start_dim=1),
                                                            grad_d.flatten(start_dim=1),
                                                            dim=1)
-            self.writer.add_scalar('CosineSimilarity/segmenation_distance', cos_cd, step)
+            self.writer.add_scalar('CosineSimilarity/segmenation_distance',
+                                   cos_cd.mean().item(),
+                                   step)
 
         if grad_c is not None and epsilon is not None:
             cos_ce = torch.nn.functional.cosine_similarity(grad_c.flatten(start_dim=1),
                                                            epsilon.flatten(start_dim=1),
                                                            dim=1)
-            self.writer.add_scalar('CosineSimilarity/segmenation_epsilon', cos_ce, step)
+            self.writer.add_scalar('CosineSimilarity/segmenation_epsilon',
+                                   cos_ce.mean().item(),
+                                   step)
 
         if grad_d is not None and epsilon is not None:
             cos_de = torch.nn.functional.cosine_similarity(grad_d.flatten(start_dim=1),
                                                            epsilon.flatten(start_dim=1),
                                                            dim=1)
-            self.writer.add_scalar('CosineSimilarity/distance_epsilon', cos_de, step)
+            self.writer.add_scalar('CosineSimilarity/distance_epsilon',
+                                   cos_de.mean().item(),
+                                   step)
 
 
         if approx_image is not None:
