@@ -22,7 +22,7 @@ class GradSmoothingConfig:
     temporal_gradient_smoothing: bool = False
     filter_gradients: bool = False
     percentile: float = 0.8
-    gradient_threshold: float = 0.01
+    distance_reduction: float = 0.75
     alpha: float = 0.99
     max_sigma: float = 2.5
 
@@ -274,6 +274,10 @@ class CounterfactualGenerator(BaseGenerator):
         distance = self.distance_loss(image, approx_for_loss)
         grad_d = torch.autograd.grad(distance, x)[0]
 
+        # Normalize gradinets
+        grad_c = self._normalize_gradient(grad_c)
+        grad_d = self._normalize_gradient(grad_d)
+
         # smooth the gradients spacial
         if self.smoothing.spacial_gradient_smoothing:
             grad_c = self._apply_dynamic_smoothing(grad_c, t)
@@ -285,25 +289,26 @@ class CounterfactualGenerator(BaseGenerator):
             # init gradients in the frist round
             if self.grad_c is None:
                 self.grad_c = torch.zeros_like(grad_c)
-            if self.grad_d is None:
-                self.grad_d = torch.zeros_like(grad_d)
+            # if self.grad_d is None:
+            #     self.grad_d = torch.zeros_like(grad_d)
 
             # rolling average
             self.grad_c = self.smoothing.alpha * self.grad_c + (1 - self.smoothing.alpha) * grad_c
-            self.grad_d = self.smoothing.alpha * self.grad_d + (1 - self.smoothing.alpha) * grad_d
+            # self.grad_d = self.smoothing.alpha * self.grad_d + (1 - self.smoothing.alpha) * grad_d
 
             bias_correction = 1.0 - (self.smoothing.alpha ** self.smoothing_step)
 
             grad_c = self.grad_c / bias_correction
-            grad_d = self.grad_d / bias_correction
+            # grad_d = self.grad_d / bias_correction
 
         # only change very strong gradients ignore changes of grad_d there
         mask = torch.zeros_like(grad_c)
         if self.smoothing.filter_gradients:
             # self._update_mask(grad_c)
-            mask = self._get_mask(grad_c)
-            grad_c = torch.where(mask, grad_c, torch.zeros_like(grad_c))
-            grad_d = torch.where(mask, torch.zeros_like(grad_d), grad_d)
+            mask = self._get_mask(grad_c).to(grad_c.dtype)
+
+            grad_c = mask * grad_c
+            grad_d = (1.0 - self.smoothing.distance_reduction * mask) * grad_d
 
         grad_c = self._normalize_gradient(grad_c)
         grad_d = self._normalize_gradient(grad_d)
