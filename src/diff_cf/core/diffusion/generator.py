@@ -21,7 +21,7 @@ class GradSmoothingConfig:
     spacial_gradient_smoothing: bool = False
     temporal_gradient_smoothing: bool = False
     filter_gradients: bool = False
-    percentile: float = 0.95
+    percentile: float = 0.9
     gradient_threshold: float = 0.01
     alpha: float = 0.99
     max_sigma: float = 2.5
@@ -37,7 +37,7 @@ class CounterfactualGenerator(BaseGenerator):
                  segmentation_loss_config: SegmentationLossConfig,
                  distance_loss: BaseDistanceLoss,
                  z_bounds: Tuple[torch.Tensor, torch.Tensor],
-                 use_target_prior : bool = False,
+                 use_target_prior: bool = False,
                  robust_model: Optional[nn.Module] = None,
                  weight_segmentation: float = 0.15,
                  weight_distance: float = 0.15,
@@ -96,7 +96,6 @@ class CounterfactualGenerator(BaseGenerator):
         self.grad_c: Optional[torch.Tensor] = None
         self.grad_d: Optional[torch.Tensor] = None
         self.mask: Optional[torch.Tensor] = None
-
 
     @torch.no_grad()
     def _generate_counterfactual(self,
@@ -211,7 +210,6 @@ class CounterfactualGenerator(BaseGenerator):
                         source_tensor
                     ).detach()
 
-
             current_x = self.engine.ddim_step(
                 images=current_x,
                 epsilon_pred=epsilon,
@@ -230,7 +228,6 @@ class CounterfactualGenerator(BaseGenerator):
         )
 
         return epsilon_guidance.detach(), epsilon_reverse
-
 
     def _calc_g_update(self,
                        x: torch.Tensor,
@@ -289,9 +286,10 @@ class CounterfactualGenerator(BaseGenerator):
 
         # only change very strong gradients ignore changes of grad_d there
         if self.smoothing.filter_gradients:
-            self._update_mask(grad_c)
-            grad_c = torch.where(self.mask, grad_c, torch.zeros_like(grad_c))
-            grad_d = torch.where(self.mask, torch.zeros_like(grad_d), grad_d)
+            # self._update_mask(grad_c)
+            mask = self._get_mask(grad_c)
+            grad_c = torch.where(mask, grad_c, torch.zeros_like(grad_c))
+            grad_d = torch.where(mask, torch.zeros_like(grad_d), grad_d)
 
         g_update = self.weight_segmentation * grad_c + self.weight_distance * grad_d
 
@@ -305,11 +303,18 @@ class CounterfactualGenerator(BaseGenerator):
     def _update_mask(self, grad: torch.Tensor):
         abs_grad = torch.abs(grad)
         threshold = torch.quantile(abs_grad, self.smoothing.percentile)
-        print(f"grad: {abs_grad.mean()}, {abs_grad.std()}, {abs_grad.min()}, {abs_grad.max()}, {threshold=}")
+        print(
+            f"grad: {abs_grad.mean()}, {abs_grad.std()}, {abs_grad.min()}, {abs_grad.max()}, {threshold=}")
         if self.mask is not None:
             self.mask = self.mask | (abs_grad > min(threshold, self.smoothing.gradient_threshold))
         else:
             self.mask = (abs_grad > min(threshold, self.smoothing.gradient_threshold)).clone()
+
+    def _get_mask(self, grad: torch.Tensor):
+        abs_grad = torch.abs(grad)
+        threshold = torch.quantile(abs_grad, self.smoothing.percentile)
+
+        return abs_grad > threshold
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
@@ -381,7 +386,6 @@ class CounterfactualGenerator(BaseGenerator):
         if mask is not None:
             ratio = (mask.sum() / mask.numel()).item()
             self.writer.add_scalar('Gradients/fraction', ratio, step)
-
 
         if approx_image is not None:
             self.writer.add_image('Process/approx_x_0',
