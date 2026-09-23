@@ -259,7 +259,7 @@ class Trainer(BaseTrainer):
                        targets: Optional[torch.Tensor] = None,
                        show_progress: bool = False,
                        step: int = 1,
-                       eta: float = 0.0) -> torch.Tensor:
+                       eta: float = 1.0) -> torch.Tensor:
         """
         Generates images.
 

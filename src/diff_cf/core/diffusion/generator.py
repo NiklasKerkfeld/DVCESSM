@@ -114,6 +114,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         for t in tqdm(range(start_t, -1, -1), total=start_t + 1, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)
+            target_t_tensor = torch.full((image.shape[0],), t-1, device=self.device)
             epsilon_guidance, epsilon_reverse = self._pred_epsilon(x, t_tensor, target)
 
             with torch.enable_grad():
@@ -125,10 +126,17 @@ class CounterfactualGenerator(BaseGenerator):
                     t_tensor
                 )
 
-            ddpm_mean, variance = self.engine.ddpm_step(x, epsilon_reverse, t_tensor)
-            mu_norm = torch.norm(ddpm_mean.flatten(start_dim=1), p=2, dim=1).view(-1, 1, 1, 1)
+            mean, variance = self.engine.ddim_mean_variance(
+                images=x,
+                epsilon_pred=epsilon_reverse,
+                t=t_tensor,
+                target_t=target_t_tensor,
+                eta=1.0,
+            )
 
-            guided_mean = (ddpm_mean - variance * mu_norm * g_update)
+            mu_norm = torch.norm(mean.flatten(start_dim=1), p=2, dim=1).view(-1, 1, 1, 1)
+
+            guided_mean = (mean - variance * mu_norm * g_update)
 
             if t > 0:
                 x = guided_mean + torch.sqrt(variance) * torch.randn_like(x)
@@ -210,13 +218,15 @@ class CounterfactualGenerator(BaseGenerator):
                         source_tensor
                     ).detach()
 
-            current_x = self.engine.ddim_step(
+            mean, variance = self.engine.ddim_mean_variance(
                 images=current_x,
                 epsilon_pred=epsilon,
                 t=source_tensor,
                 target_t=target_tensor,
                 eta=0.0,
             )
+
+            current_x = mean + variance * torch.randn_like(current_x)
 
         rough_x0 = current_x
 

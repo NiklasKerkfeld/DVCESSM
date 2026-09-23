@@ -3,7 +3,7 @@
 from typing import Tuple, Literal
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 
 
 def cosine_beta_schedule(T: int, s: float = 0.008) -> torch.Tensor:  # pylint: disable=invalid-name
@@ -144,38 +144,14 @@ class Engine(nn.Module):
 
         return noised, noise, snr
 
-    def ddpm_step(
-            self,
-            images: torch.Tensor,
-            epsilon_pred: torch.Tensor,
-            t: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Returns the mean and variance of the adjacent DDPM transition
-        from timestep t to timestep t - 1.
-
-        Timestep -1 denotes the final clean-image endpoint.
-        """
-        coeff1 = self._extract(self.coeff1, t, images.shape)
-        coeff2 = self._extract(self.coeff2, t, images.shape)
-
-        mean = coeff1 * (images - coeff2 * epsilon_pred)
-        variance = self._extract(
-            self.posterior_variance,
-            t,
-            images.shape,
-        )
-
-        return mean, variance
-
-    def ddim_step(
+    def ddim_mean_variance(
             self,
             images: torch.Tensor,
             epsilon_pred: torch.Tensor,
             t: torch.Tensor,
             target_t: torch.Tensor,
             eta: float = 0.0,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Performs one generalized DDIM transition from t to target_t.
 
@@ -202,17 +178,36 @@ class Engine(nn.Module):
 
         x0_pred = self.image_approximation(images, epsilon_pred, t)
 
-        sigma_squared = (eta ** 2 * (1.0 - alpha_target) /
+        variance = (eta ** 2 * (1.0 - alpha_target) /
                          (1.0 - alpha_t) * (1.0 - alpha_t / alpha_target)).clamp(min=0.0)
 
-        epsilon_coefficient = torch.sqrt((1.0 - alpha_target - sigma_squared).clamp(min=0.0))
+        epsilon_coefficient = torch.sqrt((1.0 - alpha_target - variance).clamp(min=0.0))
 
         result = torch.sqrt(alpha_target) * x0_pred + epsilon_coefficient * epsilon_pred
 
-        if eta > 0.0:
-            result += torch.sqrt(sigma_squared) * torch.randn_like(images)
+        return result, variance
 
-        return result
+    def ddim_step(
+            self,
+            images: torch.Tensor,
+            epsilon_pred: torch.Tensor,
+            t: torch.Tensor,
+            target_t: torch.Tensor,
+            eta: float = 0.0,
+    ) -> torch.Tensor:
+        """Samples one generalized DDIM transition."""
+        mean, variance = self.ddim_mean_variance(
+            images=images,
+            epsilon_pred=epsilon_pred,
+            t=t,
+            target_t=target_t,
+            eta=eta,
+        )
+
+        if eta == 0.0:
+            return mean
+
+        return mean + torch.sqrt(variance) * torch.randn_like(images)
 
     def image_approximation(self,
                             x_t: torch.Tensor,
