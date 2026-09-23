@@ -21,7 +21,7 @@ class GradSmoothingConfig:
     spacial_gradient_smoothing: bool = False
     temporal_gradient_smoothing: bool = False
     filter_gradients: bool = False
-    percentile: float = 0.9
+    percentile: float = 0.8
     gradient_threshold: float = 0.01
     alpha: float = 0.99
     max_sigma: float = 2.5
