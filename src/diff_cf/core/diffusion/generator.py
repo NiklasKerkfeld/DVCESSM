@@ -168,6 +168,12 @@ class CounterfactualGenerator(BaseGenerator):
         self.grad_c = None
         self.grad_d = None
 
+    @staticmethod
+    def _normalize_gradient(grad: torch.Tensor) -> torch.Tensor:
+        norm = grad.flatten(start_dim=1).norm(dim=1)
+        norm = norm.clamp_min(1e-8).view(-1, 1, 1, 1)
+        return grad / norm
+
     def _pred_epsilon(
             self,
             x: torch.Tensor,
@@ -218,15 +224,13 @@ class CounterfactualGenerator(BaseGenerator):
                         source_tensor
                     ).detach()
 
-            mean, variance = self.engine.ddim_mean_variance(
+            current_x = self.engine.ddim_step(
                 images=current_x,
                 epsilon_pred=epsilon,
                 t=source_tensor,
                 target_t=target_tensor,
                 eta=0.0,
             )
-
-            current_x = mean + variance * torch.randn_like(current_x)
 
         rough_x0 = current_x
 
@@ -247,9 +251,11 @@ class CounterfactualGenerator(BaseGenerator):
                        t: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         x = x.detach().requires_grad_(True)
         approx_image = self.engine.image_approximation(x, epsilon_pred, t)
+        bounded = approx_image.clamp(self.z_min, self.z_max)
+        approx_for_loss = approx_image + (bounded - approx_image).detach()
 
         # Segmentation Loss
-        approx_image_batch = self.adaptgrad(approx_image)
+        approx_image_batch = self.adaptgrad(approx_for_loss)
         logits = self.segmentation_model(approx_image_batch)
 
         # Loss and Gradients
@@ -263,20 +269,16 @@ class CounterfactualGenerator(BaseGenerator):
 
             grad_c = self._cone_projection(grad_c, grad_rob)
 
-        grad_c /= (torch.norm(grad_c.view(grad_c.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
-                                                                                 1) + 1e-8)
-
         # Distance Loss
-        distance = self.distance_loss(image, approx_image)
-
+        distance = self.distance_loss(image, approx_for_loss)
         grad_d = torch.autograd.grad(distance, x)[0]
-        grad_d /= (torch.norm(grad_d.view(grad_d.shape[0], -1), p=2, dim=1).view(-1, 1, 1,
-                                                                                 1) + 1e-8)
 
+        # smooth the gradients spacial
         if self.smoothing.spacial_gradient_smoothing:
             grad_c = self._apply_dynamic_smoothing(grad_c, t)
             grad_d = self._apply_dynamic_smoothing(grad_d, t)
 
+        # smooth the gradients temporal
         if self.smoothing.temporal_gradient_smoothing:
             self.smoothing_step += 1
             # init gradients in the frist round
@@ -302,31 +304,32 @@ class CounterfactualGenerator(BaseGenerator):
             grad_c = torch.where(mask, grad_c, torch.zeros_like(grad_c))
             grad_d = torch.where(mask, torch.zeros_like(grad_d), grad_d)
 
+        grad_c = self._normalize_gradient(grad_c)
+        grad_d = self._normalize_gradient(grad_d)
+
         g_update = self.weight_segmentation * grad_c + self.weight_distance * grad_d
 
         return g_update.detach(), {
-            'approx_image': approx_image.detach(),
+            'approx_image': bounded.detach(),
             'grad_c': grad_c.detach(),
             'grad_d': grad_d.detach(),
             'mask': mask.detach(),
             'logits': logits.detach()
         }
 
-    def _update_mask(self, grad: torch.Tensor):
-        abs_grad = torch.abs(grad)
-        threshold = torch.quantile(abs_grad, self.smoothing.percentile)
-        print(
-            f"grad: {abs_grad.mean()}, {abs_grad.std()}, {abs_grad.min()}, {abs_grad.max()}, {threshold=}")
-        if self.mask is not None:
-            self.mask = self.mask | (abs_grad > min(threshold, self.smoothing.gradient_threshold))
-        else:
-            self.mask = (abs_grad > min(threshold, self.smoothing.gradient_threshold)).clone()
+    def _get_mask(self, grad: torch.Tensor) -> torch.Tensor:
+        # Shape: (B, 1, H, W); all image channels share the same mask.
+        saliency = grad.square().mean(dim=1, keepdim=True).sqrt()
 
-    def _get_mask(self, grad: torch.Tensor):
-        mean, std = grad.mean(), grad.std()
-        rel_grad = ((grad - mean) / std).abs()
+        flat = saliency.flatten(start_dim=1)
+        threshold = torch.quantile(
+            flat,
+            self.smoothing.percentile,
+            dim=1,
+            keepdim=True,
+        ).view(-1, 1, 1, 1)
 
-        return rel_grad > 1.0
+        return saliency >= threshold
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
@@ -398,6 +401,14 @@ class CounterfactualGenerator(BaseGenerator):
         if mask is not None:
             ratio = (mask.sum() / mask.numel()).item()
             self.writer.add_scalar('Gradients/fraction', ratio, step)
+
+
+        if grad_c is not None and grad_d is not None:
+            cos_cd = torch.nn.functional.cosine_similarity(grad_c.flatten(start_dim=1),
+                                                           grad_d.flatten(start_dim=1),
+                                                           dim=1)
+            self.writer.add_scalar('Targets/cosine_similarity', cos_cd, step)
+
 
         if approx_image is not None:
             self.writer.add_image('Process/approx_x_0',
