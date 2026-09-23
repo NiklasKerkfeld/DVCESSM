@@ -337,7 +337,7 @@ class Trainer(BaseTrainer):
             "figures/generation.gif",
             save_all=True,
             append_images=frames,
-            duration=int(1000 / 15),
+            duration=int(1000 / 30),
             loop=0,
         )
 

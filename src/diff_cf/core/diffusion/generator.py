@@ -313,7 +313,7 @@ class CounterfactualGenerator(BaseGenerator):
         abs_grad = torch.abs(grad)
         threshold = torch.quantile(abs_grad, self.smoothing.percentile)
         print(f"grad: {abs_grad.mean()}, {abs_grad.std()}, {abs_grad.min()}, {abs_grad.max()}, {threshold=}")
-        if self.mask:
+        if self.mask is not None:
             self.mask = self.mask | abs_grad < threshold
         else:
             self.mask = (abs_grad < threshold).clone()
