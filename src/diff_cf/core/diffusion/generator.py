@@ -289,9 +289,9 @@ class CounterfactualGenerator(BaseGenerator):
 
         # only change very strong gradients ignore changes of grad_d there
         if self.smoothing.filter_gradients:
-            self._get_mask(grad_c)
-            grad_c = torch.where(self.mask, torch.zeros_like(grad_c), grad_c)
-            grad_d = torch.where(~self.mask, torch.zeros_like(grad_d), grad_d)
+            self._update_mask(grad_c)
+            grad_c = torch.where(self.mask, grad_c, torch.zeros_like(grad_c))
+            grad_d = torch.where(self.mask, torch.zeros_like(grad_d), grad_d)
 
         g_update = self.weight_segmentation * grad_c + self.weight_distance * grad_d
 
@@ -302,22 +302,14 @@ class CounterfactualGenerator(BaseGenerator):
             'logits': logits.detach()
         }
 
-    @staticmethod
-    def _threshold_grad(grad: torch.Tensor, percentile: float = 0.9):
-        abs_grad = torch.abs(grad)
-        threshold = torch.quantile(abs_grad, percentile)
-        mask = abs_grad < threshold
-        grad[mask] = 0
-        return grad
-
-    def _get_mask(self, grad: torch.Tensor):
+    def _update_mask(self, grad: torch.Tensor):
         abs_grad = torch.abs(grad)
         threshold = torch.quantile(abs_grad, self.smoothing.percentile)
         print(f"grad: {abs_grad.mean()}, {abs_grad.std()}, {abs_grad.min()}, {abs_grad.max()}, {threshold=}")
         if self.mask is not None:
-            self.mask = self.mask | (abs_grad < max(threshold, self.smoothing.gradient_threshold))
+            self.mask = self.mask | (abs_grad > max(threshold, self.smoothing.gradient_threshold))
         else:
-            self.mask = (abs_grad < max(threshold, self.smoothing.gradient_threshold)).clone()
+            self.mask = (abs_grad > max(threshold, self.smoothing.gradient_threshold)).clone()
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
