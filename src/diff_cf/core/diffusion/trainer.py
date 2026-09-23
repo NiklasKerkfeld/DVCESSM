@@ -11,6 +11,7 @@ from torch import nn
 from torch.optim.lr_scheduler import LambdaLR
 from torchvision.utils import make_grid
 from tqdm import tqdm
+from PIL import Image
 
 from ..base_dataset import BaseDataset
 from .engine import Engine
@@ -323,7 +324,22 @@ class Trainer(BaseTrainer):
                 t=t_tensor,
                 target_t=target_t_tensor,
                 eta=eta,
-            ).clamp(self.dataset.z_min.to(self.device), self.dataset.z_max.to(self.device))
+            )
+
+            grid = make_grid(x, nrow=int(math.sqrt(batch_size)), normalize=True,
+                             value_range=(-1, 1))
+
+            # Convert float tensor [C, H, W] to uint8 numpy array [H, W, C]
+            frame_np = (grid.permute(1, 2, 0).cpu().numpy() * 255).astype("uint8")
+            frames.append(Image.fromarray(frame_np))
+
+        frames[0].save(
+            "figures/generation.gif",
+            save_all=True,
+            append_images=frames,
+            duration=int(1000 / 15),
+            loop=0,
+        )
 
         return x.detach().cpu().clamp(self.dataset.z_min, self.dataset.z_max)
 
