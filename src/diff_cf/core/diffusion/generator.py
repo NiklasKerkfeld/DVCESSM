@@ -21,7 +21,7 @@ class GradSmoothingConfig:
     spacial_gradient_smoothing: bool = False
     temporal_gradient_smoothing: bool = False
     filter_gradients: bool = False
-    percentile: float = 0.99
+    percentile: float = 0.95
     gradient_threshold: float = 0.01
     alpha: float = 0.99
     max_sigma: float = 2.5
@@ -307,9 +307,9 @@ class CounterfactualGenerator(BaseGenerator):
         threshold = torch.quantile(abs_grad, self.smoothing.percentile)
         print(f"grad: {abs_grad.mean()}, {abs_grad.std()}, {abs_grad.min()}, {abs_grad.max()}, {threshold=}")
         if self.mask is not None:
-            self.mask = self.mask | (abs_grad > max(threshold, self.smoothing.gradient_threshold))
+            self.mask = self.mask | (abs_grad > min(threshold, self.smoothing.gradient_threshold))
         else:
-            self.mask = (abs_grad > max(threshold, self.smoothing.gradient_threshold)).clone()
+            self.mask = (abs_grad > min(threshold, self.smoothing.gradient_threshold)).clone()
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
