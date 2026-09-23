@@ -35,7 +35,7 @@ class Trainer(BaseTrainer):
                  batch_size: int = 64,
                  accumulation_steps: int = 1,
                  num_workers: int = 4,
-                 gamma: float = 0.99,
+                 gamma: float = 5.0,
                  ema_decay: float = 0.999,
                  image_type: Literal['mri', 'rgb'] = 'rgb',
                  name: str = 'DiffusionTrainer',

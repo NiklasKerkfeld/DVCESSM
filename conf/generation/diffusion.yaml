@@ -13,6 +13,6 @@ GradSmoothing:
   spacial_gradient_smoothing: true
   temporal_gradient_smoothing: true
   filter_gradients: true
-  percentile: 0.9
+  percentile: 0.99
   alpha: 0.99
   max_sigma: 2.5
