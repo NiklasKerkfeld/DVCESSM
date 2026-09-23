@@ -318,12 +318,12 @@ class Trainer(BaseTrainer):
             else:
                 epsilon_pred = model(x, t_tensor)
 
-            x = self.engine.ddim_step(
+            x, _ = self.engine.ddpm_step(
                 images=x,
                 epsilon_pred=epsilon_pred,
                 t=t_tensor,
-                target_t=target_t_tensor,
-                eta=eta,
+                # target_t=target_t_tensor,
+                # eta=eta,
             )
 
             grid = make_grid(x, nrow=int(math.sqrt(batch_size)), normalize=True,
