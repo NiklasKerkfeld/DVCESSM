@@ -135,13 +135,13 @@ class BaselineGenerator(BaseGenerator):
 
                 # --- TensorBoard Logging ---
                 if self.log_to_tensorboard and (t % 25 == 0 or t == self.steps - 1):
-                    self.log(counterfactual,
-                             target,
+                    self.log(target,
                              output,
+                             t,
+                             counterfactual,
                              loss,
                              cost.item(),
-                             smoothness.item(),
-                             t)
+                             smoothness.item())
 
                 progress_bar.set_description(f"loss: {loss:.4f}")
 

@@ -189,8 +189,8 @@ class BaseGenerator:
         prediction = torch.argmax(logits[0] if logits.dim() == 4 else logits, dim=0)
 
         # Log primary metric
-        iou = calc_iou(prediction, target, num_classes=self.n_classes)
-        f1, precision, recall = calc_f1_score(prediction, target, num_classes=self.n_classes)
+        iou = calc_iou(target, prediction, num_classes=self.n_classes)
+        f1, precision, recall = calc_f1_score(target, prediction, num_classes=self.n_classes)
 
         self.writer.add_scalar('Metrics/f1', f1, step)
         self.writer.add_scalar('Metrics/precision', precision, step)
