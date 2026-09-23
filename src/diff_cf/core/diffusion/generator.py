@@ -317,7 +317,7 @@ class CounterfactualGenerator(BaseGenerator):
         if self.mask is not None:
             self.mask = self.mask | (abs_grad < max(threshold, self.smoothing.gradient_threshold))
         else:
-            self.mask = (abs_grad < threshold).clone()
+            self.mask = (abs_grad < max(threshold, self.smoothing.gradient_threshold)).clone()
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
@@ -386,6 +386,11 @@ class CounterfactualGenerator(BaseGenerator):
             self.writer.add_scalar('Gradients/grad_d', grad_d.abs().mean().item(),
                                    step)
 
+        if mask is not None:
+            ratio = (mask.sum() / mask.numel()).item()
+            self.writer.add_scalar('Gradients/fraction', ratio, step)
+
+
         if approx_image is not None:
             self.writer.add_image('Process/approx_x_0',
                                   vutils.make_grid(approx_image, normalize=True),
@@ -406,7 +411,3 @@ class CounterfactualGenerator(BaseGenerator):
                                   vutils.make_grid(grad_c_visual, normalize=True), step)
             self.writer.add_image('Process/grad_d',
                                   vutils.make_grid(grad_d_visual, normalize=True), step)
-
-        if mask is not None:
-            self.writer.add_image('Process/fraction',
-                                  vutils.make_grid(mask.sum() / mask.numel(), normalize=True), step)
