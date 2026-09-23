@@ -54,7 +54,7 @@ def main(cfg: DictConfig):
         if torch.cuda.is_available():
             torch.cuda.seed_all()
 
-    image = trainer.generate_image(show_progress=True, step=10)
+    image = trainer.generate_image(show_progress=True, step=1)
     print(f"{image.min()}, ", f"{image.max()}, ", f"{image.mean()}, ", f"{image.std()}")
     image = trainer._visualize_image(image)
     print(f"{image.min()}, ", f"{image.max()}, ", f"{image.mean()}, ", f"{image.std()}")
