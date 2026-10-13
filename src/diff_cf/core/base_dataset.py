@@ -125,7 +125,7 @@ class BaseDataset(Dataset):
         return (image * s) + m
 
 
-def get_splits(root: str) -> Tuple[BaseDataset, BaseDataset]:
+def get_splits(root: str) -> Tuple[List[str], List[str]]:
     """Does a training and testing split."""
     files = sorted(glob.glob(f"{root}/preprocessed/*/*.npz"))
 

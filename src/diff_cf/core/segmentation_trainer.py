@@ -25,6 +25,7 @@ class SegmentationTrainer(BaseTrainer):
                  model: nn.Module,
                  n_classes: int,
                  device: torch.device,
+                 epochs: int = 50,
                  lr: float = 1e-3,
                  batch_size: int = 64,
                  num_workers: int = 4,
@@ -34,6 +35,7 @@ class SegmentationTrainer(BaseTrainer):
                  robust_epsilon: float = 0.1,
                  robust_steps: int = 10,
                  robust_alpha: Optional[float] = None,
+                 robust_beta: float = 0.5,
                  image_type: Literal['mri', 'rgb'] = 'rgb',
                  name: str = 'SegmentationTrainer',
                  checkpoint_path: str = './checkpoints',
@@ -45,6 +47,7 @@ class SegmentationTrainer(BaseTrainer):
             valid_dataset: Dataset with validation data.
             model: Model to be trained.
             device: device to run on.
+            epochs: number of trainings epochs.
             lr: learning rate for  (default 1e-3).
             batch_size: batch_size for training (default 64).
             num_workers: number of workers for dataloader (default 4).
@@ -54,6 +57,7 @@ class SegmentationTrainer(BaseTrainer):
             robust_epsilon: epsilon for robust training (default 0.1).
             robust_steps: number of steps for projected gradient descent (default 10).
             robust_alpha: alpha for robust training (default 2.5 * (self.epsilon / self.steps)).
+            robust_beta: weighting between image loss and adversarial loss (default None).
             name: name of the process (default 'SegmentationTrainer').
             image_type: type of image for visualization (default 'rgb').
             log_dir: Path to logging folder (default '.logs/').
@@ -61,6 +65,7 @@ class SegmentationTrainer(BaseTrainer):
         super().__init__(train_dataset,
                          model,
                          device,
+                         epochs,
                          lr,
                          batch_size,
                          num_workers,
@@ -75,7 +80,8 @@ class SegmentationTrainer(BaseTrainer):
         self.epsilon = robust_epsilon
         self.steps = robust_steps
         self.alpha = robust_alpha
-        self.alpha = 2.5 * (self.epsilon / self.steps) if self.alpha is None else self.alpha
+        self.alpha = 2.5 if self.alpha is None else self.alpha
+        self.beta = robust_beta
         self.start_epoch = robust_start
         self.warm_up = robust_warm_up
 
@@ -118,10 +124,14 @@ class SegmentationTrainer(BaseTrainer):
         for images, mask in progress_bar:
             images, mask = images.to(self.device), mask.to(self.device)
 
-            images = self._projected_gradient_descent(images, mask)
+            adversarial = self._projected_gradient_descent(images, mask)
+            adv_outputs = self.model(adversarial)
+            adv_loss = self.loss_fn(adv_outputs, mask)
 
-            outputs = self.model(images)
-            loss = self.loss_fn(outputs, mask)  # .unsqueeze(1)
+            img_outputs = self.model(images)
+            img_loss = self.loss_fn(img_outputs, mask)
+
+            loss = self.beta * adv_loss + (1 - self.beta) * img_loss
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -164,9 +174,18 @@ class SegmentationTrainer(BaseTrainer):
         elif eps is None:
             eps = self.epsilon
 
-        # calc adversarial example perturbation
-        random_noise = torch.randn_like(images, device=images.device) * (eps / 2)
-        adv_perturbation = random_noise.requires_grad_(True)
+        # attack alpha
+        attack_alpha = self.alpha * (eps / self.steps)
+
+        # calc initial adversarial example perturbation
+        shape = (images.shape[0],) + (1,) * (images.ndim - 1)
+        noise = torch.randn_like(images)
+        noise = noise / (noise.flatten(1).norm(p=2, dim=1).reshape(shape) + 1e-10)
+
+        # Uniformly distributed within the D-dimensional L2 ball
+        dimension = images[0].numel()
+        radius = torch.rand(shape, device=images.device).pow(1.0 / dimension) * eps
+        adv_perturbation = (noise * radius).requires_grad_(True)
 
         self.model.eval()
 
@@ -182,9 +201,10 @@ class SegmentationTrainer(BaseTrainer):
             grad = grad / grad_norms.view(-1, 1, 1, 1)  # Normalize gradient
 
             with torch.no_grad():
-                adv_perturbation += self.alpha * grad
+                adv_perturbation += attack_alpha * grad
 
-                pert_norm = torch.norm(adv_perturbation.view(adv_perturbation.shape[0], -1), p=2,
+                pert_norm = torch.norm(adv_perturbation.view(adv_perturbation.shape[0], -1),
+                                       p=2,
                                        dim=1)
                 scaling_factor = torch.clamp(eps / (pert_norm + 1e-10), max=1.0)
                 adv_perturbation *= scaling_factor.view(-1, 1, 1, 1)
