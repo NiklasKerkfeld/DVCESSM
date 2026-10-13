@@ -62,17 +62,17 @@ class SegmentationTrainer(BaseTrainer):
             image_type: type of image for visualization (default 'rgb').
             log_dir: Path to logging folder (default '.logs/').
         """
-        super().__init__(train_dataset,
-                         model,
-                         device,
-                         epochs,
-                         lr,
-                         batch_size,
-                         num_workers,
-                         image_type,
-                         name,
-                         checkpoint_path,
-                         log_dir)
+        super().__init__(dataset=train_dataset,
+                         model=model,
+                         device=device,
+                         epochs=epochs,
+                         lr=lr,
+                         batch_size=batch_size,
+                         num_workers=num_workers,
+                         image_type=image_type,
+                         name=name,
+                         checkpoint_path=checkpoint_path,
+                         log_dir=log_dir)
         self.num_classes = n_classes
 
         # parameter for robust training
