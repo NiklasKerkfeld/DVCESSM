@@ -137,7 +137,7 @@ def main(cfg: DictConfig):
         )
 
     results = []
-    for i in trange(min(len(dataset), 10)):
+    for i in trange(len(dataset)):
         instance = Path(dataset.get_filepath(i)).stem
 
         image = torch.stack([dataset[i][0]], dim=0)
