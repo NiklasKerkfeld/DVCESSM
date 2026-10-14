@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 
 import pandas as pd
 from hydra.utils import instantiate
@@ -137,7 +138,7 @@ def main(cfg: DictConfig):
 
     results = []
     for i in trange(min(len(dataset), 10)):
-        instance = dataset.get_filepath(i)
+        instance = Path(dataset.get_filepath(i)).stem
 
         image = torch.stack([dataset[i][0]], dim=0)
         target = torch.stack([dataset[i][1]], dim=0)
