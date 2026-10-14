@@ -142,7 +142,7 @@ def main(cfg: DictConfig):
     for i in trange(len(dataset)):
         instance = Path(dataset.get_filepath(i)).stem
 
-        if df[df['file'] == instance]['iou'].values[0] > 0.75:
+        if df[df['file'] == int(instance)]['iou'].values[0] > 0.75:
             continue
 
         image = torch.stack([dataset[i][0]], dim=0)
