@@ -1,4 +1,4 @@
-import glob
+import os
 import time
 
 import pandas as pd
@@ -26,16 +26,13 @@ def main(cfg: DictConfig):
     if cfg.generation.seed is not None:
         torch.random.manual_seed(cfg.generation.seed)
 
-    # setup log_dir and run_name
-    if cfg.generation.name is not None:
-        run_name = str(cfg.generation.name)
-    else:
-        nr = len(glob.glob(f"{cfg.system.log_dir}/*"))
-        run_name = f"{nr}_counterfactual"
-
     # select device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"using device: {device}")
+
+    # create output folder
+    output_folder = f"evaluation/{cfg.generation.batch_name}"
+    os.makedirs(output_folder, exist_ok=True)
 
     # load test dataset
     _, test_data = get_splits(root=cfg.data.root)
@@ -117,8 +114,7 @@ def main(cfg: DictConfig):
             n_classes=cfg.data.n_classes,
             cone_projection_alpha=cfg.generation.cone_projection_alpha,
             log_to_tensorboard=False,
-            device=device,
-            name=run_name,
+            device=device
         )
 
     else:
@@ -136,8 +132,7 @@ def main(cfg: DictConfig):
             cone_projection_alpha=cfg.generation.cone_projection_alpha,
             n_classes=cfg.data.n_classes,
             log_to_tensorboard=False,
-            device=device,
-            name=run_name,
+            device=device
         )
 
     results = []
@@ -171,8 +166,8 @@ def main(cfg: DictConfig):
         })
 
     df = pd.DataFrame(results)
-    df.to_csv(f'evaluation/{run_name}/results.csv', index=False)
-    with open(f"evaluation/{run_name}/config.txt", "a") as f:
+    df.to_csv(f'{output_folder}/results.csv', index=False)
+    with open(f"{output_folder}/config.txt", "a") as f:
         f.write(OmegaConf.to_yaml(cfg))
 
 if __name__ == '__main__':
