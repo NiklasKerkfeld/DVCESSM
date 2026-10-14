@@ -177,21 +177,21 @@ def main(cfg: DictConfig):
     with open(f"{output_folder}/config.txt", "a") as f:
         f.write(OmegaConf.to_yaml(cfg))
 
-    iou_improvement = df['improvement_iou'].mean(), df['improvement_iou'].median(), df['improvement_iou'].std(), df['improvement_iou'].min(), df['improvement_iou'].max()
-    f1_improvement = df['improvement_f1'].mean(), df['improvement_f1'].median(), df['improvement_f1'].std(), df['improvement_f1'].min(), df['improvement_f1'].max()
-    recall_improvement = df['improvement_recall'].mean(), df['improvement_recall'].median(), df['improvement_recall'].std(), df['improvement_recall'].min(), df['improvement_recall'].max()
-    precision_improvement = df['improvement_precision'].mean(), df['improvement_precision'].median(), df['improvement_precision'].std(), df['improvement_precision'].min(), df['improvement_precision'].max()
-
-    distance = df['distance'].mean(), df['distance'].median(), df['distance'].std(), df['distance'].min(), df['distance'].max()
-    mean_squared = df['mean_squared'].mean(), df['mean_squared'].median(), df['mean_squared'].std(), df['mean_squared'].min(), df['mean_squared'].max()
+    metrics = {
+        "IoU": "improvement_iou",
+        "F1": "improvement_f1",
+        "Recall": "improvement_recall",
+        "Precision": "improvement_precision",
+        "Distance": "distance",
+        "Mean Squared": "mean_squared",
+    }
 
     with open(f"{output_folder}/results.txt", "a") as f:
-        f.write(f"IoU: {iou_improvement}\n"
-                f"F1: {f1_improvement}\n"
-                f"Recall: {recall_improvement}\n"
-                f"Precision: {precision_improvement}\n"
-                f"Distance: {distance}\n"
-                f"Mean Squared: {mean_squared}\n")
+        for label, col in metrics.items():
+            # Compute stats, round to 4 digits, and convert to a tuple
+            stats = tuple(df[col].agg(["mean", "median", "std", "min", "max"]).round(4))
+            f.write(f"{label}: {stats}\n")
+
 
 if __name__ == '__main__':
     main()
