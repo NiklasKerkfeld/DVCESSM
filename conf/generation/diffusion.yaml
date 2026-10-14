@@ -1,6 +1,6 @@
 defaults:
   - base
-  - distance_loss: log_distance
+  - distance_loss: squared_error
 
 type: Diffusion
 start_fraction: 0.5
