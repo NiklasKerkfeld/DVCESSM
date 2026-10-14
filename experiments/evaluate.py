@@ -14,7 +14,7 @@ from diff_cf.core.base_dataset import get_splits
 from diff_cf.core.baseline.generator import BaselineGenerator
 from diff_cf.core.diffusion.generator import CounterfactualGenerator
 from diff_cf.models.diffusion_model import DiffusionModel
-from utils import calc_iou, calc_f1_score
+from diff_cf.utils import calc_iou, calc_f1_score
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
