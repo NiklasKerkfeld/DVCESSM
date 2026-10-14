@@ -136,9 +136,14 @@ def main(cfg: DictConfig):
             device=device
         )
 
+    df = pd.read_csv("data/CelebAMask/CelebAMask-HQ/results.csv")
+
     results = []
     for i in trange(len(dataset)):
         instance = Path(dataset.get_filepath(i)).stem
+
+        if df[df['file'] == instance]['iou'] > 0.75:
+            continue
 
         image = torch.stack([dataset[i][0]], dim=0)
         target = torch.stack([dataset[i][1]], dim=0)
