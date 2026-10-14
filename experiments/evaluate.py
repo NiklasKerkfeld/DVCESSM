@@ -136,13 +136,26 @@ def main(cfg: DictConfig):
             device=device
         )
 
-    df = pd.read_csv("data/CelebAMask/CelebAMask-HQ/results.csv")
+    df_filter = pd.read_csv("data/CelebAMask/CelebAMask-HQ/results.csv")
 
-    results = []
+    results_file = Path(output_folder) / "results.csv"
+    processed_instances = set()
+
+    # Check for existing results to support resuming after a crash
+    if results_file.exists():
+        existing_df = pd.read_csv(results_file)
+        if "instance" in existing_df.columns:
+            processed_instances = set(existing_df["instance"].astype(str).values)
+        print(f"Resuming evaluation. Found {len(processed_instances)} already processed instances.")
+
     for i in trange(len(dataset)):
         instance = Path(dataset.get_filepath(i)).stem
 
-        if df[df['file'] == int(instance)]['iou'].values[0] > 0.75:
+        # Skip if already processed in a previous run
+        if instance in processed_instances:
+            continue
+
+        if df_filter[df_filter['file'] == int(instance)]['iou'].values[0] > 0.75:
             continue
 
         image = torch.stack([dataset[i][0]], dim=0)
@@ -158,7 +171,8 @@ def main(cfg: DictConfig):
 
         iou_cf = calc_iou(target, prediction_cf, cfg.data.n_classes)
         f1_cf, precision_cf, recall_cf = calc_f1_score(target, prediction_cf, cfg.data.n_classes)
-        results.append({
+
+        result_row = {
             "instance": instance,
             "time": time_needed,
             "iou_org": iou_org,
@@ -173,12 +187,21 @@ def main(cfg: DictConfig):
             "improvement_f1": f1_cf - f1_org,
             "improvement_recall": recall_cf - recall_org,
             "improvement_precision": precision_cf - precision_org,
-            "distance": (image-counterfactual).abs().mean().item(),
+            "distance": (image - counterfactual).abs().mean().item(),
             "mean_squared": ((image - counterfactual) ** 2).mean().item()
-        })
+        }
 
-    df = pd.DataFrame(results)
-    df.to_csv(f'{output_folder}/results.csv', index=False)
+        # Incrementally save the single result row immediately to CSV
+        res_df = pd.DataFrame([result_row])
+        header = not results_file.exists()
+        res_df.to_csv(results_file, mode='a', header=header, index=False)
+
+    # Load complete results for final summary metrics
+    if results_file.exists():
+        df_results = pd.read_csv(results_file)
+    else:
+        df_results = pd.DataFrame()
+
     with open(f"{output_folder}/config.txt", "a") as f:
         f.write(OmegaConf.to_yaml(cfg))
 
@@ -193,9 +216,11 @@ def main(cfg: DictConfig):
 
     with open(f"{output_folder}/results.txt", "a") as f:
         for label, col in metrics.items():
-            # Compute stats, round to 4 digits, and convert to a tuple
-            stats = tuple(df[col].agg(["mean", "median", "std", "min", "max"]).round(4))
-            f.write(f"{label}: {stats}\n")
+            if not df_results.empty and col in df_results.columns:
+                stats = tuple(df_results[col].agg(["mean", "median", "std", "min", "max"]).round(4))
+                f.write(f"{label}: {stats}\n")
+            else:
+                f.write(f"{label}: No data available\n")
 
 
 if __name__ == '__main__':
