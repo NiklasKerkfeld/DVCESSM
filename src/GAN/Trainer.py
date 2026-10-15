@@ -162,7 +162,7 @@ class CounterfactualGANTrainer:
 
         self.writer.add_images(
             "examples/counterfactual",
-            self.train_dataset.denormalize(counterfactual).cpu(),
+            self.train_dataset.denormalize(counterfactual).cpu() / 256,
             step,
         )
         self.writer.add_images(
@@ -298,7 +298,7 @@ class CounterfactualGANTrainer:
 
         self.writer.add_images(
             "examples/input",
-            self.test_dataset.denormalize(example_x),
+            self.test_dataset.denormalize(example_x) / 256,
             0,
         )
         self.writer.add_images(

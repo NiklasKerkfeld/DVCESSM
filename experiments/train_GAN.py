@@ -1,9 +1,10 @@
+import glob
+
 import hydra
 import torch
 from hydra.utils import instantiate
 from monai.networks.nets import BasicUNet
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader
 
 from GAN.Trainer import CounterfactualGANTrainer
 from diff_cf.core.base_dataset import get_splits
@@ -15,6 +16,14 @@ from GAN.model import Generator
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
+
+    # Setup Logging & Run Number
+    log_dir = f'{cfg.system.log_dir}/GAN/'
+    if cfg.diffusion.name is not None:
+        run_name = cfg.diffusion.name
+    else:
+        nr = len(glob.glob(f"{log_dir}/*"))
+        run_name = f"{nr}_GAN"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -60,7 +69,9 @@ def main(cfg: DictConfig):
                                        test_dataset=test_dataset,
                                        batch_size=cfg.data.batch_size,
                                        num_workers=cfg.data.num_workers,
-                                       device=device)
+                                       device=device,
+                                       log_dir=log_dir,
+                                       name=run_name)
 
     trainer.train(epochs=3)
 
