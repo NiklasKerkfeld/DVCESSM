@@ -186,8 +186,8 @@ class CounterfactualGANTrainer:
                 adv_loss_lst.append(adv_loss)
                 gen_loss_lst.append(gen_loss)
 
-            self.writer.add_scalar('train/adv_loss', torch.mean(adv_loss_lst), e)
-            self.writer.add_scalar('train/gen_loss', torch.mean(gen_loss_lst), e)
+            self.writer.add_scalar('train/adv_loss', sum(adv_loss_lst) / len(adv_loss_lst), e)
+            self.writer.add_scalar('train/gen_loss', sum(gen_loss_lst) / len(gen_loss_lst), e)
 
             # validation
             self.gan.eval()
@@ -198,6 +198,6 @@ class CounterfactualGANTrainer:
                 gen_loss_lst.append(gen_loss)
                 adv_acc_lst.append(adv_acc)
 
-            self.writer.add_scalar('eval/adv_loss', torch.mean(adv_loss_lst), e)
-            self.writer.add_scalar('eval/gen_loss', torch.mean(gen_loss_lst), e)
-            self.writer.add_scalar('eval/adv_acc', torch.mean(adv_acc_lst), e)
+            self.writer.add_scalar('eval/adv_loss', sum(adv_loss_lst) / len(adv_loss_lst), e)
+            self.writer.add_scalar('eval/gen_loss', sum(gen_loss_lst) / len(gen_loss_lst), e)
+            self.writer.add_scalar('eval/adv_acc', sum(adv_acc_lst) / len(adv_acc_lst), e)
