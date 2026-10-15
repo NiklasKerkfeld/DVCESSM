@@ -6,7 +6,7 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
 from GAN.Trainer import CounterfactualGANTrainer
-from base_dataset import get_splits
+from diff_cf.core.base_dataset import get_splits
 from GAN.CounterfactualGAN import CounterfactualGAN
 from GAN.model import Adversarial
 from GAN.model import Generator
