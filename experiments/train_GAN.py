@@ -43,7 +43,7 @@ def main(cfg: DictConfig):
                                   shuffle=True,
                                   num_workers=cfg.data.num_workers,
                                   pin_memory=device.type == "cuda",
-                                  persistent_workers=cfg.num_workers > 1,
+                                  persistent_workers=cfg.data.num_workers > 1,
                                   drop_last=True)
 
     test_dataloader = DataLoader(dataset=test_dataset,
