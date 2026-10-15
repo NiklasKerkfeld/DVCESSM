@@ -90,7 +90,9 @@ class CounterfactualGANTrainer:
         self.generator_optimizer.zero_grad()
 
         # Recompute after the discriminator update.
-        adv_pred, seg_pred, adoption = self.gan(x, y)
+        adoption = self.gan(x, y)
+        adv_pred = self.gan.adversarial(x + adoption)
+        seg_pred = self.gan.target_model(x + adoption)
 
         gen_adv_loss = self.adversarial_loss(
             adv_pred,
@@ -146,7 +148,9 @@ class CounterfactualGANTrainer:
         # Train generator
         # ---------------------------------------------------------
         # Recompute after the discriminator update.
-        adv_pred, seg_pred, adoption = self.gan(x, y)
+        adoption = self.gan(x, y)
+        adv_pred = self.gan.adversarial(x + adoption)
+        seg_pred = self.gan.target_model(x + adoption)
 
         gen_adv_loss = self.adversarial_loss(
             adv_pred,
