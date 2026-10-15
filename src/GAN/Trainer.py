@@ -91,7 +91,7 @@ class CounterfactualGANTrainer:
 
         # Recompute after the discriminator update.
         adoption = self.gan(x, y)
-        adv_pred = self.gan.adversarial(x + adoption)
+        adv_pred = self.gan.discriminator(x + adoption)
         seg_pred = self.gan.target_model(x + adoption)
 
         gen_adv_loss = self.adversarial_loss(
@@ -119,7 +119,8 @@ class CounterfactualGANTrainer:
         x = x.to(self.device)
         y = y.to(self.device).long()
 
-        adoption = self.gan(x, y)
+        with torch.enable_grad():
+            adoption = self.gan(x, y)
 
         # ---------------------------------------------------------
         # Train discriminator
@@ -138,18 +139,17 @@ class CounterfactualGANTrainer:
 
         adv_loss = 0.5 * (real_loss + fake_loss)
 
-        adv_pred = torch.cat([torch.argmax(real_pred), torch.argmax(fake_pred)], dim=0)
-        adv_target = torch.zeros_like(adv_pred)
-        adv_target[:len(real_pred)] = 1.0
-
-        adv_acc = sum(adv_pred == adv_target) / len(adv_pred)
+        real_acc = (real_pred >= 0).float().mean()
+        fake_acc = (fake_pred < 0).float().mean()
+        adv_acc = 0.5 * (real_acc + fake_acc)
 
         # ---------------------------------------------------------
         # Train generator
         # ---------------------------------------------------------
         # Recompute after the discriminator update.
-        adoption = self.gan(x, y)
-        adv_pred = self.gan.adversarial(x + adoption)
+        with torch.enable_grad():
+            adoption = self.gan(x, y).detach()
+        adv_pred = self.gan.discriminator(x + adoption)
         seg_pred = self.gan.target_model(x + adoption)
 
         gen_adv_loss = self.adversarial_loss(
@@ -167,7 +167,7 @@ class CounterfactualGANTrainer:
                 self.lambda_perturbation * gen_adp_loss
         )
 
-        return adv_loss.item(), gen_loss.item(), adv_acc
+        return adv_loss.item(), gen_loss.item(), adv_acc.item()
 
     def train(
         self,
@@ -176,6 +176,10 @@ class CounterfactualGANTrainer:
         epochs: int = 1,
     ):
         for e in trange(epochs):
+
+            # training
+            self.gan.train()
+            self.gan.target_model.eval()
             adv_loss_lst, gen_loss_lst = [], []
             for x, y in tqdm(train_loader, desc=f"training epoch {e}"):
                 adv_loss, gen_loss = self.train_step(x, y)
@@ -185,6 +189,7 @@ class CounterfactualGANTrainer:
             self.writer.add_scalar('train/adv_loss', torch.mean(adv_loss_lst), e)
             self.writer.add_scalar('train/gen_loss', torch.mean(gen_loss_lst), e)
 
+            # validation
             self.gan.eval()
             adv_loss_lst, gen_loss_lst, adv_acc_lst = [], [], []
             for x, y in tqdm(test_loader, desc=f"testing epoch {e}"):
@@ -196,5 +201,3 @@ class CounterfactualGANTrainer:
             self.writer.add_scalar('eval/adv_loss', torch.mean(adv_loss_lst), e)
             self.writer.add_scalar('eval/gen_loss', torch.mean(gen_loss_lst), e)
             self.writer.add_scalar('eval/adv_acc', torch.mean(adv_acc_lst), e)
-
-            self.gan.train()
