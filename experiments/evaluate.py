@@ -145,14 +145,14 @@ def main(cfg: DictConfig):
     if results_file.exists():
         existing_df = pd.read_csv(results_file)
         if "instance" in existing_df.columns:
-            processed_instances = set(existing_df["instance"].astype(str).values)
+            processed_instances = set(existing_df["instance"].astype(int).values)
         print(f"Resuming evaluation. Found {len(processed_instances)} already processed instances.")
 
     for i in trange(len(dataset)):
         instance = Path(dataset.get_filepath(i)).stem
 
         # Skip if already processed in a previous run
-        if instance in processed_instances:
+        if int(instance) in processed_instances:
             continue
 
         if df_filter[df_filter['file'] == int(instance)]['iou'].values[0] > 0.75:
