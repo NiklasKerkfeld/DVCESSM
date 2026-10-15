@@ -307,7 +307,7 @@ class CounterfactualGANTrainer:
             0,
         )
 
-        pred = torch.argmax(self.gan.target_model(example_x), dim=1)
+        pred = torch.argmax(self.gan.target_model(example_x.to(self.device)), dim=1)
         self.writer.add_images(
             "examples/original_prediction",
             self._colorize_masks(pred),
