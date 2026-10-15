@@ -1,0 +1,29 @@
+import torch
+from torch import nn
+
+
+class CounterfactualGAN(nn.Module):
+    def __init__(self,
+                 generator: nn.Module,
+                 discriminator: nn.Module,
+                 target_model: nn.Module):
+        super().__init__()
+
+        self.generator = generator
+        self.discriminator = discriminator
+        self.target_model = target_model
+        self.seg_loss = nn.CrossEntropyLoss()
+
+        # freeze target model
+        self.target_model.eval()
+        for parameter in self.target_model.parameters():
+            parameter.requires_grad_(False)
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        x = x.detach().requires_grad_(True)
+
+        pred = self.target_model(x)
+        loss = self.seg_loss(pred, y)
+        grad_prior = torch.autograd.grad(loss, [x])[0]
+
+        return self.generator(x, grad_prior)
