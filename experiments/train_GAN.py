@@ -38,7 +38,7 @@ def main(cfg: DictConfig):
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
 
-    train_dataloader = DataLoader(dataset=train_dataset,
+    train_dataloader = DataLoader(dataset=train_dataset[:1000],
                                   batch_size=cfg.data.batch_size,
                                   shuffle=True,
                                   num_workers=cfg.data.num_workers,
