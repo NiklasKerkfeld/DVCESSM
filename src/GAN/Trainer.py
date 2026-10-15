@@ -100,7 +100,7 @@ class CounterfactualGANTrainer:
         )
 
         # Untargeted: encourage a segmentation different from y.
-        gen_seg_loss = -self.segmentation_loss(seg_pred, y)
+        gen_seg_loss = self.segmentation_loss(seg_pred, y)
         gen_adp_loss = torch.mean(adoption ** 2)
 
         gen_loss = (
@@ -158,7 +158,7 @@ class CounterfactualGANTrainer:
         )
 
         # Untargeted: encourage a segmentation different from y.
-        gen_seg_loss = -self.segmentation_loss(seg_pred, y)
+        gen_seg_loss = self.segmentation_loss(seg_pred, y)
         gen_adp_loss = torch.mean(adoption ** 2)
 
         gen_loss = (
