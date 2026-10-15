@@ -38,22 +38,6 @@ def main(cfg: DictConfig):
     print(f"{len(train_dataset)} train samples")
     print(f"{len(test_dataset)} test samples")
 
-    train_dataloader = DataLoader(dataset=train_dataset,
-                                  batch_size=cfg.data.batch_size,
-                                  shuffle=True,
-                                  num_workers=cfg.data.num_workers,
-                                  pin_memory=device.type == "cuda",
-                                  persistent_workers=cfg.data.num_workers > 1,
-                                  drop_last=True)
-
-    test_dataloader = DataLoader(dataset=test_dataset,
-                                 batch_size=1,
-                                 shuffle=False,
-                                 num_workers=cfg.data.num_workers,
-                                 pin_memory=device.type == "cuda",
-                                 persistent_workers=cfg.data.num_workers > 1,
-                                 drop_last=False)
-
     # init segmentation model and load weights
     target_model = BasicUNet(
         spatial_dims=2,  # Set to 2 for 2D image data (defaults to 3)
@@ -71,9 +55,14 @@ def main(cfg: DictConfig):
     adversarial = Adversarial(image_channels=3)
     gan = CounterfactualGAN(generator, adversarial, target_model)
 
-    trainer = CounterfactualGANTrainer(gan=gan)
+    trainer = CounterfactualGANTrainer(gan=gan,
+                                       train_dataset=train_dataset,
+                                       test_dataset=test_dataset,
+                                       batch_size=cfg.data.batch_size,
+                                       num_workers=cfg.data.num_workers,
+                                       device=device)
 
-    trainer.train(train_dataloader, test_dataloader, epochs=3)
+    trainer.train(epochs=3)
 
 
 if __name__ == '__main__':
