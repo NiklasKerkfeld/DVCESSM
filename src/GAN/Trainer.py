@@ -307,6 +307,13 @@ class CounterfactualGANTrainer:
             0,
         )
 
+        pred = torch.argmax(self.gan.target_model(example_x), dim=1)
+        self.writer.add_images(
+            "examples/original_prediction",
+            self._colorize_masks(pred),
+            0,
+        )
+
         for e in trange(epochs):
             # training
             self.gan.train()
