@@ -16,7 +16,7 @@ class CounterfactualGANTrainer:
             train_dataset: BaseDataset,
             test_dataset: BaseDataset,
             lambda_adv: float = 1.0,
-            lambda_seg: float = 1.0,
+            lambda_seg: float = 10.0,
             lambda_perturbation: float = 0.01,
             batch_size: int = 32,
             num_workers: int = 4,
