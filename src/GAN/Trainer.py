@@ -162,7 +162,7 @@ class CounterfactualGANTrainer:
 
         self.writer.add_images(
             "examples/counterfactual",
-            self.train_loader.dataset.denormalize(counterfactual).cpu(),
+            self.train_dataset.denormalize(counterfactual).cpu(),
             step,
         )
         self.writer.add_images(
@@ -240,7 +240,7 @@ class CounterfactualGANTrainer:
         y = y.to(self.device).long()
 
         with torch.enable_grad():
-            adoption = self.gan(x, y)
+            adoption = self.gan(x, y).detach()
 
         # ---------------------------------------------------------
         # Train discriminator
@@ -267,8 +267,6 @@ class CounterfactualGANTrainer:
         # Train generator
         # ---------------------------------------------------------
         # Recompute after the discriminator update.
-        with torch.enable_grad():
-            adoption = self.gan(x, y).detach()
         adv_pred = self.gan.discriminator(x + adoption)
         seg_pred = self.gan.target_model(x + adoption)
 
