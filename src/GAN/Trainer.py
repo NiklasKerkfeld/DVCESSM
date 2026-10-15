@@ -297,7 +297,7 @@ class CounterfactualGANTrainer:
         )
 
         self.writer.add_images(
-            "examples/input",
+            "examples/original_images",
             self.test_dataset.denormalize(example_x) / 256,
             0,
         )
