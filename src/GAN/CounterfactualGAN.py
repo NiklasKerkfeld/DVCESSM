@@ -1,5 +1,4 @@
 import torch
-from pyarrow.scalar import scalar
 from torch import nn
 
 
@@ -7,8 +6,11 @@ class CounterfactualGAN(nn.Module):
     def __init__(self,
                  generator: nn.Module,
                  discriminator: nn.Module,
-                 target_model: nn.Module):
+                 target_model: nn.Module,
+                 max_adoption: float = 1000.0):
         super().__init__()
+
+        self.max_adoption = max_adoption
 
         self.generator = generator
         self.discriminator = discriminator

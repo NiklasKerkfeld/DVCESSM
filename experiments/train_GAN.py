@@ -60,7 +60,7 @@ def main(cfg: DictConfig):
     )
     target_model.load_state_dict(checkpoint['model_state_dict'])
 
-    generator = Generator(image_channels=3)
+    generator = Generator(in_channels=3, level=6)
     adversarial = Adversarial(image_channels=3)
     gan = CounterfactualGAN(generator, adversarial, target_model)
 
