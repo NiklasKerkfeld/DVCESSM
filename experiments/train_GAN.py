@@ -73,7 +73,7 @@ def main(cfg: DictConfig):
                                        log_dir=log_dir,
                                        name=run_name)
 
-    trainer.train(epochs=10)
+    trainer.train(epochs=50)
 
 
 if __name__ == '__main__':
