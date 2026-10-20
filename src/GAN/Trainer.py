@@ -17,7 +17,6 @@ class CounterfactualGANTrainer:
             test_dataset: BaseDataset,
             lambda_adv: float = 1.0,
             lambda_seg: float = 10.0,
-            lambda_perturbation: float = 0.01,
             batch_size: int = 32,
             num_workers: int = 4,
             device: torch.device = torch.device("cpu"),
@@ -26,7 +25,6 @@ class CounterfactualGANTrainer:
     ):
         self.lambda_adv = lambda_adv
         self.lambda_seg = lambda_seg
-        self.lambda_perturbation = lambda_perturbation
         self.device = device
         self.log_dir = log_dir
         self.name = name
@@ -212,7 +210,7 @@ class CounterfactualGANTrainer:
         self.generator_optimizer.zero_grad()
 
         # Recompute after the discriminator update.
-        adoption = self.gan(x, y)
+        adoption = self.gan(x, y, scalar)
         adv_pred = self.gan.discriminator(x + adoption)
         seg_pred = self.gan.target_model(x + adoption)
 
@@ -223,18 +221,16 @@ class CounterfactualGANTrainer:
 
         # Untargeted: encourage a segmentation different from y.
         gen_seg_loss = self.segmentation_loss(seg_pred, y)
-        gen_adp_loss = torch.mean(adoption ** 2)
 
         gen_loss = (
                 self.lambda_adv * gen_adv_loss +
-                self.lambda_seg * gen_seg_loss +
-                self.lambda_perturbation * gen_adp_loss
+                self.lambda_seg * gen_seg_loss
         )
 
         gen_loss.backward()
         self.generator_optimizer.step()
 
-        return adv_loss.item(), gen_loss.item(), gen_adv_loss.item(), gen_seg_loss.item(), gen_adp_loss.item()
+        return adv_loss.item(), gen_loss.item(), gen_adv_loss.item(), gen_seg_loss.item()
 
     @torch.no_grad()
     def eval_step(self, x: torch.Tensor, y: torch.Tensor):
@@ -284,11 +280,10 @@ class CounterfactualGANTrainer:
 
         gen_loss = (
                 self.lambda_adv * gen_adv_loss +
-                self.lambda_seg * gen_seg_loss +
-                self.lambda_perturbation * gen_adp_loss
+                self.lambda_seg * gen_seg_loss
         )
 
-        return adv_loss.item(), gen_loss.item(), gen_adv_loss.item(), gen_seg_loss.item(), gen_adp_loss.item(), adv_acc.item()
+        return adv_loss.item(), gen_loss.item(), gen_adv_loss.item(), gen_seg_loss.item(), adv_acc.item()
 
     def train(
             self,
@@ -321,14 +316,13 @@ class CounterfactualGANTrainer:
             # training
             self.gan.train()
             self.gan.target_model.eval()
-            adv_loss_lst, gen_loss_lst, gen_adv_loss_lst, gen_seg_loss_lst, gen_apt_loss_lst = [], [], [], [], []
+            adv_loss_lst, gen_loss_lst, gen_adv_loss_lst, gen_seg_loss_lst = [], [], [], []
             for x, y in tqdm(self.train_dataloader, desc=f"training epoch {e}"):
-                adv_loss, gen_loss, gen_adv_loss, gen_seg_loss, gen_apt_loss = self.train_step(x, y)
+                adv_loss, gen_loss, gen_adv_loss, gen_seg_loss = self.train_step(x, y)
                 adv_loss_lst.append(adv_loss)
                 gen_loss_lst.append(gen_loss)
                 gen_adv_loss_lst.append(gen_adv_loss)
                 gen_seg_loss_lst.append(gen_seg_loss)
-                gen_apt_loss_lst.append(gen_apt_loss)
 
             self.writer.add_scalar('train/adv_loss', sum(adv_loss_lst) / len(adv_loss_lst), e)
             self.writer.add_scalar('train/gen_loss', sum(gen_loss_lst) / len(gen_loss_lst), e)
@@ -336,20 +330,16 @@ class CounterfactualGANTrainer:
                                    sum(gen_adv_loss_lst) / len(gen_adv_loss_lst), e)
             self.writer.add_scalar('train/gen_segmentation_loss',
                                    sum(gen_seg_loss_lst) / len(gen_seg_loss_lst), e)
-            self.writer.add_scalar('train/gen_adaption_loss',
-                                   sum(gen_apt_loss_lst) / len(gen_apt_loss_lst), e)
 
             # validation
             self.gan.eval()
-            adv_loss_lst, adv_acc_lst, gen_loss_lst, gen_adv_loss_lst, gen_seg_loss_lst, gen_apt_loss_lst = [], [], [], [], [], []
+            adv_loss_lst, adv_acc_lst, gen_loss_lst, gen_adv_loss_lst, gen_seg_loss_lst = [], [], [], [], []
             for x, y in tqdm(self.test_dataloader, desc=f"testing epoch {e}"):
-                adv_loss, gen_loss, gen_adv_loss, gen_seg_loss, gen_apt_loss, adv_acc = self.eval_step(
-                    x, y)
+                adv_loss, gen_loss, gen_adv_loss, gen_seg_loss, adv_acc = self.eval_step(x, y)
                 adv_loss_lst.append(adv_loss)
                 gen_loss_lst.append(gen_loss)
                 gen_adv_loss_lst.append(gen_adv_loss)
                 gen_seg_loss_lst.append(gen_seg_loss)
-                gen_apt_loss_lst.append(gen_apt_loss)
                 adv_acc_lst.append(adv_acc)
 
             self.writer.add_scalar('eval/adv_loss', sum(adv_loss_lst) / len(adv_loss_lst), e)
@@ -358,8 +348,6 @@ class CounterfactualGANTrainer:
                                    sum(gen_adv_loss_lst) / len(gen_adv_loss_lst), e)
             self.writer.add_scalar('eval/gen_segmentation_loss',
                                    sum(gen_seg_loss_lst) / len(gen_seg_loss_lst), e)
-            self.writer.add_scalar('eval/gen_adaption_loss',
-                                   sum(gen_apt_loss_lst) / len(gen_apt_loss_lst), e)
             self.writer.add_scalar('eval/adv_acc', sum(adv_acc_lst) / len(adv_acc_lst), e)
 
             self._log_counterfactual_examples(

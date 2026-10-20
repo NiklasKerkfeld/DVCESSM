@@ -27,6 +27,6 @@ class CounterfactualGAN(nn.Module):
 
         pred = self.target_model(x)
         loss = self.seg_loss(pred, y)
-        grad_prior = torch.autograd.grad(loss, [x])[0]
+        grad_prior = torch.autograd.grad(loss, [x])[0].detach()
 
         return self.generator(x, grad_prior, scalar)
