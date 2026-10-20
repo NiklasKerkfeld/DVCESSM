@@ -144,7 +144,7 @@ class CounterfactualGANTrainer:
     ):
         x = x.to(self.device)
         y = y.to(self.device).long()
-        scalar = torch.arange(1, len(y) + 1, device=y.device) * (self.gan.max_adoption / len(y))
+        scalar = torch.arange(1, len(y) + 1, device=y.device).unsqueeze(-1) * (self.gan.max_adoption / len(y))
 
         self.gan.eval()
 
