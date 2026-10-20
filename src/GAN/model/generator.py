@@ -1,7 +1,8 @@
+import math
+
 import torch
 from torch import nn
 import torch.nn.functional as F
-
 
 def suitable_group_count(channels: int, maximum: int = 8) -> int:
     """Find a GroupNorm group count that divides channels."""
@@ -45,43 +46,28 @@ class ConvBlock(nn.Module):
         return self.block(x)
 
 
-class GradientPriorInjection(nn.Module):
-    """
-    Projects the target-model gradient to the number of feature channels
-    and adds it to a feature map.
-    """
-
-    def __init__(
-        self,
-        gradient_channels: int,
-        feature_channels: int,
-    ):
+class PriorModel(nn.Module):
+    def __init__(self, in_dims: int, out_dims: int):
         super().__init__()
+        self.in_dims = in_dims
+        self.out_dims = out_dims
 
-        self.projection = nn.Conv2d(
-            gradient_channels,
-            feature_channels,
-            kernel_size=1,
-            bias=False,
+        self.mlp = nn.Sequential(
+            nn.Linear(in_dims, in_dims * 2),
+            nn.ReLU(),
+            nn.Linear(in_dims * 2, in_dims * 4),
+            nn.ReLU(),
+            nn.Linear(in_dims * 4, out_dims * 2),
+            nn.ReLU()
         )
 
-    def forward(
-        self,
-        features: torch.Tensor,
-        gradient: torch.Tensor,
-    ) -> torch.Tensor:
-        resized_gradient = F.interpolate(
-            gradient,
-            size=features.shape[-2:],
-            mode="bilinear",
-            align_corners=False,
-        )
-
-        return features + self.projection(resized_gradient)
+    def forward(self, embedding: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        adoption = self.mlp(embedding)
+        return adoption[:, :self.out_dims, None, None], adoption[:, self.out_dims:, None, None]
 
 
 class DownBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int):
+    def __init__(self, in_channels: int, out_channels: int, prior_dim: int):
         super().__init__()
 
         self.downsample = nn.Conv2d(
@@ -92,9 +78,12 @@ class DownBlock(nn.Module):
             padding=1,
         )
         self.convolution = ConvBlock(out_channels, out_channels)
+        self.prior_mlp = PriorModel(prior_dim, out_channels)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, prior: torch.Tensor) -> torch.Tensor:
         x = self.downsample(x)
+        scale, shift = self.prior_mlp(prior)
+        x = x * scale + shift
         return self.convolution(x)
 
 
@@ -207,187 +196,60 @@ class SpatialAttentionBlock(nn.Module):
         )
 
 
+
 class Generator(nn.Module):
-    """
-    U-Net generator for counterfactual image adoption.
+    def __init__(self, in_channels: int, level: int=6):
+        super(Generator, self).__init__()
+        self.conv1 = ConvBlock(in_channels * 2, out_channels=64)
 
-    Arguments:
-        image:
-            Input image with shape [B, C, H, W].
+        self.down1 = DownBlock(64, 128, level)
+        self.down2 = DownBlock(128, 256, level)
+        self.down3 = DownBlock(256, 512, level)
+        self.down4 = DownBlock(512, 1028, level)
 
-        gradient_prior:
-            Gradient from the target model with shape [B, C, H, W].
+        self.up1 = UpBlock(1028, 512)
+        self.up2 = UpBlock(512, 256)
+        self.up3 = UpBlock(256, 128)
+        self.up4 = UpBlock(128, 64)
 
-    Returns:
-        Adoption with shape [B, C, H, W].
-    """
+        self.conv2 = ConvBlock(64 + in_channels, in_channels)
+        self.powers = nn.Parameter(torch.arange(1, level + 1), requires_grad=False)
 
-    def __init__(
-        self,
-        image_channels: int,
-        channels: tuple[int, ...] = (64, 128, 256, 512),
-        attention_heads: int = 8,
-        attention_layers: int = 2,
-        max_adoption: float | None = None,
-    ):
-        super().__init__()
 
-        if len(channels) < 2:
-            raise ValueError("At least two U-Net channel levels are required.")
+    def forward(self, image: torch.Tensor, prior: torch.Tensor, scalar: torch.Tensor) -> torch.Tensor:
+        embedding = scalar ** self.powers
 
-        self.max_adoption = max_adoption
+        x = torch.cat([image, prior], dim=1)
+        h1 = self.conv1(x)
+        h2 = self.down1(h1, embedding)
+        h3 = self.down2(h2, embedding)
+        h4 = self.down3(h3, embedding)
+        h5 = self.down4(h4, embedding)
 
-        # Initial image features.
-        self.input_block = ConvBlock(
-            image_channels,
-            channels[0],
-        )
+        up1 = self.up1(h5, h4)
+        up2 = self.up2(up1, h3)
+        up3 = self.up3(up2, h2)
+        up4 = self.up4(up3, h1)
 
-        # Gradient injection at each encoder level, including bottleneck.
-        self.encoder_gradient_injections = nn.ModuleList([
-            GradientPriorInjection(image_channels, feature_channels)
-            for feature_channels in channels
-        ])
+        x = torch.cat([up4, prior], dim=1)
+        x = self.conv2(x)
 
-        self.down_blocks = nn.ModuleList([
-            DownBlock(channels[index], channels[index + 1])
-            for index in range(len(channels) - 1)
-        ])
+        x = F.normalize(x, p=2.0, dim=(1, 2, 3))
 
-        self.attention_blocks = nn.Sequential(*[
-            SpatialAttentionBlock(
-                channels=channels[-1],
-                number_of_heads=attention_heads,
-            )
-            for _ in range(attention_layers)
-        ])
+        return x * scalar[:, :, None, None]
 
-        reversed_skip_channels = list(reversed(channels[:-1]))
-
-        self.up_blocks = nn.ModuleList()
-        self.decoder_gradient_injections = nn.ModuleList()
-
-        current_channels = channels[-1]
-
-        for skip_channels in reversed_skip_channels:
-            self.up_blocks.append(
-                UpBlock(
-                    in_channels=current_channels,
-                    skip_channels=skip_channels,
-                )
-            )
-            self.decoder_gradient_injections.append(
-                GradientPriorInjection(
-                    gradient_channels=image_channels,
-                    feature_channels=skip_channels,
-                )
-            )
-            current_channels = skip_channels
-
-        self.output = nn.Conv2d(
-            channels[0],
-            image_channels,
-            kernel_size=1,
-        )
-
-        self.apply(self._initialize_weights)
-
-        # Exact zero adoption at initialization.
-        nn.init.zeros_(self.output.weight)
-        nn.init.zeros_(self.output.bias)
-
-    @staticmethod
-    def _initialize_weights(module: nn.Module) -> None:
-        if isinstance(module, nn.Conv2d):
-            nn.init.kaiming_normal_(
-                module.weight,
-                nonlinearity="relu",
-            )
-
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-
-        elif isinstance(module, nn.Linear):
-            nn.init.xavier_uniform_(module.weight)
-
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-
-        elif isinstance(module, (nn.GroupNorm, nn.LayerNorm)):
-            if module.weight is not None:
-                nn.init.ones_(module.weight)
-
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-
-    @staticmethod
-    def _normalize_gradient(
-        gradient: torch.Tensor,
-    ) -> torch.Tensor:
-        # Normalize independently for each item in the batch.
-        rms = gradient.square().mean(
-            dim=(1, 2, 3),
-            keepdim=True,
-        ).sqrt()
-
-        return gradient / rms.clamp_min(1e-6)
-
-    def forward(
-        self,
-        image: torch.Tensor,
-        gradient_prior: torch.Tensor,
-    ) -> torch.Tensor:
-        if image.shape != gradient_prior.shape:
-            raise ValueError(
-                "image and gradient_prior must have the same shape, "
-                f"but received {image.shape} and {gradient_prior.shape}."
-            )
-
-        # Usually second-order gradients through the target model are
-        # unnecessary, so treat the gradient as a fixed prior.
-        gradient_prior = gradient_prior.detach()
-        gradient_prior = self._normalize_gradient(gradient_prior)
-
-        features = self.input_block(image)
-        features = self.encoder_gradient_injections[0](
-            features,
-            gradient_prior,
-        )
-
-        skip_connections = []
-
-        for index, down_block in enumerate(self.down_blocks):
-            skip_connections.append(features)
-
-            features = down_block(features)
-            features = self.encoder_gradient_injections[index + 1](
-                features,
-                gradient_prior,
-            )
-
-        features = self.attention_blocks(features)
-
-        for up_block, injection, skip in zip(
-            self.up_blocks,
-            self.decoder_gradient_injections,
-            reversed(skip_connections),
-        ):
-            features = up_block(features, skip)
-            features = injection(features, gradient_prior)
-
-        adoption = self.output(features)
-
-        if self.max_adoption is not None:
-            adoption = self.max_adoption * torch.tanh(adoption)
-
-        return adoption
 
 if __name__ == "__main__":
-    generator = Generator(image_channels=3)
+    in_channels = 3
+    generator = Generator(in_channels)
 
-    image = torch.randn(1, 3, 32, 32)
-    prior = torch.randn(1, 3, 32, 32)
+    image = torch.randn(2, in_channels, 64, 64)
+    prior = torch.randn(2, in_channels, 64, 64)
+    scalar = torch.rand(2, 1) * 1000
+    print(scalar)
 
-    adopt = generator(image, prior)
-    print(adopt.shape)
-    print(adopt.min(), adopt.max())
+    adoption = generator(image, prior, scalar)
+    print(adoption.shape)
+    print(torch.norm(adoption, p=2.0, dim=(1, 2, 3)))
+
+

@@ -146,13 +146,14 @@ class CounterfactualGANTrainer:
     ):
         x = x.to(self.device)
         y = y.to(self.device).long()
+        scalar = torch.arange(1, len(y) + 1, device=y.device) * (1000 / len(y))
 
         self.gan.eval()
 
         # This must run with gradients because the GAN computes its
         # gradient prior from the target model.
         with torch.enable_grad():
-            adoption = self.gan(x, y)
+            adoption = self.gan(x, y, scalar)
 
         counterfactual = (x + adoption).detach()
 
@@ -174,9 +175,10 @@ class CounterfactualGANTrainer:
     def train_step(self, x: torch.Tensor, y: torch.Tensor):
         x = x.to(self.device)
         y = y.to(self.device).long()
+        scalar = torch.rand((len(y), 1), device=y.device) * 1000
 
         # Generate the adoption for the discriminator step.
-        adoption = self.gan(x, y)
+        adoption = self.gan(x, y, scalar)
 
         # ---------------------------------------------------------
         # Train discriminator

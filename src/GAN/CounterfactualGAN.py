@@ -1,4 +1,5 @@
 import torch
+from pyarrow.scalar import scalar
 from torch import nn
 
 
@@ -19,11 +20,11 @@ class CounterfactualGAN(nn.Module):
         for parameter in self.target_model.parameters():
             parameter.requires_grad_(False)
 
-    def forward(self, x: torch.Tensor, y: torch.Tensor):
+    def forward(self, x: torch.Tensor, y: torch.Tensor, scalar: torch.Tensor) -> torch.Tensor:
         x = x.detach().requires_grad_(True)
 
         pred = self.target_model(x)
         loss = self.seg_loss(pred, y)
         grad_prior = torch.autograd.grad(loss, [x])[0]
 
-        return self.generator(x, grad_prior)
+        return self.generator(x, grad_prior, scalar)
