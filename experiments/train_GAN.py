@@ -68,6 +68,8 @@ def main(cfg: DictConfig):
     trainer = CounterfactualGANTrainer(gan=gan,
                                        train_dataset=train_dataset,
                                        test_dataset=test_dataset,
+                                       lambda_adv = cfg.gan.lambda_adv,
+                                       lambda_seg = cfg.gan.lambda_seg,
                                        batch_size=cfg.data.batch_size,
                                        num_workers=cfg.data.num_workers,
                                        device=device,

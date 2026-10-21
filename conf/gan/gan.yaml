@@ -3,6 +3,8 @@ target_model: ???
 name: null
 epochs: 50
 lr: 1e-4
+lambda_adv: 1.0
+lambda_seg: 10.0
 scalar_dim: 6
 nums_features: [128, 256, 512, 1024, 2048]
 use_target: False
