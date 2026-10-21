@@ -5,6 +5,7 @@ defaults:
   - engine: linear
   - generation: diffusion
   - diffusion: diffusion
+  - gan: gan
   - _self_
 
 system:
