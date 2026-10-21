@@ -1,3 +1,5 @@
+import os
+
 import torch
 from torch import nn
 from torch.optim import AdamW
@@ -21,13 +23,17 @@ class CounterfactualGANTrainer:
             num_workers: int = 4,
             device: torch.device = torch.device("cpu"),
             log_dir: str = "./runs/GAN",
+            checkpoint_path: str = './checkpoints/GAN',
             name: str = "GAN",
     ):
+        self.checkpoint = checkpoint_path
         self.lambda_adv = lambda_adv
         self.lambda_seg = lambda_seg
         self.device = device
         self.log_dir = log_dir
         self.name = name
+
+        self.epoch = 0
 
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
@@ -70,6 +76,38 @@ class CounterfactualGANTrainer:
             parameter.requires_grad_(False)
 
         self.writer = SummaryWriter(f'{self.log_dir}/{self.name}')
+
+    def save_checkpoint(self) -> None:
+        """Saves current state in checkpoint."""
+        os.makedirs(self.checkpoint, exist_ok=True)
+        checkpoint = {
+            'epoch': self.epoch,
+            'model_state_dict': self.gan.state_dict(),
+            'generator_optimizer_state_dict': self.generator_optimizer.state_dict(),
+            'discriminator_optimizer_state_dict': self.discriminator_optimizer.state_dict(),
+            'rng_state': torch.get_rng_state(),
+            'cuda_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
+        }
+        torch.save(checkpoint, f'{self.checkpoint}/{self.name}.pt')
+
+    def load_checkpoint(self, checkpoint_path: str) -> None:
+        """
+        Loads given checkpoint.
+
+        Args:
+            checkpoint_path: path to checkpoint.
+        """
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+
+        self.epoch = checkpoint["epoch"]
+        self.gan.load_state_dict(checkpoint['model_state_dict'])
+        self.generator_optimizer.load_state_dict(checkpoint['generator_optimizer_state_dict'])
+        self.discriminator_optimizer.load_state_dict(checkpoint['discriminator_optimizer_state_dict'])
+
+        if 'rng_state' in checkpoint:
+            torch.set_rng_state(checkpoint['rng_state'].cpu())
+        if 'cuda_rng_state' in checkpoint and torch.cuda.is_available():
+            torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
     @staticmethod
     def _colorize_masks(masks: torch.Tensor) -> torch.Tensor:
@@ -139,8 +177,7 @@ class CounterfactualGANTrainer:
     def _log_counterfactual_examples(
             self,
             x: torch.Tensor,
-            y: torch.Tensor,
-            step: int,
+            y: torch.Tensor
     ):
         x = x.to(self.device)
         y = y.to(self.device).long()
@@ -162,12 +199,12 @@ class CounterfactualGANTrainer:
         self.writer.add_images(
             "examples/counterfactual",
             self.train_dataset.denormalize(counterfactual).cpu() / 256,
-            step,
+            self.epoch,
         )
         self.writer.add_images(
             "examples/counterfactual_prediction",
             self._colorize_masks(segmentation_prediction).cpu(),
-            step,
+            self.epoch,
         )
 
     def train_step(self, x: torch.Tensor, y: torch.Tensor):
@@ -312,29 +349,30 @@ class CounterfactualGANTrainer:
             0,
         )
 
-        for e in trange(epochs):
+        for self.epoch in trange(1, epochs + 1):
             # training
             self.gan.train()
             self.gan.target_model.eval()
             adv_loss_lst, gen_loss_lst, gen_adv_loss_lst, gen_seg_loss_lst = [], [], [], []
-            for x, y in tqdm(self.train_dataloader, desc=f"training epoch {e}"):
+            for x, y in tqdm(self.train_dataloader, desc=f"training epoch {self.epoch}"):
                 adv_loss, gen_loss, gen_adv_loss, gen_seg_loss = self.train_step(x, y)
                 adv_loss_lst.append(adv_loss)
                 gen_loss_lst.append(gen_loss)
                 gen_adv_loss_lst.append(gen_adv_loss)
                 gen_seg_loss_lst.append(gen_seg_loss)
 
-            self.writer.add_scalar('train/adv_loss', sum(adv_loss_lst) / len(adv_loss_lst), e)
-            self.writer.add_scalar('train/gen_loss', sum(gen_loss_lst) / len(gen_loss_lst), e)
+            self.save_checkpoint()
+            self.writer.add_scalar('train/adv_loss', sum(adv_loss_lst) / len(adv_loss_lst), self.epoch)
+            self.writer.add_scalar('train/gen_loss', sum(gen_loss_lst) / len(gen_loss_lst), self.epoch)
             self.writer.add_scalar('train/gen_adverarial_loss',
-                                   sum(gen_adv_loss_lst) / len(gen_adv_loss_lst), e)
+                                   sum(gen_adv_loss_lst) / len(gen_adv_loss_lst), self.epoch)
             self.writer.add_scalar('train/gen_segmentation_loss',
-                                   sum(gen_seg_loss_lst) / len(gen_seg_loss_lst), e)
+                                   sum(gen_seg_loss_lst) / len(gen_seg_loss_lst), self.epoch)
 
             # validation
             self.gan.eval()
             adv_loss_lst, adv_acc_lst, gen_loss_lst, gen_adv_loss_lst, gen_seg_loss_lst = [], [], [], [], []
-            for x, y in tqdm(self.test_dataloader, desc=f"testing epoch {e}"):
+            for x, y in tqdm(self.test_dataloader, desc=f"testing epoch {self.epoch}"):
                 adv_loss, gen_loss, gen_adv_loss, gen_seg_loss, adv_acc = self.eval_step(x, y)
                 adv_loss_lst.append(adv_loss)
                 gen_loss_lst.append(gen_loss)
@@ -342,17 +380,16 @@ class CounterfactualGANTrainer:
                 gen_seg_loss_lst.append(gen_seg_loss)
                 adv_acc_lst.append(adv_acc)
 
-            self.writer.add_scalar('eval/adv_loss', sum(adv_loss_lst) / len(adv_loss_lst), e)
-            self.writer.add_scalar('eval/gen_loss', sum(gen_loss_lst) / len(gen_loss_lst), e)
+            self.writer.add_scalar('eval/adv_loss', sum(adv_loss_lst) / len(adv_loss_lst), self.epoch)
+            self.writer.add_scalar('eval/gen_loss', sum(gen_loss_lst) / len(gen_loss_lst), self.epoch)
             self.writer.add_scalar('eval/gen_adverarial_loss',
-                                   sum(gen_adv_loss_lst) / len(gen_adv_loss_lst), e)
+                                   sum(gen_adv_loss_lst) / len(gen_adv_loss_lst), self.epoch)
             self.writer.add_scalar('eval/gen_segmentation_loss',
-                                   sum(gen_seg_loss_lst) / len(gen_seg_loss_lst), e)
-            self.writer.add_scalar('eval/adv_acc', sum(adv_acc_lst) / len(adv_acc_lst), e)
+                                   sum(gen_seg_loss_lst) / len(gen_seg_loss_lst), self.epoch)
+            self.writer.add_scalar('eval/adv_acc', sum(adv_acc_lst) / len(adv_acc_lst), self.epoch)
 
             self._log_counterfactual_examples(
                 example_x,
                 example_y,
-                step=e + 1,
             )
             self.writer.flush()
