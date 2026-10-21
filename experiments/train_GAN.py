@@ -60,7 +60,11 @@ def main(cfg: DictConfig):
     )
     target_model.load_state_dict(checkpoint['model_state_dict'])
 
-    generator = Generator(in_channels=3, level=cfg.gan.scalar_dim)
+    generator = Generator(in_channels=3,
+                          use_target=cfg.gan.use_target,
+                          use_prediction=cfg.gan.use_prediction,
+                          num_classes=cfg.data.n_classes,
+                          level=cfg.gan.scalar_dim)
     adversarial = Adversarial(image_channels=3)
     gan = CounterfactualGAN(generator, adversarial, target_model,
                             use_target=cfg.gan.use_target,
@@ -70,8 +74,8 @@ def main(cfg: DictConfig):
     trainer = CounterfactualGANTrainer(gan=gan,
                                        train_dataset=train_dataset,
                                        test_dataset=test_dataset,
-                                       lambda_adv = cfg.gan.lambda_adv,
-                                       lambda_seg = cfg.gan.lambda_seg,
+                                       lambda_adv=cfg.gan.lambda_adv,
+                                       lambda_seg=cfg.gan.lambda_seg,
                                        batch_size=cfg.data.batch_size,
                                        num_workers=cfg.data.num_workers,
                                        device=device,
