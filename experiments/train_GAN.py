@@ -19,8 +19,8 @@ def main(cfg: DictConfig):
 
     # Setup Logging & Run Number
     log_dir = f'{cfg.system.log_dir}/GAN/'
-    if cfg.diffusion.name is not None:
-        run_name = cfg.diffusion.name
+    if cfg.gan.name is not None:
+        run_name = cfg.gan.name
     else:
         nr = len(glob.glob(f"{log_dir}/*"))
         run_name = f"{nr}_GAN"
@@ -60,7 +60,7 @@ def main(cfg: DictConfig):
     )
     target_model.load_state_dict(checkpoint['model_state_dict'])
 
-    generator = Generator(in_channels=3, level=6)
+    generator = Generator(in_channels=3, level=cfg.gan.scalar_dim)
     adversarial = Adversarial(image_channels=3)
     gan = CounterfactualGAN(generator, adversarial, target_model)
 
@@ -73,7 +73,7 @@ def main(cfg: DictConfig):
                                        log_dir=log_dir,
                                        name=run_name)
 
-    trainer.train(epochs=50)
+    trainer.train(epochs=cfg.gan.epochs)
 
 
 if __name__ == '__main__':

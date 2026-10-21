@@ -1,5 +1,3 @@
-import math
-
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -204,10 +202,16 @@ class Generator(nn.Module):
 
         self.down1 = DownBlock(64, 128, level)
         self.down2 = DownBlock(128, 256, level)
-        self.down3 = DownBlock(256, 512, level)
-        self.down4 = DownBlock(512, 1028, level)
 
-        self.up1 = UpBlock(1028, 512)
+        self.down3 = DownBlock(256, 512, level)
+        self.down_attention_3 = SpatialAttentionBlock(512, number_of_heads=8)
+
+        self.down4 = DownBlock(512, 1024, level)
+        self.down_attention_4 = SpatialAttentionBlock(1024, number_of_heads=8)
+
+        self.up1 = UpBlock(1024, 512)
+        self.up_attention_1 = SpatialAttentionBlock(512, number_of_heads=8)
+
         self.up2 = UpBlock(512, 256)
         self.up3 = UpBlock(256, 128)
         self.up4 = UpBlock(128, 64)
@@ -224,9 +228,13 @@ class Generator(nn.Module):
         h2 = self.down1(h1, embedding)
         h3 = self.down2(h2, embedding)
         h4 = self.down3(h3, embedding)
+        h4 = self.down_attention_3(h4)
+
         h5 = self.down4(h4, embedding)
+        h5 = self.down_attention_4(h5)
 
         up1 = self.up1(h5, h4)
+        up1 = self.up_attention_1(up1)
         up2 = self.up2(up1, h3)
         up3 = self.up3(up2, h2)
         up4 = self.up4(up3, h1)
@@ -245,7 +253,7 @@ if __name__ == "__main__":
 
     image = torch.randn(2, in_channels, 64, 64)
     prior = torch.randn(2, in_channels, 64, 64)
-    scalar = torch.rand(2, 1) * 1000
+    scalar = torch.rand(2, 1) * 100
     print(scalar)
 
     adoption = generator(image, prior, scalar)

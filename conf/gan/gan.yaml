@@ -1,0 +1,8 @@
+checkpoint_path: "./checkpoints/GAN"
+name: null
+epochs: 50
+lr: 1e-4
+scalar_dim: 6
+nums_features: [128, 256, 512, 1024, 2048]
+use_target: False
+max_adoption: 100
