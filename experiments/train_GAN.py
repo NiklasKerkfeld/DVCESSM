@@ -55,7 +55,7 @@ def main(cfg: DictConfig):
     )
 
     checkpoint = torch.load(
-        f"{cfg.segmentation.checkpoint_path}/{cfg.generation.model}.pt",
+        f"{cfg.segmentation.checkpoint_path}/{cfg.gan.target_model}.pt",
         map_location=device
     )
     target_model.load_state_dict(checkpoint['model_state_dict'])
