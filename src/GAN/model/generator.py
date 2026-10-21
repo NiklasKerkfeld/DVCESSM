@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -75,6 +77,7 @@ class DownBlock(nn.Module):
             stride=2,
             padding=1,
         )
+        self.relu = nn.ReLU()
         self.convolution = ConvBlock(out_channels, out_channels)
         self.prior_mlp = PriorModel(prior_dim, out_channels)
 
@@ -82,11 +85,35 @@ class DownBlock(nn.Module):
         x = self.downsample(x)
         scale, shift = self.prior_mlp(prior)
         x = x * scale + shift
+        x = self.relu(x)
         return self.convolution(x)
 
 
+class Head(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, prior_dim: int):
+        super().__init__()
+
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+        )
+        self.relu = nn.ReLU()
+        self.conv2 = ConvBlock(out_channels, out_channels)
+        self.prior_mlp = PriorModel(prior_dim, out_channels)
+
+    def forward(self, x: torch.Tensor, prior: torch.Tensor) -> torch.Tensor:
+        x = self.conv1(x)
+        scale, shift = self.prior_mlp(prior)
+        x = x * scale + shift
+        x = self.relu(x)
+        return self.conv2(x)
+
+
 class UpBlock(nn.Module):
-    def __init__(self, in_channels: int, skip_channels: int):
+    def __init__(self, in_channels: int, skip_channels: int, prior_dim: int):
         super().__init__()
 
         self.channel_projection = nn.Conv2d(
@@ -94,16 +121,20 @@ class UpBlock(nn.Module):
             skip_channels,
             kernel_size=1,
         )
+        self.relu = nn.ReLU()
 
         self.convolution = ConvBlock(
             skip_channels * 2,
             skip_channels,
         )
 
+        self.prior_mlp = PriorModel(prior_dim, skip_channels)
+
     def forward(
         self,
         x: torch.Tensor,
         skip: torch.Tensor,
+        prior: torch.Tensor
     ) -> torch.Tensor:
         # Using the skip size also supports images with odd dimensions.
         x = F.interpolate(
@@ -114,6 +145,9 @@ class UpBlock(nn.Module):
         )
 
         x = self.channel_projection(x)
+        scale, shift = self.prior_mlp(prior)
+        x = x * scale + shift
+        x = self.relu(x)
         x = torch.cat([x, skip], dim=1)
 
         return self.convolution(x)
@@ -196,9 +230,19 @@ class SpatialAttentionBlock(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, in_channels: int, level: int=6):
+    def __init__(self,
+                 in_channels: int,
+                 use_target: bool = False,
+                 use_prediction: bool = False,
+                 num_classes: int = 2,
+                 level: int=6):
         super(Generator, self).__init__()
-        self.conv1 = ConvBlock(in_channels * 2, out_channels=64)
+        self.use_target = use_target
+        self.use_prediciton = use_prediction
+        self.num_classes = num_classes
+
+        prior_channel = num_classes * use_target + num_classes * use_prediction
+        self.conv1 = ConvBlock(prior_channel + in_channels * 2, out_channels=64)
 
         self.down1 = DownBlock(64, 128, level)
         self.down2 = DownBlock(128, 256, level)
@@ -209,39 +253,56 @@ class Generator(nn.Module):
         self.down4 = DownBlock(512, 1024, level)
         self.down_attention_4 = SpatialAttentionBlock(1024, number_of_heads=8)
 
-        self.up1 = UpBlock(1024, 512)
+        self.up1 = UpBlock(1024, 512, prior_dim=level)
         self.up_attention_1 = SpatialAttentionBlock(512, number_of_heads=8)
 
-        self.up2 = UpBlock(512, 256)
-        self.up3 = UpBlock(256, 128)
-        self.up4 = UpBlock(128, 64)
+        self.up2 = UpBlock(512, 256, prior_dim=level)
+        self.up3 = UpBlock(256, 128, prior_dim=level)
+        self.up4 = UpBlock(128, 64, prior_dim=level)
 
-        self.conv2 = ConvBlock(64 + in_channels, in_channels)
+        self.head = Head(64 + prior_channel + in_channels * 2, in_channels, prior_dim=level)
         self.powers = nn.Parameter(torch.arange(1, level + 1), requires_grad=False)
 
 
-    def forward(self, image: torch.Tensor, prior: torch.Tensor, scalar: torch.Tensor) -> torch.Tensor:
+    def forward(self,
+                image: torch.Tensor,
+                gradient: torch.Tensor,
+                scalar: torch.Tensor,
+                target: Optional[torch.Tensor] = None,
+                prediction: Optional[torch.Tensor] = None
+                ) -> torch.Tensor:
         embedding = scalar ** self.powers
+        batch_size, channel, height, width = image.shape
 
-        x = torch.cat([image, prior], dim=1)
+        x = torch.cat([image, gradient], dim=1)
+
+        if target is not None:
+            t1 = F.one_hot(target, num_classes=self.num_classes).reshape(-1, self.num_classes, height, width)
+            x = torch.cat([x, t1], dim=1)
+
+        if prediction is not None:
+            p1 = F.one_hot(prediction, num_classes=self.num_classes).reshape(-1, self.num_classes, height, width)
+            x = torch.cat([x, p1], dim=1)
+
         h1 = self.conv1(x)
         h2 = self.down1(h1, embedding)
         h3 = self.down2(h2, embedding)
+
         h4 = self.down3(h3, embedding)
         h4 = self.down_attention_3(h4)
 
         h5 = self.down4(h4, embedding)
         h5 = self.down_attention_4(h5)
 
-        up1 = self.up1(h5, h4)
+        up1 = self.up1(h5, h4, embedding)
         up1 = self.up_attention_1(up1)
-        up2 = self.up2(up1, h3)
-        up3 = self.up3(up2, h2)
-        up4 = self.up4(up3, h1)
+        up2 = self.up2(up1, h3, embedding)
+        up3 = self.up3(up2, h2, embedding)
+        up4 = self.up4(up3, h1, embedding)
 
-        x = torch.cat([up4, prior], dim=1)
-        x = self.conv2(x)
+        x = torch.cat([up4, x], dim=1)
 
+        x = self.head(x, embedding)
         x = F.normalize(x, p=2.0, dim=(1, 2, 3))
 
         return x * scalar[:, :, None, None]
@@ -249,14 +310,16 @@ class Generator(nn.Module):
 
 if __name__ == "__main__":
     in_channels = 3
-    generator = Generator(in_channels)
+    generator = Generator(in_channels, use_target=True, use_prediction=True, num_classes=19)
 
     image = torch.randn(2, in_channels, 64, 64)
     prior = torch.randn(2, in_channels, 64, 64)
+    target = torch.randint(0, 19, (2, 64, 64))
+    prediction = torch.randint(0, 19, (2, 64, 64))
     scalar = torch.rand(2, 1) * 100
     print(scalar)
 
-    adoption = generator(image, prior, scalar)
+    adoption = generator(image, prior, scalar, target, prediction)
     print(adoption.shape)
     print(torch.norm(adoption, p=2.0, dim=(1, 2, 3)))
 

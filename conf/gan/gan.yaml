@@ -8,4 +8,5 @@ lambda_seg: 10.0
 scalar_dim: 6
 nums_features: [128, 256, 512, 1024, 2048]
 use_target: False
+use_prediction: False
 max_adoption: 100
