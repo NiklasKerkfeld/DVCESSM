@@ -7,7 +7,7 @@ class CounterfactualGAN(nn.Module):
                  generator: nn.Module,
                  discriminator: nn.Module,
                  target_model: nn.Module,
-                 max_adoption: float = 1000.0):
+                 max_adoption: float = 100.0):
         super().__init__()
 
         self.max_adoption = max_adoption

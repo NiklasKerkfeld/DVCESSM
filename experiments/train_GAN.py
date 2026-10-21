@@ -62,7 +62,8 @@ def main(cfg: DictConfig):
 
     generator = Generator(in_channels=3, level=cfg.gan.scalar_dim)
     adversarial = Adversarial(image_channels=3)
-    gan = CounterfactualGAN(generator, adversarial, target_model)
+    gan = CounterfactualGAN(generator, adversarial, target_model,
+                            max_adoption=cfg.gan.max_adoption)
 
     trainer = CounterfactualGANTrainer(gan=gan,
                                        train_dataset=train_dataset,
