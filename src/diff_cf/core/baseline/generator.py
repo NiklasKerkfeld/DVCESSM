@@ -128,8 +128,8 @@ class BaselineGenerator(BaseGenerator):
                     grad = self._cone_projection(grad, grad_rob)
 
                 if self.smoothing.filter_gradients:
-                    mask = self._get_mask(grad_c).to(grad_c.dtype)
-                    grad_c = mask * grad_c
+                    mask = self._get_mask(grad).to(grad.dtype)
+                    grad = mask * grad
 
                 parameter.grad = grad + grad_reg
                 optimizer.step()
