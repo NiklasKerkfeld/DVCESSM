@@ -8,6 +8,7 @@ from torch import nn
 from torch.optim import AdamW
 from tqdm import trange
 
+from diffusion import GradSmoothingConfig
 from ..losses import BaseDistanceLoss, SegmentationLossConfig
 from ...utils.adapt_grad import AdaptGrad
 from ..base_generator import BaseGenerator
@@ -32,6 +33,7 @@ class BaselineGenerator(BaseGenerator):
                  alpha: float = 1.0,
                  beta: float = 1.0,
                  cone_projection_alpha: Optional[float] = None,
+                 smoothing_cfg: GradSmoothingConfig = GradSmoothingConfig(),
                  n_classes: int = 2,
                  log_dir: Optional[str] = None,
                  log_to_tensorboard: bool = False,
@@ -50,6 +52,7 @@ class BaselineGenerator(BaseGenerator):
             alpha: weight of adoption cost
             beta: weight of smoothness loss.
             cone_projection_alpha: alpha angle in radians for cone projection.
+            smoothing_cfg: configuration of gradient smoothing.
             n_classes: number of classes.
             log_dir: logging directory.
             log_to_tensorboard: activated tensorboard logging.
@@ -57,7 +60,7 @@ class BaselineGenerator(BaseGenerator):
             name: name of the process.
         """
         super().__init__(segmentation_model, segmentation_loss_config, distance_loss, z_bounds,
-                         robust_model, adapt_grad, cone_projection_alpha, n_classes,
+                         robust_model, adapt_grad, cone_projection_alpha, smoothing_cfg, n_classes,
                          log_dir, log_to_tensorboard, device, name)
         self.lr = lr
         self.steps = steps
@@ -124,6 +127,10 @@ class BaselineGenerator(BaseGenerator):
 
                     # use cone projection to combine gradients
                     grad = self._cone_projection(grad, grad_rob)
+
+                if self.smoothing.filter_gradients:
+                    mask = self._get_mask(grad_c).to(grad_c.dtype)
+                    grad_c = mask * grad_c
 
                 parameter.grad = grad + grad_reg
                 optimizer.step()

@@ -70,7 +70,7 @@ class CounterfactualGenerator(BaseGenerator):
         """
 
         super().__init__(segmentation_model, segmentation_loss_config, distance_loss, z_bounds,
-                         robust_model, adapt_grad, cone_projection_alpha, n_classes,
+                         robust_model, adapt_grad, cone_projection_alpha, smoothing_cfg, n_classes,
                          log_dir, log_to_tensorboard, device, name)
 
         if not 0.0 <= start_fraction <= 1.0:
@@ -89,13 +89,6 @@ class CounterfactualGenerator(BaseGenerator):
             raise ValueError("approximation_step_size must be at least 1")
         else:
             self.step_size = approximation_step_size
-
-        # smoothing
-        self.smoothing = smoothing_cfg
-        self.smoothing_step = 0
-        self.grad_c: Optional[torch.Tensor] = None
-        self.grad_d: Optional[torch.Tensor] = None
-        self.mask: Optional[torch.Tensor] = None
 
     @torch.no_grad()
     def _generate_counterfactual(self,
@@ -303,7 +296,6 @@ class CounterfactualGenerator(BaseGenerator):
         # only change very strong gradients ignore changes of grad_d there
         mask = torch.zeros_like(grad_c)
         if self.smoothing.filter_gradients:
-            # self._update_mask(grad_c)
             mask = self._get_mask(grad_c).to(grad_c.dtype)
 
             grad_c = mask * grad_c
@@ -318,26 +310,6 @@ class CounterfactualGenerator(BaseGenerator):
             'mask': mask.detach(),
             'logits': logits.detach()
         }
-
-    def _get_mask(self, grad: torch.Tensor) -> torch.Tensor:
-        saliency = grad.square().mean(dim=1, keepdim=True).sqrt()
-        flat = saliency.flatten(start_dim=1)
-
-        quantile = torch.quantile(
-            flat,
-            self.smoothing.percentile,
-            dim=1,
-            keepdim=True,
-        )
-        mean = flat.mean(dim=1, keepdim=True)
-        std = flat.std(dim=1, keepdim=True, unbiased=False)
-
-        threshold = torch.maximum(
-            quantile,
-            mean + std,
-        ).view(-1, 1, 1, 1)
-
-        return saliency > threshold
 
     def _apply_dynamic_smoothing(self, grad: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """

@@ -8,6 +8,7 @@ import torchvision.utils as vutils
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
+from diffusion import GradSmoothingConfig
 from .losses import SegmentationLossFactory, BaseDistanceLoss, SegmentationLossConfig
 from ..utils.adapt_grad import AdaptGrad
 from ..utils.utils import visualize_seg, scalar_product
@@ -27,6 +28,7 @@ class BaseGenerator:
                  robust_model: Optional[nn.Module] = None,
                  adapt_grad: Optional[AdaptGrad] = None,
                  cone_projection_alpha: Optional[float] = None,
+                 smoothing_cfg: GradSmoothingConfig = GradSmoothingConfig(),
                  n_classes: int = 2,
                  log_dir: Optional[str] = None,
                  log_to_tensorboard: bool = False,
@@ -40,6 +42,7 @@ class BaseGenerator:
             robust_model: robust segmentation model to improve gradients using cone projection.
             adapt_grad: Instance of AdaptGrad to improve segmentation gradients.
             cone_projection_alpha: alpha angle in radians for cone projection.
+            smoothing_cfg: configuration of gradient smoothing.
             n_classes: number of classes.
             log_dir: logging directory.
             log_to_tensorboard: activated tensorboard logging.
@@ -65,6 +68,13 @@ class BaseGenerator:
 
         self.adaptgrad = adapt_grad if adapt_grad else torch.nn.Identity()
         self.target_repetitions: int = adapt_grad.N if adapt_grad else 1
+
+        # smoothing
+        self.smoothing = smoothing_cfg
+        self.smoothing_step = 0
+        self.grad_c: Optional[torch.Tensor] = None
+        self.grad_d: Optional[torch.Tensor] = None
+        self.mask: Optional[torch.Tensor] = None
 
         # Initialize TensorBoard
         if self.log_to_tensorboard:
@@ -122,6 +132,26 @@ class BaseGenerator:
                                   0)
 
         return counterfactual.cpu(), adaptions.cpu(), pred_org, pred_cf
+
+    def _get_mask(self, grad: torch.Tensor) -> torch.Tensor:
+        saliency = grad.square().mean(dim=1, keepdim=True).sqrt()
+        flat = saliency.flatten(start_dim=1)
+
+        quantile = torch.quantile(
+            flat,
+            self.smoothing.percentile,
+            dim=1,
+            keepdim=True,
+        )
+        mean = flat.mean(dim=1, keepdim=True)
+        std = flat.std(dim=1, keepdim=True, unbiased=False)
+
+        threshold = torch.maximum(
+            quantile,
+            mean + std,
+        ).view(-1, 1, 1, 1)
+
+        return saliency > threshold
 
     def _generate_counterfactual(self, image: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """

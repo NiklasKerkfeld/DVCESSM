@@ -74,10 +74,10 @@ def main(cfg: DictConfig):
     # AdaptGrad
     adapt_grad = instantiate(cfg.generation.AdaptGrad, z_min=dataset.z_min, z_max=dataset.z_max)
 
-    if cfg.generation.type == 'Diffusion':
-        # Smoothing
-        smoothing_cfg = instantiate(cfg.generation.GradSmoothing)
+    # smoothing
+    smoothing_cfg = instantiate(cfg.generation.GradSmoothing)
 
+    if cfg.generation.type == 'Diffusion':
         # Init robust model if given
         robust_model = None
         if cfg.generation.robust is not None:
@@ -147,6 +147,7 @@ def main(cfg: DictConfig):
             alpha=cfg.generation.alpha,
             beta=cfg.generation.beta,
             cone_projection_alpha=cfg.generation.cone_projection_alpha,
+            smoothing_cfg=smoothing_cfg,
             n_classes=cfg.data.n_classes,
             log_dir=cfg.system.log_dir,
             log_to_tensorboard=True,

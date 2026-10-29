@@ -21,3 +21,13 @@ AdaptGrad:
   _target_: diff_cf.utils.adapt_grad.AdaptGrad
   N: 30
   c: 0.99
+
+GradSmoothing:
+  _target_: src.diff_cf.core.diffusion.generator.GradSmoothingConfig
+  spacial_gradient_smoothing: true
+  temporal_gradient_smoothing: true
+  filter_gradients: true
+  percentile: 0.8
+  distance_reduction: 0.75
+  alpha: 0.9
+  max_sigma: 2.5
