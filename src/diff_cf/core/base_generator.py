@@ -8,7 +8,7 @@ import torchvision.utils as vutils
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
-from diffusion import GradSmoothingConfig
+from .diffusion import GradSmoothingConfig
 from .losses import SegmentationLossFactory, BaseDistanceLoss, SegmentationLossConfig
 from ..utils.adapt_grad import AdaptGrad
 from ..utils.utils import visualize_seg, scalar_product
