@@ -8,10 +8,9 @@ from torch import nn
 from torch.optim import AdamW
 from tqdm import trange
 
-from ..diffusion import GradSmoothingConfig
+from ..base_generator import BaseGenerator, GradSmoothingConfig
 from ..losses import BaseDistanceLoss, SegmentationLossConfig
 from ...utils.adapt_grad import AdaptGrad
-from ..base_generator import BaseGenerator
 
 class BaselineGenerator(BaseGenerator):
     """

@@ -1,5 +1,6 @@
 """Abstract class for all generators."""
 import math
+from dataclasses import dataclass
 from typing import Tuple, Optional
 
 import torch
@@ -8,12 +9,22 @@ import torchvision.utils as vutils
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
-from .diffusion import GradSmoothingConfig
 from .losses import SegmentationLossFactory, BaseDistanceLoss, SegmentationLossConfig
 from ..utils.adapt_grad import AdaptGrad
 from ..utils.utils import visualize_seg, scalar_product
 from ..utils.metrics import calc_iou, calc_f1_score
 
+
+@dataclass(frozen=True)
+class GradSmoothingConfig:
+    """Configuration for dynamic gradient smoothing."""
+    spacial_gradient_smoothing: bool = False
+    temporal_gradient_smoothing: bool = False
+    filter_gradients: bool = False
+    percentile: float = 0.8
+    distance_reduction: float = 0.75
+    alpha: float = 0.99
+    max_sigma: float = 2.5
 
 class BaseGenerator:
     """

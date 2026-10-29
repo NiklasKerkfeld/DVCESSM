@@ -1,5 +1,4 @@
 """Diffusion based Counterfactual Generator."""
-from dataclasses import dataclass
 from typing import Tuple, Dict, Optional
 
 import torch
@@ -9,22 +8,10 @@ from torch import nn
 from tqdm import tqdm
 
 from .engine import Engine
-from ..base_generator import BaseGenerator
+from ..base_generator import BaseGenerator, GradSmoothingConfig
 from ..losses import BaseDistanceLoss, SegmentationLoss, SegmentationLossConfig
 from ...utils.adapt_grad import AdaptGrad
 from ...utils.utils import visualize_adaption
-
-
-@dataclass(frozen=True)
-class GradSmoothingConfig:
-    """Configuration for dynamic gradient smoothing."""
-    spacial_gradient_smoothing: bool = False
-    temporal_gradient_smoothing: bool = False
-    filter_gradients: bool = False
-    percentile: float = 0.8
-    distance_reduction: float = 0.75
-    alpha: float = 0.99
-    max_sigma: float = 2.5
 
 
 class CounterfactualGenerator(BaseGenerator):
