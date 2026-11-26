@@ -4,7 +4,7 @@
 import copy
 import math
 import os
-from typing import Optional, Literal
+from typing import Optional, Literal, cast
 
 import torch
 from torch import nn
@@ -71,7 +71,7 @@ class Trainer(BaseTrainer):
 
         self.model_params = list(self.model.parameters())
         self.ema_params = list(self.ema_model.parameters())
-        self.compiled_model = torch.compile(self.model)
+        self.compiled_model: nn.Module = cast(nn.Module, torch.compile(self.model))
 
         self.engine.to(self.device)
         self.step = 0
@@ -96,7 +96,9 @@ class Trainer(BaseTrainer):
 
         # Equivalent to:
         # ema = current_decay * ema + (1 - current_decay) * model
-        torch._foreach_lerp_(self.ema_params, self.model_params, 1.0 - current_decay) # pylint: disable=W0212
+        ema_tensors = cast(list[torch.Tensor], self.ema_params)
+        model_tensors = cast(list[torch.Tensor], self.model_params)
+        torch._foreach_lerp_(ema_tensors, model_tensors, 1.0 - current_decay) # pylint: disable=W0212
 
         # Copy BatchNorm statistics and other buffers.
         model_buffers = dict(self.model.named_buffers())

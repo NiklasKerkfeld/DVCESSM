@@ -79,8 +79,7 @@ class SegmentationTrainer(BaseTrainer):
         self.robust = train_robust
         self.epsilon = robust_epsilon
         self.steps = robust_steps
-        self.alpha = robust_alpha
-        self.alpha = 2.5 if self.alpha is None else self.alpha
+        self.alpha: float = 2.5 if robust_alpha is None else robust_alpha
         self.beta = robust_beta
         self.start_epoch = robust_start
         self.warm_up = robust_warm_up

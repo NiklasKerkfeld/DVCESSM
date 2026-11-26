@@ -94,48 +94,78 @@ class DiffusionModel(nn.Module):
         self.block1a = TimeConditionedResBlock(self.nums_features[0] + self.num_prior_channels,
                                                self.nums_features[1], self.time_dim)
 
-        self.block1b = TimeConditionedResBlock(self.nums_features[1], self.nums_features[1], self.time_dim)
+        self.block1b = TimeConditionedResBlock(self.nums_features[1],
+                                               self.nums_features[1],
+                                               self.time_dim)
 
         # --- STAGE 2: Downsample & Expand (128 -> 256) ---
         self.down2 = DiffusionConvLayer(self.nums_features[1], self.nums_features[1],
                                         kernel_size=3, padding=1, stride=2)
         self.block2a = TimeConditionedResBlock(self.nums_features[1] + self.num_prior_channels,
-                                               self.nums_features[2], self.time_dim)
-        self.block2b = TimeConditionedResBlock(self.nums_features[2], self.nums_features[2], self.time_dim)
+                                               self.nums_features[2],
+                                               self.time_dim)
+        self.block2b = TimeConditionedResBlock(self.nums_features[2],
+                                               self.nums_features[2],
+                                               self.time_dim)
 
         # --- STAGE 3: Downsample & Expand (256 -> 512) ---
         self.down3 = DiffusionConvLayer(self.nums_features[2], self.nums_features[2],
                                         kernel_size=3, padding=1, stride=2)
         self.block3a = TimeConditionedResBlock(self.nums_features[2] + self.num_prior_channels,
-                                               self.nums_features[3], self.time_dim)
-        self.block3b = TimeConditionedResBlock(self.nums_features[3], self.nums_features[3], self.time_dim)
+                                               self.nums_features[3],
+                                               self.time_dim)
+        self.block3b = TimeConditionedResBlock(self.nums_features[3],
+                                               self.nums_features[3],
+                                               self.time_dim)
 
         # --- STAGE 4: Downsample & Expand (512 -> 1024) ---
         self.down4 = DiffusionConvLayer(self.nums_features[3], self.nums_features[3],
                                         kernel_size=3, padding=1, stride=2)
         self.block4a = TimeConditionedResBlock(self.nums_features[3] + self.num_prior_channels,
-                                               self.nums_features[4], self.time_dim)
-        self.block4b = TimeConditionedResBlock(self.nums_features[4], self.nums_features[4], self.time_dim)
+                                               self.nums_features[4],
+                                               self.time_dim)
+        self.block4b = TimeConditionedResBlock(self.nums_features[4],
+                                               self.nums_features[4],
+                                               self.time_dim)
 
         # --- MIDDLE STAGE ---
-        self.middle = TimeConditionedResBlock(self.nums_features[4], self.nums_features[4], self.time_dim)
-        self.middle_att = AttentionBlock(self.nums_features[4], self.width // 16, self.height // 16)
+        self.middle = TimeConditionedResBlock(self.nums_features[4],
+                                              self.nums_features[4],
+                                              self.time_dim)
+        self.middle_att = AttentionBlock(self.nums_features[4],
+                                         self.width // 16,
+                                         self.height // 16)
 
         # --- DECODER STAGES ---
-        self.up1 = UpBlock(self.nums_features[4] + self.num_prior_channels, self.nums_features[4],
-                           self.nums_features[3], self.time_dim)
-        self.up1_att = AttentionBlock(self.nums_features[3], self.width // 8, self.height // 8)
+        self.up1 = UpBlock(self.nums_features[4] + self.num_prior_channels,
+                           self.nums_features[4],
+                           self.nums_features[3],
+                           self.time_dim)
+        self.up1_att = AttentionBlock(self.nums_features[3],
+                                      self.width // 8,
+                                      self.height // 8)
 
-        self.up2 = UpBlock(self.nums_features[3] + self.num_prior_channels, self.nums_features[3],
-                           self.nums_features[2], self.time_dim)
-        self.up2_att = AttentionBlock(self.nums_features[2], self.width // 4, self.height // 4)
+        self.up2 = UpBlock(self.nums_features[3] + self.num_prior_channels,
+                           self.nums_features[3],
+                           self.nums_features[2],
+                           self.time_dim)
+        self.up2_att = AttentionBlock(self.nums_features[2],
+                                      self.width // 4,
+                                      self.height // 4)
 
-        self.up3 = UpBlock(self.nums_features[2] + self.num_prior_channels, self.nums_features[2],
-                           self.nums_features[1], self.time_dim)
-        self.up4 = UpBlock(self.nums_features[1] + self.num_prior_channels, self.nums_features[1],
-                           self.nums_features[0], self.time_dim)
-        self.up5 = UpBlock(self.nums_features[0] + self.num_prior_channels, self.nums_features[0],
-                           self.nums_features[0], self.time_dim, scale_factor=1.0)
+        self.up3 = UpBlock(self.nums_features[2] + self.num_prior_channels,
+                           self.nums_features[2],
+                           self.nums_features[1],
+                           self.time_dim)
+        self.up4 = UpBlock(self.nums_features[1] + self.num_prior_channels,
+                           self.nums_features[1],
+                           self.nums_features[0],
+                           self.time_dim)
+        self.up5 = UpBlock(self.nums_features[0] + self.num_prior_channels,
+                           self.nums_features[0],
+                           self.nums_features[0],
+                           self.time_dim,
+                           scale_factor=1.0)
 
         self.final_conv = DiffusionConvLayer(self.nums_features[0], channels,
                                              kernel_size=3,
@@ -150,7 +180,16 @@ class DiffusionModel(nn.Module):
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb
 
-    def get_prior(self, target, kernel: int):
+    def get_prior(self, target: torch.Tensor, kernel: int):
+        """
+        Calculates prior form segmentation mask.
+        Args:
+            target: segmentation mask
+            kernel: kernel size
+
+        Returns:
+            Contatinated Max pooling and average pooling of segmentation mask.
+        """
         if kernel > 1:
             t_max = F.max_pool2d(target, kernel_size=kernel, stride=kernel)
             t_avg = F.avg_pool2d(target, kernel_size=kernel, stride=kernel)

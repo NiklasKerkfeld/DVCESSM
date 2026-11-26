@@ -115,7 +115,10 @@ class TimeConditionedResBlock(nn.Module):
     """
     Residual Block with time condition.
     """
-    def __init__(self, in_channels: int, out_channels: int, time_emb_dim: int, dropout: float = 0.05):
+    def __init__(self, in_channels: int,
+                 out_channels: int,
+                 time_emb_dim: int,
+                 dropout: float = 0.05):
         """
         Residual Block with time condition.
 
@@ -155,7 +158,8 @@ class TimeConditionedResBlock(nn.Module):
             else nn.Conv2d(in_channels, out_channels, kernel_size=1)
         )
 
-    def forward(self, x, t_emb):
+    def forward(self, x: torch.Tensor, t_emb: torch.Tensor):
+        """Model forward."""
         h = self.conv1(self.activation(self.norm1(x)))
 
         scale, shift = self.time_mlp(t_emb).chunk(2, dim=1)
