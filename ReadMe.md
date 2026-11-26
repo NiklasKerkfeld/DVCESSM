@@ -12,6 +12,11 @@ This why the pipeline was able to create visual counterfactuals that give an und
 
 
 ## Train the models
+All used segmentation models and diffusion models were trained on the CelebAMask dataset [2]. 
+
+### Diffusion model
+
+### Segmentation model
 
 
 ## Run the counterfactual generation
@@ -19,4 +24,5 @@ This why the pipeline was able to create visual counterfactuals that give an und
 
 
 ## References
-[1] 
+[1] Augustin, Maximilian, et al. "Diffusion visual counterfactual explanations." Advances in Neural Information Processing Systems 35 (2022): 364-377.
+[2] Lee, Cheng-Han, et al. "MaskGAN: Towards Diverse and Interactive Facial Image Manipulation." Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2020.
