@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code,R0914
 """Trainer for the Diffusion model."""
 
 import copy
@@ -96,7 +96,7 @@ class Trainer(BaseTrainer):
 
         # Equivalent to:
         # ema = current_decay * ema + (1 - current_decay) * model
-        torch._foreach_lerp_(self.ema_params, self.model_params, 1.0 - current_decay)
+        torch._foreach_lerp_(self.ema_params, self.model_params, 1.0 - current_decay) # pylint: disable=W0212
 
         # Copy BatchNorm statistics and other buffers.
         model_buffers = dict(self.model.named_buffers())
@@ -380,7 +380,8 @@ class Trainer(BaseTrainer):
         images = images.to(self.device)
 
         if self.use_target:
-            if targets is None: raise ValueError("No targets provided!")
+            if targets is None:
+                raise ValueError("No targets provided!")
             targets = targets.to(self.device)
 
         check_steps = [

@@ -3,7 +3,7 @@
 from typing import Tuple, Literal
 
 import torch
-from torch import nn, Tensor
+from torch import nn
 
 
 def cosine_beta_schedule(T: int, s: float = 0.008) -> torch.Tensor:  # pylint: disable=invalid-name

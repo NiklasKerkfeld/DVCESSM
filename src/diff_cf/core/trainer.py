@@ -94,6 +94,7 @@ class BaseTrainer:
             torch.cuda.set_rng_state(checkpoint['cuda_rng_state'].cpu())
 
     def train(self) -> None:
+        """Trains the model."""
         raise NotImplementedError
 
     def _visualize_image(self, image: torch.Tensor, index: Optional[int] = None) -> torch.Tensor:

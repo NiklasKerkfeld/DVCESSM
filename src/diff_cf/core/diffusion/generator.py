@@ -94,7 +94,7 @@ class CounterfactualGenerator(BaseGenerator):
 
         for t in tqdm(range(start_t, -1, -1), total=start_t + 1, desc="generating counterfactual"):
             t_tensor = torch.full((image.shape[0],), t, device=self.device)
-            target_t_tensor = torch.full((image.shape[0],), t-1, device=self.device)
+            target_t_tensor = torch.full((image.shape[0],), t - 1, device=self.device)
             epsilon_guidance, epsilon_reverse = self._pred_epsilon(x, t_tensor, target)
 
             with torch.enable_grad():
@@ -116,7 +116,7 @@ class CounterfactualGenerator(BaseGenerator):
 
             mu_norm = torch.norm(mean.flatten(start_dim=1), p=2, dim=1).view(-1, 1, 1, 1)
 
-            guided_mean = (mean - variance * mu_norm * g_update)
+            guided_mean = mean - variance * mu_norm * g_update
 
             if t > 0:
                 x = guided_mean + torch.sqrt(variance) * torch.randn_like(x)
@@ -370,7 +370,6 @@ class CounterfactualGenerator(BaseGenerator):
             ratio = (mask.sum() / mask.numel()).item()
             self.writer.add_scalar('Gradients/fraction', ratio, step)
 
-
         if grad_c is not None and grad_d is not None:
             cos_cd = torch.nn.functional.cosine_similarity(grad_c.flatten(start_dim=1),
                                                            grad_d.flatten(start_dim=1),
@@ -395,7 +394,6 @@ class CounterfactualGenerator(BaseGenerator):
                                    cos_de.mean().item(),
                                    step)
 
-
         if approx_image is not None:
             self.writer.add_image('Process/approx_x_0',
                                   vutils.make_grid(approx_image, normalize=True),
@@ -405,7 +403,10 @@ class CounterfactualGenerator(BaseGenerator):
             self.writer.add_image('Process/x_t', vutils.make_grid(x, normalize=True),
                                   step)
 
-        if g_update is not None and grad_c is not None and grad_d is not None and epsilon is not None:
+        if (g_update is not None
+            and grad_c is not None
+            and grad_d is not None
+            and epsilon is not None):
             g_visual = visualize_adaption(g_update.sum(dim=1, keepdim=True))[0, 0]
             grad_c_visual = visualize_adaption(grad_c.sum(dim=1, keepdim=True))[0, 0]
             grad_d_visual = visualize_adaption(grad_d.sum(dim=1, keepdim=True))[0, 0]
