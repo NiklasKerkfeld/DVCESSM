@@ -1,17 +1,22 @@
 # Diffusion Visual Counterfactual Explanations for Semantic Segmentation Models
 
-## TODOs:
-1. prepare experiments
-   1. main experiment
-      - set final parameter 
-      - find bad examples
-      - think about evaluation
-   2. OoD experiment
-      - train model
-   3. Evaluate AdaptGrad
-   4. Evaluate Gradient smoothing
-   5. Ablation Studies
-   6. Target Prior
+Code used for my Master thesis.
+In this project I investigated the possibilities for creating visual counterfactuals for semantic segmentation models using diffusion model for realistic image modifications.
 
-## Notes:
-- Diffusion models joined after Commit ae5d0e3 "shape fix"
+## How does it work
+The general concept is based on the work of Augustin et al. [1]. They created the counterfactual by guiding the diffusion process in the direction of the wanted classification model output. 
+In my work I replaced the classification model with a segmentation U-Net and added some methods for noice reduction and focusing the gradient on important part for the segmentation.
+This why the pipeline was able to create visual counterfactuals that give an understandable explanations for segmentation error.
+
+![Overview over the counterfactual genetation process](/assets/overview.jpg "Overview over the counterfactual genetation process")
+
+
+## Train the models
+
+
+## Run the counterfactual generation
+
+
+
+## References
+[1] 
