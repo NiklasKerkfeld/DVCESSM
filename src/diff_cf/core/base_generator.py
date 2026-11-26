@@ -210,11 +210,11 @@ class BaseGenerator:
 
         return p_cone.view_as(grad_seg)
 
-    def log(self,
+    def log(self, # pylint: disable=unused-argument
             target: torch.Tensor,
             logits: torch.Tensor,
             step: int,
-            **kwargs):  # pylint: disable=unused-argument
+            **kwargs):
         """
         Base logging method for TensorBoard.
 

@@ -27,4 +27,4 @@ jobs:
 
       - name: Run Mypy
         run: |
-          mypy src/
+          mypy --explicit-package-bases src/
